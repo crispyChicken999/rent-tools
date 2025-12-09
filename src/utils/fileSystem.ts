@@ -1,0 +1,224 @@
+import { saveDirectoryHandle, getDirectoryHandle } from './storage'
+
+/** 检查浏览器是否支持 File System Access API */
+export function isFileSystemAccessSupported(): boolean {
+  return 'showDirectoryPicker' in window
+}
+
+/** 请求用户选择文件夹并获取持久化访问权限 */
+export async function requestDirectoryAccess(id: string = 'userPhotosFolder'): Promise<{
+  handle: FileSystemDirectoryHandle
+  displayPath: string
+}> {
+  if (!isFileSystemAccessSupported()) {
+    throw new Error('当前浏览器不支持 File System Access API，请使用 Chrome 86+ 或 Edge 86+')
+  }
+
+  try {
+    // 请求目录访问权限（只读模式）
+    const dirHandle = await window.showDirectoryPicker({
+      mode: 'read'
+    })
+
+    // 尝试获取用户友好的路径显示
+    const displayPath = dirHandle.name || '用户选择的文件夹'
+
+    // 保存到 IndexedDB
+    await saveDirectoryHandle(id, dirHandle, displayPath)
+
+    return { handle: dirHandle, displayPath }
+  } catch (error: any) {
+    if (error.name === 'AbortError') {
+      throw new Error('用户取消了文件夹选择')
+    }
+    throw error
+  }
+}
+
+/** 验证已保存的文件夹权限是否仍然有效 */
+export async function verifyPermission(
+  handle: FileSystemDirectoryHandle,
+  withWrite: boolean = false
+): Promise<boolean> {
+  const mode = withWrite ? 'readwrite' : 'read'
+  
+  const options: any = { mode }
+  
+  // 检查当前权限状态
+  if ((await handle.queryPermission(options)) === 'granted') {
+    return true
+  }
+
+  // 尝试请求权限
+  if ((await handle.requestPermission(options)) === 'granted') {
+    return true
+  }
+
+  return false
+}
+
+/** 获取已保存的文件夹句柄并验证权限 */
+export async function getValidDirectoryHandle(id: string = 'userPhotosFolder'): Promise<FileSystemDirectoryHandle | null> {
+  try {
+    const handle = await getDirectoryHandle(id)
+    
+    if (!handle) {
+      return null
+    }
+
+    // 验证权限
+    const hasPermission = await verifyPermission(handle)
+    
+    if (!hasPermission) {
+      console.warn('文件夹访问权限已失效，需要重新授权')
+      return null
+    }
+
+    return handle
+  } catch (error) {
+    console.error('获取文件夹句柄失败:', error)
+    return null
+  }
+}
+
+/** 扫描文件夹中的所有图片和视频文件 */
+export async function scanDirectory(
+  dirHandle: FileSystemDirectoryHandle,
+  onProgress?: (current: number, total: number) => void
+): Promise<Array<{
+  name: string
+  handle: FileSystemFileHandle
+  type: 'image' | 'video'
+}>> {
+  const files: Array<{
+    name: string
+    handle: FileSystemFileHandle
+    type: 'image' | 'video'
+  }> = []
+
+  const imageExtensions = /\.(jpg|jpeg|png|gif|bmp|webp)$/i
+  const videoExtensions = /\.(mp4|mov|avi|mkv|wmv|flv)$/i
+
+  // 第一遍：统计总数
+  let totalCount = 0
+  for await (const entry of dirHandle.values()) {
+    if (entry.kind === 'file') {
+      const name = entry.name
+      if (imageExtensions.test(name) || videoExtensions.test(name)) {
+        totalCount++
+      }
+    }
+  }
+
+  // 第二遍：收集文件
+  let currentCount = 0
+  for await (const entry of dirHandle.values()) {
+    if (entry.kind === 'file') {
+      const name = entry.name
+      let type: 'image' | 'video' | null = null
+
+      if (imageExtensions.test(name)) {
+        type = 'image'
+      } else if (videoExtensions.test(name)) {
+        type = 'video'
+      }
+
+      if (type) {
+        files.push({
+          name,
+          handle: entry as FileSystemFileHandle,
+          type
+        })
+
+        currentCount++
+        if (onProgress) {
+          onProgress(currentCount, totalCount)
+        }
+      }
+    }
+  }
+
+  return files
+}
+
+/** 从文件句柄获取 File 对象 */
+export async function getFileFromHandle(handle: FileSystemFileHandle): Promise<File> {
+  return await handle.getFile()
+}
+
+/** 生成文件的 Blob URL */
+export async function createBlobUrlFromHandle(handle: FileSystemFileHandle): Promise<string> {
+  const file = await getFileFromHandle(handle)
+  return URL.createObjectURL(file)
+}
+
+/** 通过文件名从目录句柄中获取文件 */
+export async function getFileByName(
+  dirHandle: FileSystemDirectoryHandle,
+  fileName: string
+): Promise<File | null> {
+  try {
+    const fileHandle = await dirHandle.getFileHandle(fileName)
+    return await fileHandle.getFile()
+  } catch (error) {
+    console.error(`文件 ${fileName} 不存在或无法访问:`, error)
+    return null
+  }
+}
+
+/** 批量获取文件的 Blob URLs */
+export async function batchCreateBlobUrls(
+  dirHandle: FileSystemDirectoryHandle,
+  fileNames: string[]
+): Promise<Map<string, string>> {
+  const urlMap = new Map<string, string>()
+
+  for (const fileName of fileNames) {
+    try {
+      const file = await getFileByName(dirHandle, fileName)
+      if (file) {
+        const blobUrl = URL.createObjectURL(file)
+        urlMap.set(fileName, blobUrl)
+      }
+    } catch (error) {
+      console.error(`无法创建 ${fileName} 的 Blob URL:`, error)
+    }
+  }
+
+  return urlMap
+}
+
+/** 释放 Blob URL 资源 */
+export function revokeBlobUrl(url: string) {
+  URL.revokeObjectURL(url)
+}
+
+/** 批量释放 Blob URLs */
+export function revokeBlobUrls(urls: string[]) {
+  urls.forEach(url => URL.revokeObjectURL(url))
+}
+
+/** 降级方案：传统文件选择器（返回 File 对象数组）*/
+export async function selectFilesLegacy(): Promise<File[]> {
+  return new Promise((resolve) => {
+    const input = document.createElement('input')
+    input.type = 'file'
+    input.multiple = true
+    input.accept = 'image/*,video/*'
+
+    input.onchange = (e) => {
+      const target = e.target as HTMLInputElement
+      if (target.files) {
+        resolve(Array.from(target.files))
+      } else {
+        resolve([])
+      }
+    }
+
+    input.oncancel = () => {
+      resolve([])
+    }
+
+    input.click()
+  })
+}
