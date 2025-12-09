@@ -4,7 +4,6 @@ import { ElMessage } from "element-plus";
 import {
   Delete,
   Upload,
-  QuestionFilled,
   Star,
   StarFilled,
 } from "@element-plus/icons-vue";
