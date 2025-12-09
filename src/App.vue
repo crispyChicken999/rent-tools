@@ -7,11 +7,12 @@ import MapView from "./components/MapView.vue";
 import PropertyDetail from "./components/PropertyDetail.vue";
 import LandlordAvatar from "./components/LandlordAvatar.vue";
 import { usePropertyStore } from "./stores/property";
-// import { exportToExcel } from "./utils/export";
+import { exportToExcel, exportToJson, importFromJson } from "./utils/export";
 import { LandlordType, ContactStatus, WechatStatus, type FilterOptions } from "./types";
 
 const propertyStore = usePropertyStore();
 const mapViewRef = ref<InstanceType<typeof MapView> | null>(null);
+const fileInput = ref<HTMLInputElement | null>(null);
 
 // 筛选状态
 const filterContact = ref("all"); // all, contacted, uncontacted
@@ -48,19 +49,38 @@ const filteredLandlords = computed(() => propertyStore.filteredLandlords);
 
 // 导出功能
 const handleExport = () => {
-  // exportToExcel(propertyStore.landlords);
-  ElMessage.success("导出功能开发中");
+  exportToExcel(propertyStore.landlords);
+  ElMessage.success("导出成功");
 };
 
 // 备份功能
 const handleBackup = () => {
-  // exportBackup(propertyStore.landlords);
-  ElMessage.success("备份功能开发中");
+  const filename = `租房信息备份_${new Date().toISOString().split("T")[0]}.json`;
+  exportToJson(propertyStore.landlords, filename);
+  ElMessage.success("备份文件已生成");
 };
 
 // 导入备份
 const handleImport = async (_event: Event) => {
-  ElMessage.success("导入功能开发中");
+  fileInput.value?.click();
+};
+
+const handleFileChange = async (event: Event) => {
+  const target = event.target as HTMLInputElement;
+  if (!target.files || target.files.length === 0) return;
+
+  const file = target.files[0];
+  try {
+    const data = await importFromJson(file);
+    await propertyStore.restoreBackup(data);
+    ElMessage.success(`成功恢复 ${data.length} 条数据`);
+  } catch (error) {
+    console.error(error);
+    ElMessage.error("导入失败，请检查文件格式");
+  } finally {
+    // 清空 input，允许重复选择同一文件
+    target.value = "";
+  }
 };
 
 const getPhoneDisplay = (phones: string[]) => {
@@ -316,6 +336,15 @@ const showPhotoUpload = ref(false);
     >
       <PhotoUpload />
     </el-dialog>
+
+    <!-- 隐藏的文件输入框 -->
+    <input
+      type="file"
+      ref="fileInput"
+      style="display: none"
+      accept=".json"
+      @change="handleFileChange"
+    />
   </div>
 </template>
 

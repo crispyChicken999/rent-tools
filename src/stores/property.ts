@@ -325,6 +325,30 @@ export const usePropertyStore = defineStore("property", () => {
     return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
   }
 
+  /** 恢复备份数据 */
+  async function restoreBackup(data: Landlord[]) {
+    loading.value = true;
+    try {
+      // 1. 清空现有数据
+      await clearDbLandlords();
+      landlords.value = [];
+      currentLandlord.value = null;
+
+      // 2. 批量添加数据
+      // 使用 toRaw 确保数据纯净
+      const promises = data.map((item) => addLandlord(toRaw(item)));
+      await Promise.all(promises);
+
+      // 3. 更新内存状态
+      landlords.value = data;
+    } catch (error) {
+      console.error("恢复备份失败:", error);
+      throw error;
+    } finally {
+      loading.value = false;
+    }
+  }
+
   return {
     // 状态
     landlords,
@@ -352,5 +376,6 @@ export const usePropertyStore = defineStore("property", () => {
     clearFilters,
     selectLandlord,
     clearAllData,
+    restoreBackup,
   };
 });
