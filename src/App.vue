@@ -151,7 +151,6 @@ const showPhotoUpload = ref(false);
         <el-button
           type="primary"
           @click="handleImport"
-          :disabled="propertyStore.landlords.length === 0"
         >
           导入备份
         </el-button>
