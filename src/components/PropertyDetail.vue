@@ -579,7 +579,6 @@ import {
   DEPOSIT_METHODS,
   type Landlord,
   type RoomInfo,
-  RoomType,
 } from "@/types";
 import { getAddressFromGps } from "@/utils/geocode";
 

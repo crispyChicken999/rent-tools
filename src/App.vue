@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, ref, computed, watch } from "vue";
 import { ElMessage } from "element-plus";
-import { Delete, Upload, QuestionFilled } from "@element-plus/icons-vue";
+import { Delete, Upload } from "@element-plus/icons-vue";
 import PhotoUpload from "./components/PhotoUpload.vue";
 import MapView from "./components/MapView.vue";
 import PropertyDetail from "./components/PropertyDetail.vue";

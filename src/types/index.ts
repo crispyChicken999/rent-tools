@@ -275,7 +275,7 @@ export interface FilterOptions {
   contactStatus?: ContactStatus[];
   landlordType?: LandlordType[];
   rentRange?: [number, number]; // 租金区间
-  roomTypes?: RoomType[];
+  roomTypes?: string[];
   available?: boolean; // 是否可租
   isPerfect?: boolean; // 是否已完善
   hideRepeatedPhones?: boolean; // 隐藏重复电话（二房东）

@@ -138,7 +138,7 @@
 
             <div class="form-section">
               <div
-                v-for="(phone, index) in currentPhones"
+                v-for="(_phone, index) in currentPhones"
                 :key="index"
                 class="phone-input-wrapper"
                 style="margin-bottom: 10px"
@@ -376,7 +376,6 @@ const deleteConfirmCount = ref(0);
 const currentImageUrls = ref<string[]>([]);
 const isImageZoomed = ref(false);
 const phoneInputRefs = ref<any[]>([]);
-const containerRef = ref<HTMLElement | null>(null);
 let loadingImagesVersion = 0;
 
 const organizeLandlord = computed(() => {
