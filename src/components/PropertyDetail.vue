@@ -2,472 +2,1201 @@
   <el-drawer
     v-model="visible"
     title="房东详情"
-    size="60%"
-    :before-close="handleClose"
+    :size="800"
+    direction="rtl"
+    destroy-on-close
+    @closed="handleClosed"
   >
-    <div v-if="landlord" class="detail-content">
-      <!-- 照片展示 -->
-      <el-card class="photo-section" shadow="never">
-        <template #header>
-          <span>招租照片</span>
-        </template>
-        <el-image
-          v-if="currentPhotoUrl"
-          :src="currentPhotoUrl"
-          fit="contain"
-          style="width: 100%; max-height: 400px;"
-          :preview-src-list="[currentPhotoUrl]"
-          :initial-index="0"
-        />
-        <el-empty v-else description="暂无照片" />
-      </el-card>
-
-      <!-- 基本信息 -->
-      <el-card class="info-section" shadow="never">
-        <template #header>
-          <span>基本信息</span>
-        </template>
-        
-        <el-form :model="editForm" label-width="100px">
-          <el-form-item label="房东类型">
-            <el-select v-model="editForm.landlordType" placeholder="请选择">
-              <el-option label="一手房东" :value="LandlordType.FirstHand" />
-              <el-option label="二手房东" :value="LandlordType.SecondHand" />
-              <el-option label="中介" :value="LandlordType.Agent" />
-              <el-option label="其他" :value="LandlordType.Other" />
-            </el-select>
-          </el-form-item>
-
-          <el-form-item label="电话号码">
-            <el-tag
-              v-for="(phone, index) in editForm.phoneNumbers"
-              :key="index"
-              closable
-              @close="removePhone(index)"
-              style="margin-right: 8px;"
-            >
-              {{ phone }}
-            </el-tag>
-            <el-input
-              v-model="newPhone"
-              placeholder="输入电话后按回车"
-              style="width: 200px;"
-              @keyup.enter="addPhone"
-              @blur="checkPhoneDuplicate"
-            />
-          </el-form-item>
-
-          <el-form-item label="备注名">
-            <el-input v-model="editForm.alias" placeholder="例如：张阿姨" />
-          </el-form-item>
-
-          <el-form-item label="微信状态">
-            <el-select v-model="editForm.wechatStatus">
-              <el-option label="未添加" :value="WechatStatus.NotAdded" />
-              <el-option label="已添加" :value="WechatStatus.Added" />
-              <el-option label="已拒绝" :value="WechatStatus.Rejected" />
-            </el-select>
-          </el-form-item>
-
-          <el-form-item label="微信昵称">
-            <el-input v-model="editForm.wechatNickname" placeholder="微信昵称" />
-          </el-form-item>
-
-          <el-form-item label="联系状态">
-            <el-select v-model="editForm.contactStatus">
-              <el-option label="未联系" :value="ContactStatus.NotContacted" />
-              <el-option label="已联系" :value="ContactStatus.Contacted" />
-            </el-select>
-          </el-form-item>
-
-          <el-form-item label="位置">
-            <el-input v-model="editForm.address" readonly />
-          </el-form-item>
-
-          <el-form-item label="GPS坐标">
-            <el-input
-              v-if="editForm.gps"
-              :value="`${editForm.gps.lng.toFixed(6)}, ${editForm.gps.lat.toFixed(6)}`"
-              readonly
-            />
-          </el-form-item>
-        </el-form>
-      </el-card>
-
-      <!-- 公共费用 -->
-      <el-card class="fees-section" shadow="never">
-        <template #header>
-          <span>公共费用标准</span>
-        </template>
-        
-        <el-form :model="editForm" label-width="100px">
-          <el-form-item label="押金方式">
-            <el-select v-model="editForm.depositMethod" placeholder="请选择">
-              <el-option label="押一付一" :value="DepositMethod.OneOne" />
-              <el-option label="押一付二" :value="DepositMethod.OneTwo" />
-              <el-option label="押一付三" :value="DepositMethod.OneThree" />
-              <el-option label="押二付一" :value="DepositMethod.TwoOne" />
-              <el-option label="押二付二" :value="DepositMethod.TwoTwo" />
-              <el-option label="押二付三" :value="DepositMethod.TwoThree" />
-              <el-option label="其他" :value="DepositMethod.Other" />
-            </el-select>
-          </el-form-item>
-
-          <el-form-item label="电费(元/度)">
-            <el-input-number v-model="editForm.electricity" :precision="2" :step="0.1" :min="0" />
-          </el-form-item>
-
-          <el-form-item label="水费(元/吨)">
-            <el-input-number v-model="editForm.water" :precision="2" :step="0.1" :min="0" />
-          </el-form-item>
-
-          <el-form-item label="网费(元/月)">
-            <el-input-number v-model="editForm.internet" :precision="0" :step="10" :min="0" />
-          </el-form-item>
-
-          <el-form-item label="管理费(元/月)">
-            <el-input-number v-model="editForm.management" :precision="0" :step="10" :min="0" />
-          </el-form-item>
-
-          <el-form-item label="其他费用">
-            <el-input v-model="editForm.otherFees" type="textarea" :rows="2" />
-          </el-form-item>
-        </el-form>
-      </el-card>
-
-      <!-- 房源信息 -->
-      <el-card class="property-section" shadow="never">
-        <template #header>
-          <div class="card-header">
-            <span>房源信息</span>
-            <el-button type="primary" link @click="showAddProperty">添加房源</el-button>
+    <div v-if="landlord" class="landlord-detail">
+      <el-tabs v-model="activeTab">
+        <!-- 基本信息 Tab -->
+        <el-tab-pane label="基本信息" name="basic">
+          <!-- 照片展示区 -->
+          <div class="photo-section">
+            <div class="main-photo" v-if="mainPhotoUrl">
+              <el-image
+                :src="mainPhotoUrl"
+                :preview-src-list="allPhotoUrls"
+                fit="contain"
+                hide-on-click-modal
+                style="width: 100%; height: 200px; border-radius: 8px"
+              >
+                <template #error>
+                  <div class="image-error">
+                    <el-icon><Picture /></el-icon>
+                    <div>照片加载失败</div>
+                    <div class="sub-text">请确认已授权访问照片文件夹</div>
+                  </div>
+                </template>
+              </el-image>
+            </div>
+            <div class="photo-thumbnails" v-if="photoUrls.length > 1">
+              <div
+                v-for="(url, index) in photoUrls"
+                :key="editForm.photos[index].id"
+                class="thumbnail"
+                :class="{ active: index === currentPhotoIndex }"
+                @click="currentPhotoIndex = index"
+              >
+                <el-image :src="url" fit="cover" />
+              </div>
+            </div>
           </div>
-        </template>
 
-        <el-table :data="editForm.properties || []" style="width: 100%">
-          <el-table-column prop="roomType" label="房型">
-            <template #default="{ row }">
-              {{ row.roomType === RoomType.Single ? '单间' : 
-                 row.roomType === RoomType.OneRoom ? '一房一厅' :
-                 row.roomType === RoomType.TwoRoom ? '两房一厅' :
-                 row.roomType === RoomType.ThreeRoom ? '三房一厅' : '其他' }}
-            </template>
-          </el-table-column>
-          <el-table-column prop="rent" label="租金">
-            <template #default="{ row }">
-              {{ row.rent }}元/月
-            </template>
-          </el-table-column>
-          <el-table-column prop="floor" label="楼层" />
-          <el-table-column label="操作" width="150">
-            <template #default="{ row, $index }">
-              <el-button link type="primary" @click="editProperty(row)">编辑</el-button>
-              <el-button link type="danger" @click="deleteProperty($index)">删除</el-button>
-            </template>
-          </el-table-column>
-        </el-table>
-      </el-card>
+          <el-form :model="editForm" label-width="100px">
+            <!-- 电话号码 (动态添加) -->
+            <el-form-item label="电话号码" required>
+              <div style="display: flex; flex-direction: column; gap: 8px">
+                <div
+                  v-for="(_phone, index) in editForm.phoneNumbers"
+                  :key="index"
+                  class="phone-item"
+                >
+                  <el-input
+                    v-model="editForm.phoneNumbers[index]"
+                    placeholder="输入电话号码"
+                    @blur="
+                      checkDuplicatePhone(editForm.phoneNumbers[index], index)
+                    "
+                  >
+                    <template #append v-if="editForm.phoneNumbers.length > 1">
+                      <el-button :icon="Delete" @click="removePhone(index)" />
+                    </template>
+                  </el-input>
+                </div>
+                <el-button type="primary" link :icon="Plus" @click="addPhone"
+                  >添加电话</el-button
+                >
+              </div>
+            </el-form-item>
 
-      <!-- 操作按钮 -->
-      <div class="action-buttons">
-        <el-button type="primary" @click="saveChanges">保存修改</el-button>
-        <el-button @click="handleClose">取消</el-button>
-        <el-button type="danger" @click="confirmDelete">删除此房东</el-button>
-      </div>
+            <el-form-item label="房东类型">
+              <el-radio-group v-model="editForm.landlordType">
+                <el-radio-button
+                  v-for="opt in LANDLORD_TYPES"
+                  :key="opt.value"
+                  :label="opt.value"
+                  :value="opt.value"
+                >
+                  {{ opt.label }}
+                </el-radio-button>
+              </el-radio-group>
+            </el-form-item>
+
+            <el-form-item label="微信状态">
+              <el-radio-group v-model="editForm.wechatStatus">
+                <el-radio
+                  v-for="opt in WECHAT_STATUS_TYPES"
+                  :key="opt.value"
+                  :label="opt.value"
+                  >{{ opt.label }}</el-radio
+                >
+              </el-radio-group>
+            </el-form-item>
+
+            <!-- 微信头像 -->
+            <el-form-item label="微信头像">
+              <div style="display: flex; flex-direction: column; align-items: center; gap: 5px">
+                <div class="avatar-uploader" @click="openFileSelector('avatar')">
+                  <img v-if="avatarUrl" :src="avatarUrl" class="avatar" />
+                  <el-icon v-else class="avatar-uploader-icon"><Plus /></el-icon>
+                </div>
+                <div class="sub-text" v-if="!avatarUrl">点击选择头像</div>
+                <el-button 
+                  v-if="avatarUrl" 
+                  type="danger" 
+                  link 
+                  size="small" 
+                  :icon="Delete"
+                  @click.stop="clearAvatar"
+                >
+                  清除头像
+                </el-button>
+              </div>
+            </el-form-item>
+
+            <el-form-item label="微信昵称">
+              <el-input
+                v-model="editForm.wechatNickname"
+                placeholder="输入微信昵称"
+              />
+            </el-form-item>
+
+            <el-form-item label="联系状态">
+              <el-radio-group v-model="editForm.contactStatus">
+                <el-radio
+                  v-for="opt in CONTACT_STATUS_TYPES"
+                  :key="opt.value"
+                  :label="opt.value"
+                  >{{ opt.label }}</el-radio
+                >
+              </el-radio-group>
+            </el-form-item>
+
+            <el-form-item label="位置信息" style="flex: 1;">
+              <div class="location-info">
+                <el-input 
+                  v-model="editForm.address" 
+                  placeholder="输入地址" 
+                  clearable
+                >
+                  <template #prefix>📍</template>
+                </el-input>
+                <div v-if="editForm.gps" class="gps-coords">
+                  GPS: {{ editForm.gps.lng.toFixed(6) }}, {{ editForm.gps.lat.toFixed(6) }}
+                </div>
+              </div>
+            </el-form-item>
+
+            <el-form-item label="拍摄时间">
+              {{
+                editForm.captureTime
+                  ? new Date(editForm.captureTime).toLocaleString()
+                  : "未知"
+              }}
+            </el-form-item>
+
+            <el-form-item label="押金方式">
+              <el-select
+                v-model="editForm.deposit"
+                placeholder="选择押金方式"
+                allow-create
+                filterable
+              >
+                <el-option
+                  v-for="opt in DEPOSIT_METHODS"
+                  :key="opt.value"
+                  :label="opt.label"
+                  :value="opt.value"
+                />
+              </el-select>
+            </el-form-item>
+
+            <el-form-item label="补充信息">
+              <el-input
+                v-model="editForm.additionalInfo"
+                type="textarea"
+                :rows="2"
+              />
+            </el-form-item>
+          </el-form>
+        </el-tab-pane>
+
+        <!-- 费用设置 Tab -->
+        <el-tab-pane label="费用设置" name="fees">
+          <el-form :model="editForm.commonFees" label-width="100px">
+            <el-form-item label="电费">
+              <el-select
+                v-model="editForm.commonFees.electricity.type"
+                style="width: 100%"
+              >
+                <el-option
+                  v-for="opt in ELECTRICITY_TYPES"
+                  :key="opt.value"
+                  :label="opt.label"
+                  :value="opt.value"
+                />
+              </el-select>
+              <el-input
+                v-if="editForm.commonFees.electricity.type === 'custom'"
+                v-model.number="editForm.commonFees.electricity.price"
+                type="number"
+              >
+                <template #append>元/度</template>
+              </el-input>
+            </el-form-item>
+
+            <el-form-item label="水费">
+              <el-select
+                v-model="editForm.commonFees.water.type"
+                style="width: 100%"
+              >
+                <el-option
+                  v-for="opt in WATER_TYPES"
+                  :key="opt.value"
+                  :label="opt.label"
+                  :value="opt.value"
+                />
+              </el-select>
+              <el-input
+                v-if="editForm.commonFees.water.type === 'custom'"
+                v-model.number="editForm.commonFees.water.price"
+                type="number"
+              >
+                <template #append>元/吨</template>
+              </el-input>
+            </el-form-item>
+
+            <el-form-item label="其他费用">
+              <div class="fee-grid">
+                <el-input
+                  v-model.number="editForm.commonFees.internet"
+                  placeholder="网费"
+                  type="number"
+                >
+                  <template #prepend>网费</template>
+                  <template #append>元</template>
+                </el-input>
+                <el-input
+                  v-model.number="editForm.commonFees.management"
+                  placeholder="管理费"
+                  type="number"
+                >
+                  <template #prepend>管理费</template>
+                  <template #append>元</template>
+                </el-input>
+                <el-input
+                  v-model.number="editForm.commonFees.garbage"
+                  placeholder="垃圾费"
+                  type="number"
+                >
+                  <template #prepend>垃圾费</template>
+                  <template #append>元</template>
+                </el-input>
+              </div>
+              <el-input
+                v-model="editForm.commonFees.other"
+                placeholder="其他费用说明"
+                type="textarea"
+                :rows="2"
+                style="margin-top: 10px"
+              />
+            </el-form-item>
+          </el-form>
+        </el-tab-pane>
+
+        <!-- 房源管理 Tab -->
+        <el-tab-pane label="房源管理" name="rooms">
+          <div class="properties-list">
+            <el-card
+              v-for="(room, index) in editForm.properties"
+              :key="room.id"
+              class="room-card"
+              shadow="hover"
+            >
+              <template #header>
+                <div class="card-header">
+                  <span>房源 {{ index + 1 }}</span>
+                  <el-button
+                    type="danger"
+                    size="small"
+                    text
+                    @click="removeRoom(index)"
+                    >删除</el-button
+                  >
+                </div>
+              </template>
+
+              <el-form label-width="80px" size="default" class="room-form">
+                <el-form-item label="房型">
+                  <el-select v-model="room.roomType" placeholder="请选择房型">
+                    <el-option
+                      v-for="opt in ROOM_TYPES"
+                      :key="opt.value"
+                      :label="opt.label"
+                      :value="opt.value"
+                    />
+                  </el-select>
+                </el-form-item>
+
+                <el-form-item label="楼层">
+                  <el-select
+                    v-model="room.floor"
+                    placeholder="请选择楼层"
+                    filterable
+                    allow-create
+                  >
+                    <el-option
+                      v-for="opt in FLOOR_OPTIONS"
+                      :key="opt.value"
+                      :label="opt.label"
+                      :value="opt.value"
+                    />
+                  </el-select>
+                </el-form-item>
+
+                <el-form-item label="租金">
+                  <el-input
+                    v-model.number="room.rent"
+                    type="number"
+                    placeholder="输入租金"
+                  >
+                    <template #append>元/月</template>
+                  </el-input>
+                </el-form-item>
+
+                <el-form-item label="配套设施">
+                  <el-checkbox-group v-model="room.amenities">
+                    <el-checkbox
+                      v-for="opt in AMENITY_OPTIONS"
+                      :key="opt"
+                      :label="opt"
+                    />
+                  </el-checkbox-group>
+                </el-form-item>
+
+                <el-form-item label="房源描述">
+                  <el-input
+                    v-model="room.description"
+                    type="textarea"
+                    :rows="2"
+                  />
+                </el-form-item>
+
+                <el-form-item label="视频">
+                  <div style="display: flex; flex-direction: column; gap: 8px">
+                    <div
+                      v-for="(video, vIndex) in room.videos"
+                      :key="video.id"
+                      class="video-item"
+                    >
+                      <div class="video-header">
+                        <span>{{ video.fileName }}</span>
+                        <el-button
+                          :icon="Delete"
+                          size="small"
+                          text
+                          type="danger"
+                          @click="room.videos.splice(vIndex, 1)"
+                        />
+                      </div>
+                      <div class="video-wrapper">
+                        <video
+                          v-if="videoUrls.get(video.fileName)"
+                          controls
+                          preload="metadata"
+                          class="video-preview"
+                          :src="videoUrls.get(video.fileName)"
+                        >
+                          您的浏览器不支持视频播放
+                        </video>
+                        <div v-else class="video-loading">
+                          <el-icon class="is-loading"><Loading /></el-icon>
+                          <span style="margin-left: 8px">加载中...</span>
+                        </div>
+                      </div>
+                    </div>
+                    <el-button plain @click="openFileSelector('video', index)">
+                      <el-icon><Plus /></el-icon> 添加视频
+                    </el-button>
+                  </div>
+                </el-form-item>
+
+                <el-form-item label="状态">
+                  <el-switch
+                    v-model="room.available"
+                    active-text="可租"
+                    inactive-text="已租"
+                  />
+                </el-form-item>
+              </el-form>
+            </el-card>
+
+            <el-button
+              type="primary"
+              plain
+              class="add-room-btn"
+              @click="addRoom"
+            >
+              <el-icon><Plus /></el-icon> 添加房源
+            </el-button>
+          </div>
+        </el-tab-pane>
+
+        <!-- 沟通记录 Tab -->
+        <el-tab-pane label="沟通记录" name="notes">
+          <el-input
+            v-model="editForm.contactNotes"
+            type="textarea"
+            :rows="10"
+            placeholder="记录每一次沟通的详情..."
+          />
+        </el-tab-pane>
+      </el-tabs>
     </div>
 
-    <!-- 房源编辑弹窗 -->
+    <template #footer>
+      <!-- 底部操作栏 -->
+      <div class="action-buttons">
+        <el-button
+          type="primary"
+          @click="saveChanges"
+          :loading="saving"
+          size="large"
+          >保存修改</el-button
+        >
+        <el-button @click="closeDrawer" size="large">关闭</el-button>
+        <el-popconfirm title="确定删除此房东信息？" @confirm="deleteLandlord">
+          <template #reference>
+            <el-button type="danger" size="large">删除</el-button>
+          </template>
+        </el-popconfirm>
+      </div>
+    </template>
+
+    <!-- 文件选择对话框 -->
     <el-dialog
-      v-model="propertyDialogVisible"
-      :title="isEditingProperty ? '编辑房源' : '添加房源'"
+      v-model="fileDialogVisible"
+      :title="fileDialogMode === 'video' ? '选择视频' : '选择图片'"
       width="500px"
       append-to-body
     >
-      <el-form :model="currentProperty" label-width="80px">
-        <el-form-item label="房型">
-          <el-select v-model="currentProperty.roomType">
-            <el-option label="单间" :value="RoomType.Single" />
-            <el-option label="一房一厅" :value="RoomType.OneRoom" />
-            <el-option label="两房一厅" :value="RoomType.TwoRoom" />
-            <el-option label="三房一厅" :value="RoomType.ThreeRoom" />
-            <el-option label="其他" :value="RoomType.Other" />
-          </el-select>
-        </el-form-item>
-        
-        <el-form-item label="租金">
-          <el-input-number v-model="currentProperty.rent" :min="0" :step="100" />
-          <span class="unit" style="margin-left: 10px">元/月</span>
-        </el-form-item>
+      <div 
+        class="dialog-content-wrapper"
+        @dragover.prevent="isDragging = true"
+        @dragleave.prevent="isDragging = false"
+        @drop.prevent="handleDrop"
+      >
+        <div v-if="isDragging" class="drag-overlay">
+          <el-icon class="drag-icon"><UploadFilled /></el-icon>
+          <div class="drag-text">释放文件以上传</div>
+        </div>
 
-        <el-form-item label="楼层">
-          <el-input v-model="currentProperty.floor" placeholder="例如：3楼" />
-        </el-form-item>
+        <div class="dialog-toolbar" style="margin-bottom: 15px">
+          <el-button type="primary" @click="handleUpload">
+            <el-icon><Plus /></el-icon> 上传新文件
+          </el-button>
+          <span
+            class="tip-text"
+            style="margin-left: 10px; font-size: 12px; color: #909399"
+          >
+            (支持拖拽上传，文件将保存到
+            {{
+              fileDialogMode === "avatar"
+                ? "微信头像"
+                : fileDialogMode === "video"
+                ? "视频"
+                : "根"
+            }}
+            目录)
+          </span>
+        </div>
 
-        <el-form-item label="朝向">
-          <el-select v-model="currentProperty.orientation">
-            <el-option label="东" :value="Orientation.East" />
-            <el-option label="南" :value="Orientation.South" />
-            <el-option label="西" :value="Orientation.West" />
-            <el-option label="北" :value="Orientation.North" />
-            <el-option label="东南" :value="Orientation.Southeast" />
-            <el-option label="西南" :value="Orientation.Southwest" />
-            <el-option label="东北" :value="Orientation.Northeast" />
-            <el-option label="西北" :value="Orientation.Northwest" />
-          </el-select>
-        </el-form-item>
-
-        <el-form-item label="配置">
-          <div class="appliances-grid" v-if="currentProperty.appliances">
-            <el-checkbox v-model="currentProperty.appliances.airConditioner">空调</el-checkbox>
-            <el-checkbox v-model="currentProperty.appliances.washingMachine">洗衣机</el-checkbox>
-            <el-checkbox v-model="currentProperty.appliances.waterHeater">热水器</el-checkbox>
-            <el-checkbox v-model="currentProperty.appliances.refrigerator">冰箱</el-checkbox>
-            <el-checkbox v-model="currentProperty.appliances.bed">床</el-checkbox>
-            <el-checkbox v-model="currentProperty.appliances.wardrobe">衣柜</el-checkbox>
-            <el-checkbox v-model="currentProperty.appliances.internet">宽带</el-checkbox>
-            <el-checkbox v-model="currentProperty.appliances.sofa">沙发</el-checkbox>
+        <div class="file-list">
+          <div
+            v-for="file in fileList"
+            :key="file.name"
+            class="file-item"
+            @click="handleFileSelect(file)"
+          >
+            <div class="file-preview">
+              <el-image
+                v-if="file.type === 'image'"
+                :src="file.url"
+                fit="cover"
+                class="preview-image"
+              />
+              <div v-else class="video-placeholder">
+                <el-icon :size="24"><VideoPlay /></el-icon>
+              </div>
+            </div>
+            <span class="file-name" :title="file.name">{{ file.name }}</span>
           </div>
-        </el-form-item>
-
-        <el-form-item label="备注">
-          <el-input v-model="currentProperty.notes" type="textarea" />
-        </el-form-item>
-
-        <el-form-item label="状态">
-          <el-switch
-            v-model="currentProperty.available"
-            active-text="可租"
-            inactive-text="已租"
+          <el-empty
+            v-if="fileList.length === 0"
+            description="文件夹中没有找到相关文件，可拖拽上传"
           />
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <el-button @click="propertyDialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="saveProperty">确定</el-button>
-      </template>
+        </div>
+      </div>
     </el-dialog>
   </el-drawer>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
-import { usePropertyStore } from '@/stores/property'
-import { LandlordType, WechatStatus, ContactStatus, DepositMethod, RoomType, Orientation } from '@/types'
-import type { Landlord, Property, Appliances } from '@/types'
-import { getValidDirectoryHandle, getFileByName } from '@/utils/fileSystem'
+import { ref, watch, computed, onUnmounted, toRaw, reactive } from "vue";
+import { ElMessage } from "element-plus";
+import {
+  Plus,
+  Delete,
+  Picture,
+  VideoPlay,
+  UploadFilled,
+  Loading,
+} from "@element-plus/icons-vue";
+import { usePropertyStore } from "@/stores/property";
+import {
+  getValidDirectoryHandle,
+  ensureDirectory,
+  saveFileToDirectory,
+  scanSubdirectory,
+  getFileByPath,
+} from "@/utils/fileSystem";
+import {
+  LANDLORD_TYPES,
+  WECHAT_STATUS_TYPES,
+  CONTACT_STATUS_TYPES,
+  ELECTRICITY_TYPES,
+  WATER_TYPES,
+  ROOM_TYPES,
+  AMENITY_OPTIONS,
+  DEPOSIT_METHODS,
+  type Landlord,
+  type RoomInfo,
+  RoomType,
+} from "@/types";
 
-const propertyStore = usePropertyStore()
+const FLOOR_OPTIONS = Array.from({ length: 99 }, (_, i) => ({
+  value: (i + 1).toString(),
+  label: `${i + 1}楼`,
+}));
+
+const propertyStore = usePropertyStore();
+const saving = ref(false);
+const activeTab = ref("basic");
+const photoUrls = ref<string[]>([]);
+const currentPhotoIndex = ref(0);
+
+// 文件选择相关
+interface FileItem {
+  name: string;
+  url: string;
+  type: "image" | "video";
+}
+
+const fileDialogVisible = ref(false);
+const fileDialogMode = ref<"avatar" | "video" | "photo">("avatar");
+const fileList = ref<FileItem[]>([]);
+const currentRoomIndex = ref(-1);
+const videoUrls = reactive(new Map<string, string>()); // 缓存视频 URL
+const isDragging = ref(false);
 
 const visible = computed({
   get: () => !!propertyStore.currentLandlord,
   set: (val) => {
-    if (!val) {
-      propertyStore.setCurrentLandlord(null)
+    if (!val) propertyStore.selectLandlord(null);
+  },
+});
+
+const landlord = computed(() => propertyStore.currentLandlord);
+
+// 初始化空表单
+const createEmptyForm = (): Landlord => ({
+  id: "",
+  photos: [],
+  phoneNumbers: [""],
+  landlordType: "other" as any,
+  wechatStatus: "not_added" as any,
+  contactStatus: "uncontacted" as any,
+  deposit: "",
+  gps: undefined,
+  address: "",
+  captureTime: "",
+  commonFees: {
+    electricity: { type: "civil" },
+    water: { type: "civil" },
+  },
+  properties: [],
+  isPerfect: false,
+  createdAt: "",
+  updatedAt: "",
+  avatar: "",
+  wechatNickname: "",
+});
+
+const editForm = ref<Landlord>(createEmptyForm());
+const avatarUrl = ref("");
+
+// 监听选中房东变化，填充表单
+watch(
+  landlord,
+  async (newVal) => {
+    if (newVal) {
+      // 深拷贝以避免直接修改 store
+      const data = JSON.parse(JSON.stringify(newVal));
+      // 确保数组存在
+      if (!data.phoneNumbers || data.phoneNumbers.length === 0)
+        data.phoneNumbers = [""];
+      if (!data.properties) data.properties = [];
+      if (!data.photos) data.photos = [];
+
+      // 确保 commonFees 存在
+      if (!data.commonFees) {
+        data.commonFees = {
+          electricity: { type: "civil" },
+          water: { type: "civil" },
+        };
+      }
+      if (!data.commonFees.electricity)
+        data.commonFees.electricity = { type: "civil" };
+      if (!data.commonFees.water) data.commonFees.water = { type: "civil" };
+
+      // 兼容旧数据：如果 properties 里有 videoPaths，转换为 videos
+      data.properties.forEach((room: any) => {
+        if (room.videoPaths && (!room.videos || room.videos.length === 0)) {
+          room.videos = room.videoPaths.map((path: string) => ({
+            id: crypto.randomUUID(),
+            fileName: path,
+            folderId: "default",
+          }));
+        }
+        if (!room.videos) room.videos = [];
+      });
+
+      editForm.value = data;
+      activeTab.value = "basic";
+      currentPhotoIndex.value = 0;
+
+      // 加载照片
+      await loadPhotos(data.photos);
+
+      // 加载视频
+      videoUrls.forEach((url) => URL.revokeObjectURL(url));
+      videoUrls.clear();
+      await loadVideos(data.properties);
+
+      // 加载头像
+      if (data.avatar) {
+        await loadAvatar(data.avatar);
+      } else {
+        avatarUrl.value = "";
+      }
     }
+  },
+  { immediate: true }
+);
+
+const loadAvatar = async (fileName: string) => {
+  if (!fileName) {
+    avatarUrl.value = "";
+    return;
   }
-})
+  try {
+    const dirHandle = await getValidDirectoryHandle();
+    if (!dirHandle) return;
 
-const landlord = computed(() => propertyStore.currentLandlord)
+    // 尝试直接获取（兼容旧数据）或通过路径获取
+    let file: File | null = null;
+    if (fileName.includes("/") || fileName.includes("\\")) {
+      file = await getFileByPath(dirHandle, fileName);
+    } else {
+      // 旧数据或根目录文件
+      try {
+        const fileHandle = await dirHandle.getFileHandle(fileName);
+        file = await fileHandle.getFile();
+      } catch {
+        // 尝试在"微信头像"目录查找
+        file = await getFileByPath(dirHandle, `微信头像/${fileName}`);
+      }
+    }
 
-const editForm = ref<Partial<Landlord>>({})
-const newPhone = ref('')
-const currentPhotoUrl = ref('')
-
-watch(landlord, async (newLandlord) => {
-  if (newLandlord) {
-    editForm.value = { ...newLandlord }
-    await loadPhoto()
-  } else {
-    currentPhotoUrl.value = ''
+    if (file) {
+      if (avatarUrl.value) URL.revokeObjectURL(avatarUrl.value);
+      avatarUrl.value = URL.createObjectURL(file);
+    }
+  } catch (e) {
+    console.error("Failed to load avatar", e);
   }
-}, { immediate: true })
+};
 
-async function loadPhoto() {
-  if (!landlord.value?.photos?.[0]) return
+const clearAvatar = () => {
+  if (avatarUrl.value) {
+    URL.revokeObjectURL(avatarUrl.value);
+    avatarUrl.value = "";
+  }
+  editForm.value.avatar = "";
+};
+
+const loadPhotos = async (photos: any[]) => {
+  // 清理旧的 URL
+  photoUrls.value.forEach((url) => URL.revokeObjectURL(url));
+  photoUrls.value = [];
+
+  if (!photos || photos.length === 0) return;
 
   try {
-    const dirHandle = await getValidDirectoryHandle()
+    const dirHandle = await getValidDirectoryHandle();
     if (!dirHandle) {
-      ElMessage.warning('文件夹访问权限已失效，请重新选择')
-      return
+      // 如果没有权限，可能无法显示照片
+      return;
     }
 
-    const photo = landlord.value.photos[0]
-    const file = await getFileByName(dirHandle, photo.fileName)
-    
-    if (file) {
-      currentPhotoUrl.value = URL.createObjectURL(file)
+    for (const photo of photos) {
+      try {
+        const fileHandle = await dirHandle.getFileHandle(photo.fileName);
+        const file = await fileHandle.getFile();
+        const url = URL.createObjectURL(file);
+        photoUrls.value.push(url);
+      } catch (e) {
+        console.error(`加载照片失败: ${photo.fileName}`, e);
+        // 占位符或错误处理
+        photoUrls.value.push("");
+      }
     }
-  } catch (error) {
-    console.error('加载照片失败:', error)
+  } catch (e) {
+    console.error("获取文件夹权限失败", e);
   }
-}
+};
 
-// Property Dialog State
-const propertyDialogVisible = ref(false)
-const currentProperty = ref<Partial<Property>>({})
-const isEditingProperty = ref(false)
+const loadVideos = async (properties: RoomInfo[]) => {
+  if (!properties) return;
 
-// Property Methods
-function showAddProperty() {
-  currentProperty.value = {
+  for (const room of properties) {
+    if (room.videos) {
+      for (const video of room.videos) {
+        await getVideoUrl(video.fileName);
+      }
+    }
+  }
+};
+
+const handleClosed = () => {
+  photoUrls.value.forEach((url) => URL.revokeObjectURL(url));
+  photoUrls.value = [];
+  if (avatarUrl.value) URL.revokeObjectURL(avatarUrl.value);
+  avatarUrl.value = "";
+  videoUrls.forEach((url) => URL.revokeObjectURL(url));
+  videoUrls.clear();
+};
+
+onUnmounted(() => {
+  handleClosed();
+});
+
+const mainPhotoUrl = computed(() => {
+  return photoUrls.value[currentPhotoIndex.value];
+});
+
+const allPhotoUrls = computed(() => {
+  return photoUrls.value.filter((url) => url);
+});
+
+const addPhone = () => {
+  editForm.value.phoneNumbers.push("");
+};
+
+const removePhone = (index: number) => {
+  editForm.value.phoneNumbers.splice(index, 1);
+};
+
+const checkDuplicatePhone = async (phone: string, _index: number) => {
+  if (!phone || phone.length < 8) return;
+  const duplicate = propertyStore.landlords.find(
+    (l) => l.id !== editForm.value.id && l.phoneNumbers.includes(phone)
+  );
+
+  if (duplicate) {
+    ElMessage.warning(
+      `该号码已存在于房东 [${duplicate.address || "未知地址"}] 中`
+    );
+  }
+};
+
+const addRoom = () => {
+  const newRoom: RoomInfo = {
     id: crypto.randomUUID(),
     roomType: RoomType.Single,
-    rent: 0,
+    rent: undefined,
+    description: "",
+    amenities: [],
+    videos: [],
     available: true,
-    appliances: {
-      airConditioner: false,
-      washingMachine: false,
-      waterHeater: false,
-      refrigerator: false,
-      bed: false,
-      wardrobe: false,
-      internet: false,
-      television: false,
-      desk: false,
-      chair: false,
-      sofa: false,
-      diningTable: false
-    },
-    videos: []
-  }
-  isEditingProperty.value = false
-  propertyDialogVisible.value = true
-}
+  };
+  editForm.value.properties.push(newRoom);
+};
 
-function editProperty(property: Property) {
-  currentProperty.value = JSON.parse(JSON.stringify(property))
-  isEditingProperty.value = true
-  propertyDialogVisible.value = true
-}
+const removeRoom = (index: number) => {
+  editForm.value.properties.splice(index, 1);
+};
 
-function deleteProperty(index: number) {
-  if (editForm.value.properties) {
-    editForm.value.properties.splice(index, 1)
-  }
-}
+// 文件选择器逻辑
+const openFileSelector = async (
+  mode: "avatar" | "video" | "photo",
+  roomIndex = -1
+) => {
+  fileDialogMode.value = mode;
+  currentRoomIndex.value = roomIndex;
 
-function saveProperty() {
-  if (!editForm.value.properties) {
-    editForm.value.properties = []
-  }
-
-  if (isEditingProperty.value) {
-    const index = editForm.value.properties.findIndex(p => p.id === currentProperty.value.id)
-    if (index !== -1) {
-      editForm.value.properties[index] = currentProperty.value as Property
-    }
-  } else {
-    editForm.value.properties.push(currentProperty.value as Property)
-  }
-  propertyDialogVisible.value = false
-}
-
-function addPhone() {
-  if (!newPhone.value.trim()) return
-  
-  if (!editForm.value.phoneNumbers) {
-    editForm.value.phoneNumbers = []
-  }
-  
-  if (editForm.value.phoneNumbers.includes(newPhone.value.trim())) {
-    ElMessage.warning('电话号码已存在')
-    return
-  }
-
-  editForm.value.phoneNumbers.push(newPhone.value.trim())
-  newPhone.value = ''
-}
-
-function removePhone(index: number) {
-  editForm.value.phoneNumbers?.splice(index, 1)
-}
-
-async function checkPhoneDuplicate() {
-  if (!newPhone.value.trim()) return
-
-  const duplicates = await propertyStore.checkPhoneDuplicate(newPhone.value.trim())
-  
-  if (duplicates.length > 0 && duplicates[0].id !== landlord.value?.id) {
-    const duplicate = duplicates[0]
-    
-    ElMessageBox.confirm(
-      `检测到该电话已存在于 [${duplicate.address || '未知地址'}] 的记录中。是否合并记录？`,
-      '重复电话提示',
-      {
-        confirmButtonText: '合并',
-        cancelButtonText: '独立保存',
-        type: 'warning'
-      }
-    )
-      .then(async () => {
-        if (landlord.value) {
-          await propertyStore.mergeLandlords(duplicate.id, landlord.value.id)
-          ElMessage.success('记录已合并')
-          propertyStore.setCurrentLandlord(null)
-        }
-      })
-      .catch(() => {
-        // 用户选择独立保存，继续添加
-        addPhone()
-      })
-  }
-}
-
-async function saveChanges() {
-  if (!landlord.value) return
+  // 清理旧的预览 URL
+  fileList.value.forEach((item) => {
+    if (item.url) URL.revokeObjectURL(item.url);
+  });
+  fileList.value = [];
 
   try {
-    await propertyStore.updateLandlordData(landlord.value.id, {
-      ...editForm.value,
-      isPerfect: editForm.value.phoneNumbers && editForm.value.phoneNumbers.length > 0
-    })
-    
-    ElMessage.success('保存成功')
-    propertyStore.setCurrentLandlord(null)
-  } catch (error: any) {
-    ElMessage.error(`保存失败: ${error.message}`)
-  }
-}
+    const dirHandle = await getValidDirectoryHandle();
+    if (!dirHandle) {
+      ElMessage.warning("请先在左侧授权照片文件夹");
+      return;
+    }
 
-function handleClose() {
-  // 释放 Blob URL
-  if (currentPhotoUrl.value) {
-    URL.revokeObjectURL(currentPhotoUrl.value)
-  }
-  propertyStore.setCurrentLandlord(null)
-}
+    let fileNames: string[] = [];
+    let targetDirHandle = dirHandle;
 
-async function confirmDelete() {
-  ElMessageBox.confirm('确定要删除此房东吗？此操作不可恢复。', '确认删除', {
-    confirmButtonText: '确定',
-    cancelButtonText: '取消',
-    type: 'warning'
-  })
-    .then(async () => {
-      if (landlord.value) {
-        await propertyStore.removeLandlord(landlord.value.id)
-        ElMessage.success('删除成功')
-        propertyStore.setCurrentLandlord(null)
+    if (mode === "avatar") {
+      // 扫描 "微信头像" 目录
+      fileNames = await scanSubdirectory(dirHandle, "微信头像", ["image"]);
+      try {
+        targetDirHandle = await dirHandle.getDirectoryHandle("微信头像");
+      } catch {}
+    } else if (mode === "video") {
+      // 扫描 "视频" 目录
+      fileNames = await scanSubdirectory(dirHandle, "视频", ["video"]);
+      try {
+        targetDirHandle = await dirHandle.getDirectoryHandle("视频");
+      } catch {}
+    } else {
+      // 照片模式：扫描根目录
+      for await (const entry of dirHandle.values()) {
+        if (entry.kind === "file") {
+          const isImage = /\.(jpg|jpeg|png|gif)$/i.test(entry.name);
+          if (isImage) {
+            fileNames.push(entry.name);
+          }
+        }
       }
-    })
-    .catch(() => {})
-}
+    }
+
+    // 生成预览
+    const items: FileItem[] = [];
+    for (const name of fileNames) {
+      try {
+        const fileHandle = await targetDirHandle.getFileHandle(name);
+        const file = await fileHandle.getFile();
+        const url = URL.createObjectURL(file);
+        items.push({
+          name,
+          url,
+          type: mode === "video" ? "video" : "image",
+        });
+      } catch (e) {
+        console.error(`Failed to create preview for ${name}`, e);
+        items.push({
+          name,
+          url: "",
+          type: mode === "video" ? "video" : "image",
+        });
+      }
+    }
+    fileList.value = items;
+
+    fileDialogVisible.value = true;
+  } catch (e) {
+    console.error("Failed to scan directory", e);
+    ElMessage.error("无法扫描文件夹");
+  }
+};
+
+// 监听对话框关闭，清理资源
+watch(fileDialogVisible, (val) => {
+  if (!val) {
+    fileList.value.forEach((item) => {
+      if (item.url) URL.revokeObjectURL(item.url);
+    });
+    fileList.value = [];
+    isDragging.value = false;
+  }
+});
+
+const saveFile = async (file: File) => {
+  const dirHandle = await getValidDirectoryHandle();
+  if (!dirHandle) return null;
+
+  let targetDirName = "";
+  
+  // 验证文件类型
+  if (fileDialogMode.value === "avatar") {
+    targetDirName = "微信头像";
+    if (!file.type.startsWith('image/')) {
+      ElMessage.warning(`文件 ${file.name} 不是图片`);
+      return null;
+    }
+  } else if (fileDialogMode.value === "video") {
+    targetDirName = "视频";
+    if (!file.type.startsWith('video/')) {
+      ElMessage.warning(`文件 ${file.name} 不是视频`);
+      return null;
+    }
+  } else {
+    // 照片模式
+    if (!file.type.startsWith('image/')) {
+      ElMessage.warning(`文件 ${file.name} 不是图片`);
+      return null;
+    }
+  }
+
+  try {
+    let savedName = "";
+    if (targetDirName) {
+      const targetDir = await ensureDirectory(dirHandle, targetDirName);
+      savedName = await saveFileToDirectory(targetDir, file);
+    } else {
+      savedName = await saveFileToDirectory(dirHandle, file);
+    }
+    return savedName;
+  } catch (e) {
+    console.error("Save file failed", e);
+    return null;
+  }
+};
+
+const handleDrop = async (e: DragEvent) => {
+  isDragging.value = false;
+  const files = e.dataTransfer?.files;
+  if (!files || files.length === 0) return;
+
+  let successCount = 0;
+  for (let i = 0; i < files.length; i++) {
+    const file = files[i];
+    const savedName = await saveFile(file);
+    if (savedName) {
+      successCount++;
+    }
+  }
+
+  if (successCount > 0) {
+    ElMessage.success(`成功上传 ${successCount} 个文件`);
+    // 重新加载列表
+    await openFileSelector(fileDialogMode.value, currentRoomIndex.value);
+  }
+};
+
+const handleUpload = async () => {
+  try {
+    const dirHandle = await getValidDirectoryHandle();
+    if (!dirHandle) return;
+
+    // 确定目标目录和类型
+    let acceptTypes: FilePickerAcceptType[] = [];
+
+    if (fileDialogMode.value === "avatar") {
+      acceptTypes = [
+        {
+          description: "Images",
+          accept: { "image/*": [".jpg", ".jpeg", ".png", ".gif"] },
+        },
+      ];
+    } else if (fileDialogMode.value === "video") {
+      acceptTypes = [
+        {
+          description: "Videos",
+          accept: { "video/*": [".mp4", ".mov", ".webm"] },
+        },
+      ];
+    } else {
+      acceptTypes = [
+        {
+          description: "Images",
+          accept: { "image/*": [".jpg", ".jpeg", ".png", ".gif"] },
+        },
+      ];
+    }
+
+    // 选择文件
+    let file: File | null = null;
+    if ("showOpenFilePicker" in window) {
+      const [fileHandle] = await window.showOpenFilePicker({
+        types: acceptTypes,
+        multiple: false,
+      });
+      file = await fileHandle.getFile();
+    } else {
+      // 降级方案：使用 input
+      const input = document.createElement("input");
+      input.type = "file";
+      input.accept = fileDialogMode.value === "video" ? "video/*" : "image/*";
+
+      await new Promise<void>((resolve) => {
+        input.onchange = () => {
+          if (input.files && input.files.length > 0) {
+            file = input.files[0];
+          }
+          resolve();
+        };
+        input.click();
+      });
+    }
+
+    if (!file) return;
+
+    const savedName = await saveFile(file);
+    if (savedName) {
+      ElMessage.success(`已上传: ${savedName}`);
+      // 重新加载列表
+      await openFileSelector(fileDialogMode.value, currentRoomIndex.value);
+    }
+  } catch (e: any) {
+    if (e.name !== "AbortError") {
+      console.error("Upload failed", e);
+      ElMessage.error("上传失败");
+    }
+  }
+};
+
+const handleFileSelect = (fileItem: FileItem) => {
+  const fileName = fileItem.name;
+  let finalPath = fileName;
+
+  if (fileDialogMode.value === "avatar") {
+    finalPath = `微信头像/${fileName}`;
+    editForm.value.avatar = finalPath;
+    loadAvatar(finalPath);
+  } else if (
+    fileDialogMode.value === "video" &&
+    currentRoomIndex.value !== -1
+  ) {
+    finalPath = `视频/${fileName}`;
+    const room = editForm.value.properties[currentRoomIndex.value];
+    if (!room.videos) room.videos = [];
+    room.videos.push({
+      id: crypto.randomUUID(),
+      fileName: finalPath,
+      folderId: "default",
+    });
+  } else if (fileDialogMode.value === "photo") {
+    // 照片模式通常在根目录
+    finalPath = fileName;
+    editForm.value.photos.push({
+      id: crypto.randomUUID(),
+      fileName: finalPath,
+      folderId: "default",
+    });
+    loadPhotos(editForm.value.photos);
+  }
+  fileDialogVisible.value = false;
+};
+
+const getVideoUrl = async (fileName: string) => {
+  if (videoUrls.has(fileName)) return videoUrls.get(fileName);
+
+  try {
+    const dirHandle = await getValidDirectoryHandle();
+    if (!dirHandle) return "";
+
+    let file: File | null = null;
+    if (fileName.includes("/") || fileName.includes("\\")) {
+      file = await getFileByPath(dirHandle, fileName);
+    } else {
+      try {
+        const fileHandle = await dirHandle.getFileHandle(fileName);
+        file = await fileHandle.getFile();
+      } catch {
+        file = await getFileByPath(dirHandle, `视频/${fileName}`);
+      }
+    }
+
+    if (file) {
+      const url = URL.createObjectURL(file);
+      videoUrls.set(fileName, url);
+      return url;
+    }
+    return "";
+  } catch (e) {
+    console.error("Failed to load video", e);
+    return "";
+  }
+};
+
+const saveChanges = async () => {
+  const validPhones = editForm.value.phoneNumbers.filter((p) => p.trim());
+
+  saving.value = true;
+  try {
+    const rawData = toRaw(editForm.value);
+    const dataToSave = {
+      ...rawData,
+      phoneNumbers: validPhones,
+      updatedAt: new Date().toISOString(),
+      isPerfect: true,
+    };
+    await propertyStore.updateLandlordData(editForm.value.id, dataToSave);
+    ElMessage.success("保存成功");
+  } catch (error: any) {
+    console.error("Save failed:", error);
+    ElMessage.error("保存失败: " + (error.message || "未知错误"));
+  } finally {
+    saving.value = false;
+  }
+};
+
+const deleteLandlord = async () => {
+  if (!landlord.value) return;
+  try {
+    await propertyStore.removeLandlord(landlord.value.id);
+    ElMessage.success("删除成功");
+    closeDrawer();
+  } catch (error) {
+    ElMessage.error("删除失败");
+  }
+};
+
+const closeDrawer = () => {
+  propertyStore.selectLandlord(null);
+};
 </script>
 
 <style scoped>
-.detail-content {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
+.el-drawer__header {
+  margin: 0;
 }
 
-.action-buttons {
+.landlord-detail {
+  padding: 0;
+}
+
+.photo-section {
+  margin-bottom: 20px;
+  background: #f9f9f9;
+  border: 1px solid #ebeef5;
+  border-radius: 8px;
+  padding: 10px;
+}
+
+.photo-thumbnails {
   display: flex;
-  gap: 10px;
+  gap: 8px;
+  margin-top: 10px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+
+.thumbnail {
+  width: 60px;
+  height: 60px;
+  border-radius: 4px;
+  overflow: hidden;
+  cursor: pointer;
+  border: 2px solid transparent;
+  flex-shrink: 0;
+}
+
+.thumbnail.active {
+  border-color: #409eff;
+}
+
+.image-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   justify-content: center;
-  padding: 20px 0;
+  height: 100%;
+  color: #909399;
+}
+
+.sub-text {
+  font-size: 12px;
+  margin-top: 4px;
+  color: #909399;
+  text-align: center;
+}
+
+.phone-item {
+  margin-bottom: 8px;
+}
+
+.fee-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 10px;
+}
+
+.properties-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.room-card {
+  border: 1px solid #e4e7ed;
 }
 
 .card-header {
@@ -476,9 +1205,208 @@ async function confirmDelete() {
   align-items: center;
 }
 
-.appliances-grid {
+.video-item {
+  margin-bottom: 12px;
+  border: 1px solid #ebeef5;
+  padding: 8px;
+  border-radius: 4px;
+}
+
+.video-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+  font-size: 12px;
+  color: #606266;
+}
+
+.video-preview {
+  width: 100%;
+  max-height: 300px;
+  background: #000;
+  border-radius: 4px;
+}
+
+.video-wrapper {
+  width: 100%;
+  min-height: 150px;
+  background: #f5f7fa;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.video-loading {
+  display: flex;
+  align-items: center;
+  color: #909399;
+  font-size: 14px;
+}
+
+.add-room-btn {
+  width: 100%;
+  height: 40px;
+}
+
+.action-buttons {
+  /* margin-top: 30px; */
+  padding-top: 20px;
+  border-top: 1px solid #ebeef5;
+  display: flex;
+  justify-content: center;
+  gap: 15px;
+  position: sticky;
+  bottom: 0;
+  background: #fff;
+  z-index: 10;
+}
+
+.location-info {
+  flex: 1;
+}
+
+.location-info .address {
+  font-weight: bold;
+  color: #409eff;
+}
+
+.location-info .gps-coords {
+  font-size: 12px;
+  color: #909399;
+}
+
+/* Avatar Uploader */
+.avatar-uploader {
+  border: 1px dashed #d9d9d9;
+  border-radius: 6px;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  width: 100px;
+  height: 100px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  transition: border-color 0.3s;
+}
+
+.avatar-uploader:hover {
+  border-color: #409eff;
+}
+
+.avatar-uploader-icon {
+  font-size: 28px;
+  color: #8c939d;
+}
+
+.avatar {
+  width: 100px;
+  height: 100px;
+  display: block;
+  object-fit: cover;
+}
+
+/* Room Form Font Size */
+.room-form :deep(.el-form-item__label) {
+  font-size: 14px;
+}
+
+.room-form :deep(.el-input__inner),
+.room-form :deep(.el-textarea__inner) {
+  font-size: 14px;
+}
+
+/* File List Dialog */
+.file-list {
+  max-height: 400px;
+  overflow-y: auto;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+  gap: 10px;
+  padding: 10px;
+}
+
+.file-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   gap: 5px;
+  padding: 5px;
+  cursor: pointer;
+  border: 1px solid #ebeef5;
+  border-radius: 4px;
+  transition: all 0.3s;
+}
+
+.file-item:hover {
+  background-color: #f5f7fa;
+  border-color: #409eff;
+  transform: translateY(-2px);
+}
+
+.file-preview {
+  width: 100%;
+  height: 80px;
+  background: #f0f2f5;
+  border-radius: 4px;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.preview-image {
+  width: 100%;
+  height: 100%;
+}
+
+.video-placeholder {
+  color: #909399;
+}
+
+.file-name {
+  font-size: 12px;
+  color: #606266;
+  text-align: center;
+  width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dialog-content-wrapper {
+  position: relative;
+  min-height: 300px;
+}
+
+.drag-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(64, 158, 255, 0.1);
+  border: 2px dashed #409eff;
+  border-radius: 4px;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.drag-icon {
+  font-size: 48px;
+  color: #409eff;
+  margin-bottom: 10px;
+}
+
+.drag-text {
+  font-size: 16px;
+  color: #409eff;
+  font-weight: bold;
 }
 </style>

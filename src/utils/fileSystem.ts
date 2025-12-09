@@ -222,3 +222,98 @@ export async function selectFilesLegacy(): Promise<File[]> {
     input.click()
   })
 }
+
+/** 确保子目录存在，不存在则创建 */
+export async function ensureDirectory(
+  parentHandle: FileSystemDirectoryHandle,
+  dirName: string
+): Promise<FileSystemDirectoryHandle> {
+  return await parentHandle.getDirectoryHandle(dirName, { create: true });
+}
+
+/** 将文件保存到指定目录 */
+export async function saveFileToDirectory(
+  dirHandle: FileSystemDirectoryHandle,
+  file: File,
+  fileName?: string
+): Promise<string> {
+  const name = fileName || file.name;
+  // 获取文件句柄（如果不存在则创建）
+  const fileHandle = await dirHandle.getFileHandle(name, { create: true });
+  
+  // 创建可写流
+  // @ts-ignore - FileSystemFileHandle.createWritable is not yet in all TS definitions
+  const writable = await fileHandle.createWritable();
+  
+  // 写入内容
+  await writable.write(file);
+  
+  // 关闭文件
+  await writable.close();
+  
+  return name;
+}
+
+/** 扫描指定目录下的文件 */
+export async function scanSubdirectory(
+  dirHandle: FileSystemDirectoryHandle,
+  subDirName: string,
+  types: ('image' | 'video')[] = ['image', 'video']
+): Promise<string[]> {
+  try {
+    const subDir = await dirHandle.getDirectoryHandle(subDirName, { create: false });
+    const files: string[] = [];
+    
+    const imageExtensions = /\.(jpg|jpeg|png|gif|bmp|webp)$/i;
+    const videoExtensions = /\.(mp4|mov|avi|mkv|wmv|flv)$/i;
+
+    for await (const entry of subDir.values()) {
+      if (entry.kind === 'file') {
+        const name = entry.name;
+        let isMatch = false;
+        
+        if (types.includes('image') && imageExtensions.test(name)) isMatch = true;
+        if (types.includes('video') && videoExtensions.test(name)) isMatch = true;
+        
+        if (isMatch) {
+          files.push(name);
+        }
+      }
+    }
+    return files;
+  } catch (e) {
+    // 目录可能不存在
+    return [];
+  }
+}
+
+/** 根据路径获取文件 (支持 "folder/file.ext" 格式) */
+export async function getFileByPath(
+  rootHandle: FileSystemDirectoryHandle,
+  path: string
+): Promise<File | null> {
+  try {
+    const parts = path.split(/[/\\]/);
+    let currentHandle: FileSystemDirectoryHandle | FileSystemFileHandle = rootHandle;
+    
+    for (let i = 0; i < parts.length; i++) {
+      const part = parts[i];
+      if (!part) continue;
+      
+      if (i === parts.length - 1) {
+        // 最后一个部分是文件
+        if (currentHandle.kind !== 'directory') return null;
+        const fileHandle = await (currentHandle as FileSystemDirectoryHandle).getFileHandle(part);
+        return await fileHandle.getFile();
+      } else {
+        // 中间部分是目录
+        if (currentHandle.kind !== 'directory') return null;
+        currentHandle = await (currentHandle as FileSystemDirectoryHandle).getDirectoryHandle(part);
+      }
+    }
+    return null;
+  } catch (e) {
+    // console.error(`无法获取文件: ${path}`, e);
+    return null;
+  }
+}

@@ -15,7 +15,7 @@ export async function extractExif(file: File): Promise<ExifData> {
   try {
     const exifData = await exifr.parse(file, {
       gps: true,
-      pick: ['DateTimeOriginal', 'CreateDate', 'DateTime', 'Make', 'Model', 'Orientation', 'latitude', 'longitude']
+      pick: ['GPSLatitude', 'GPSLongitude', 'DateTimeOriginal', 'DateTime', 'CreateDate']
     })
 
     if (!exifData) {
@@ -47,10 +47,7 @@ export async function extractExif(file: File): Promise<ExifData> {
 
     return {
       gps,
-      captureTime,
-      make: exifData.Make,
-      model: exifData.Model,
-      orientation: exifData.Orientation
+      captureTime
     }
   } catch (error) {
     console.error('EXIF 提取失败:', error)
@@ -186,8 +183,8 @@ export function calculateDistance(gps1: GPS, gps2: GPS): number {
 
 /** 应用 GPS 微偏移（避免地图标记重叠） */
 export function applyGpsOffset(existingCoords: GPS[], newCoord: GPS): GPS {
-  const THRESHOLD = 0.000005 // 约 0.5 米
-  const OFFSET = 0.00001     // 约 1 米偏移量
+  const THRESHOLD = 0.00002 // 约 2 米
+  const OFFSET = 0.00010     // 约 5 米偏移量
 
   // 检查是否与现有坐标过于接近
   const hasDuplicate = existingCoords.some(coord => 

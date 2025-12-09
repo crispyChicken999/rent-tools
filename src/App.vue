@@ -1,306 +1,483 @@
+<script setup lang="ts">
+import { onMounted, ref, computed } from "vue";
+import { ElMessage } from "element-plus";
+import { Delete, Upload } from "@element-plus/icons-vue";
+import PhotoUpload from "./components/PhotoUpload.vue";
+import MapView from "./components/MapView.vue";
+import PropertyDetail from "./components/PropertyDetail.vue";
+import LandlordAvatar from "./components/LandlordAvatar.vue";
+import { usePropertyStore } from "./stores/property";
+// import { exportToExcel } from "./utils/export";
+import { LandlordType } from "./types";
+
+const propertyStore = usePropertyStore();
+const mapViewRef = ref<InstanceType<typeof MapView> | null>(null);
+
+// 筛选状态
+const filterContact = ref("all"); // all, contacted, uncontacted
+const filterWechat = ref("all"); // all, added, not_added
+
+onMounted(async () => {
+  await propertyStore.loadLandlords();
+});
+
+// 过滤后的房东列表
+const filteredLandlords = computed(() => {
+  return propertyStore.landlords.filter((l) => {
+    // 联系状态筛选
+    if (filterContact.value !== "all") {
+      if (
+        filterContact.value === "contacted" &&
+        l.contactStatus !== "contacted"
+      )
+        return false;
+      if (
+        filterContact.value === "uncontacted" &&
+        l.contactStatus === "contacted"
+      )
+        return false;
+    }
+    // 微信状态筛选
+    if (filterWechat.value !== "all") {
+      if (filterWechat.value === "added" && l.wechatStatus !== "added")
+        return false;
+      if (filterWechat.value === "not_added" && l.wechatStatus === "added")
+        return false;
+    }
+    return true;
+  });
+});
+
+// 导出功能
+const handleExport = () => {
+  // exportToExcel(propertyStore.landlords);
+  ElMessage.success("导出功能开发中");
+};
+
+// 备份功能
+const handleBackup = () => {
+  // exportBackup(propertyStore.landlords);
+  ElMessage.success("备份功能开发中");
+};
+
+// 导入备份
+const handleImport = async (_event: Event) => {
+  ElMessage.success("导入功能开发中");
+};
+
+const getPhoneDisplay = (phones: string[]) => {
+  if (!phones || phones.length === 0 || !phones[0]) return "未填写电话";
+  if (phones.length === 1) return phones[0];
+  return `${phones[0]} (+${phones.length - 1})`;
+};
+
+const getLandlordTypeLabel = (type: LandlordType) => {
+  const map: Record<LandlordType, string> = {
+    [LandlordType.FirstHand]: "一手",
+    [LandlordType.SecondHand]: "二手",
+    [LandlordType.Agent]: "中介",
+    [LandlordType.Other]: "其他",
+  };
+  return map[type] || "未知";
+};
+
+const getLandlordTypeTagType = (type: LandlordType) => {
+  const map: Record<LandlordType, string> = {
+    [LandlordType.FirstHand]: "success",
+    [LandlordType.SecondHand]: "warning",
+    [LandlordType.Agent]: "danger",
+    [LandlordType.Other]: "info",
+  };
+  return map[type] || "info";
+};
+
+const handleLandlordClick = (landlord: any) => {
+  if (mapViewRef.value) {
+    mapViewRef.value.focusLandlord(landlord);
+  }
+};
+
+const handleDeleteLandlord = async (landlord: any) => {
+  try {
+    await propertyStore.removeLandlord(landlord.id);
+    ElMessage.success("删除成功");
+  } catch (error) {
+    ElMessage.error("删除失败");
+  }
+};
+
+const showPhotoUpload = ref(false);
+</script>
+
 <template>
-  <el-container class="app-container">
-    <el-header class="app-header">
-      <div class="header-left">
-        <h1>租房信息管理系统</h1>
+  <div class="app-container">
+    <!-- 顶部工具栏 -->
+    <div class="toolbar">
+      <div class="logo">
+        <h1>📍 租房信息管理系统</h1>
       </div>
-      <div class="header-right">
-        <el-statistic title="总房东数" :value="propertyStore.landlords.length" />
-        <el-statistic title="已完善" :value="propertyStore.perfectCount" />
-        <el-statistic title="待完善" :value="propertyStore.imperfectCount" />
-        <el-button-group>
-          <el-button type="primary" :icon="Download" @click="handleExport">导出数据</el-button>
-          <el-button type="success" :icon="Upload" @click="handleImport">导入数据</el-button>
-        </el-button-group>
+      <div class="actions">
+        <el-button
+          type="primary"
+          @click="showPhotoUpload = true"
+          :icon="Upload"
+        >
+          批量导入照片
+        </el-button>
+        <el-button
+          @click="handleExport"
+          :disabled="propertyStore.landlords.length === 0"
+        >
+          导出Excel
+        </el-button>
+        <el-button
+          type="primary"
+          @click="handleImport"
+          :disabled="propertyStore.landlords.length === 0"
+        >
+          导入备份
+        </el-button>
+        <el-button
+          @click="handleBackup"
+          :disabled="propertyStore.landlords.length === 0"
+        >
+          备份数据
+        </el-button>
+        <el-tag type="info" style="margin-left: 12px">
+          共 {{ propertyStore.landlords.length }} 个房东
+        </el-tag>
       </div>
-    </el-header>
+    </div>
 
-    <el-main class="app-main">
-      <el-row :gutter="20">
-        <!-- 左侧：上传和筛选 -->
-        <el-col :span="8">
-          <PhotoUpload />
-          
-          <el-card class="filter-card">
-            <template #header>
-              <div class="card-header">
-                <span>筛选条件</span>
-                <el-button text @click="clearFilters">清空</el-button>
+    <!-- 主内容区 -->
+    <div class="main-content">
+      <!-- 左侧：列表 -->
+      <div class="left-panel">
+        <!-- 房东列表 -->
+        <div class="property-list">
+          <div class="list-header">
+            <h3>房东列表 ({{ filteredLandlords.length }})</h3>
+            <div class="filters">
+              <el-select
+                v-model="filterContact"
+                style="width: 90px"
+                placeholder="联系状态"
+              >
+                <el-option label="全部" value="all" />
+                <el-option label="已联系" value="contacted" />
+                <el-option label="未联系" value="uncontacted" />
+              </el-select>
+              <el-select
+                v-model="filterWechat"
+                style="width: 90px"
+                placeholder="微信状态"
+              >
+                <el-option label="全部" value="all" />
+                <el-option label="已加" value="added" />
+                <el-option label="未加" value="not_added" />
+              </el-select>
+            </div>
+          </div>
+
+          <el-scrollbar height="calc(100vh - 0px)">
+            <div
+              v-for="landlord in filteredLandlords"
+              :key="landlord.id"
+              class="property-item"
+              :class="{
+                active: propertyStore.currentLandlord?.id === landlord.id,
+              }"
+              @click="handleLandlordClick(landlord)"
+            >
+              <div class="landlord-icon">
+                <LandlordAvatar
+                  :avatar="landlord.avatar"
+                  :photo="
+                    landlord.photos && landlord.photos.length > 0
+                      ? landlord.photos[0].fileName
+                      : undefined
+                  "
+                  :nickname="landlord.wechatNickname"
+                  :size="40"
+                />
               </div>
-            </template>
 
-            <el-form label-width="80px">
-              <el-form-item label="完善状态">
-                <el-radio-group v-model="filterForm.isPerfect">
-                  <el-radio-button :label="undefined">全部</el-radio-button>
-                  <el-radio-button :label="false">待完善</el-radio-button>
-                  <el-radio-button :label="true">已完善</el-radio-button>
-                </el-radio-group>
-              </el-form-item>
-
-              <el-form-item label="房东类型">
-                <el-checkbox-group v-model="filterForm.landlordType">
-                  <el-checkbox :label="LandlordType.FirstHand">一手房东</el-checkbox>
-                  <el-checkbox :label="LandlordType.SecondHand">二手房东</el-checkbox>
-                  <el-checkbox :label="LandlordType.Agent">中介</el-checkbox>
-                  <el-checkbox :label="LandlordType.Other">其他</el-checkbox>
-                </el-checkbox-group>
-              </el-form-item>
-
-              <el-form-item label="微信状态">
-                <el-checkbox-group v-model="filterForm.wechatStatus">
-                  <el-checkbox :label="WechatStatus.NotAdded">未添加</el-checkbox>
-                  <el-checkbox :label="WechatStatus.Added">已添加</el-checkbox>
-                  <el-checkbox :label="WechatStatus.Rejected">已拒绝</el-checkbox>
-                </el-checkbox-group>
-              </el-form-item>
-
-              <el-form-item label="联系状态">
-                <el-checkbox-group v-model="filterForm.contactStatus">
-                  <el-checkbox :label="ContactStatus.NotContacted">未联系</el-checkbox>
-                  <el-checkbox :label="ContactStatus.Contacted">已联系</el-checkbox>
-                </el-checkbox-group>
-              </el-form-item>
-
-              <el-form-item>
-                <el-button type="primary" @click="applyFilters">应用筛选</el-button>
-              </el-form-item>
-            </el-form>
-          </el-card>
-
-          <!-- 房东列表 -->
-          <el-card class="landlord-list-card">
-            <template #header>
-              <span>房东列表 ({{ propertyStore.filteredLandlords.length }})</span>
-            </template>
-
-            <el-scrollbar height="400px">
-              <div class="landlord-list">
-                <div
-                  v-for="landlord in propertyStore.filteredLandlords"
-                  :key="landlord.id"
-                  class="landlord-item"
-                  @click="selectLandlord(landlord)"
-                >
-                  <div class="landlord-info">
-                    <div class="landlord-name">
-                      {{ landlord.alias || landlord.phoneNumbers[0] || '待完善' }}
-                    </div>
-                    <div class="landlord-meta">
-                      <el-tag size="small" :type="getLandlordTypeTag(landlord.landlordType)">
-                        {{ translateLandlordType(landlord.landlordType) }}
-                      </el-tag>
-                      <el-tag size="small" v-if="!landlord.isPerfect" type="warning">
-                        待完善
-                      </el-tag>
-                    </div>
-                    <div class="landlord-address">
-                      {{ landlord.address || '未知地址' }}
-                    </div>
+              <div class="property-info">
+                <div class="info-row">
+                  <span class="nickname" v-if="landlord.wechatNickname">{{
+                    landlord.wechatNickname
+                  }}</span>
+                  <div style="display: flex; align-items: center; gap: 8px">
+                    <span
+                      class="phone"
+                      :class="{ secondary: landlord.wechatNickname }"
+                      >{{ getPhoneDisplay(landlord.phoneNumbers) }}</span
+                    >
                   </div>
                 </div>
-              </div>
-            </el-scrollbar>
-          </el-card>
-        </el-col>
 
-        <!-- 右侧：地图 -->
-        <el-col :span="16">
-          <el-card>
-            <template #header>
-              <span>地图视图</span>
-            </template>
-            <MapView />
-          </el-card>
-        </el-col>
-      </el-row>
-    </el-main>
+                <div class="address">
+                  {{ landlord.address || "未知地址" }}
+                </div>
+
+                <div class="stats">
+                  <el-tag
+                    size="small"
+                    :type="getLandlordTypeTagType(landlord.landlordType)"
+                    effect="plain"
+                    style="margin-right: 4px"
+                  >
+                    {{ getLandlordTypeLabel(landlord.landlordType) }}
+                  </el-tag>
+                  <el-tag
+                    size="small"
+                    :type="
+                      landlord.contactStatus === 'contacted'
+                        ? 'primary'
+                        : 'info'
+                    "
+                    effect="plain"
+                    style="margin-right: 4px"
+                  >
+                    {{
+                      landlord.contactStatus === "contacted"
+                        ? "已联系"
+                        : "未联系"
+                    }}
+                  </el-tag>
+                  <el-tag
+                    size="small"
+                    type="success"
+                    v-if="landlord.wechatStatus === 'added'"
+                    effect="plain"
+                  >已加WX</el-tag>
+                  <span style="margin-left: 8px"
+                    >{{ landlord.properties?.length || 0 }} 个房源</span
+                  >
+                  <el-button
+                    type="primary"
+                    link
+                    size="small"
+                    style="margin-left: auto"
+                    @click.stop="propertyStore.selectLandlord(landlord)"
+                  >
+                    详情
+                  </el-button>
+                  <el-popconfirm
+                    title="确定删除此房东？"
+                    @confirm="handleDeleteLandlord(landlord)"
+                    @click.stop
+                  >
+                    <template #reference>
+                      <el-button
+                        type="danger"
+                        link
+                        size="small"
+                        :icon="Delete"
+                        @click.stop
+                      />
+                    </template>
+                  </el-popconfirm>
+                </div>
+              </div>
+            </div>
+            <el-empty
+              v-if="filteredLandlords.length === 0"
+              description="暂无符合条件的数据"
+            />
+          </el-scrollbar>
+        </div>
+      </div>
+
+      <!-- 右侧：地图 -->
+      <div class="right-panel">
+        <MapView ref="mapViewRef" />
+      </div>
+    </div>
 
     <!-- 详情抽屉 -->
     <PropertyDetail />
-  </el-container>
+
+    <!-- 照片上传对话框 -->
+    <el-dialog
+      v-model="showPhotoUpload"
+      title="批量导入照片"
+      width="600px"
+      destroy-on-close
+    >
+      <PhotoUpload />
+    </el-dialog>
+  </div>
 </template>
 
-<script setup lang="ts">
-import { ref, reactive, onMounted, watch } from 'vue'
-import { ElMessage } from 'element-plus'
-import { Download, Upload } from '@element-plus/icons-vue'
-import PhotoUpload from './components/PhotoUpload.vue'
-import MapView from './components/MapView.vue'
-import PropertyDetail from './components/PropertyDetail.vue'
-import { usePropertyStore } from './stores/property'
-import { LandlordType, WechatStatus, ContactStatus } from './types'
-import type { Landlord, FilterOptions } from './types'
-import { exportToExcel, exportToJson, importFromJson } from './utils/export'
-
-const propertyStore = usePropertyStore()
-
-const filterForm = reactive<FilterOptions>({
-  isPerfect: undefined,
-  landlordType: [],
-  wechatStatus: [],
-  contactStatus: []
-})
-
-onMounted(async () => {
-  await propertyStore.loadLandlords()
-})
-
-watch(filterForm, () => {
-  applyFilters()
-}, { deep: true })
-
-function applyFilters() {
-  propertyStore.setFilters({ ...filterForm })
-}
-
-function clearFilters() {
-  filterForm.isPerfect = undefined
-  filterForm.landlordType = []
-  filterForm.wechatStatus = []
-  filterForm.contactStatus = []
-  propertyStore.clearFilters()
-}
-
-function selectLandlord(landlord: Landlord) {
-  propertyStore.setCurrentLandlord(landlord)
-}
-
-function getLandlordTypeTag(type: LandlordType): string {
-  const map: Record<LandlordType, string> = {
-    [LandlordType.FirstHand]: 'success',
-    [LandlordType.SecondHand]: 'primary',
-    [LandlordType.Agent]: 'danger',
-    [LandlordType.Other]: 'info'
-  }
-  return map[type] || 'info'
-}
-
-function translateLandlordType(type: LandlordType): string {
-  const map: Record<LandlordType, string> = {
-    [LandlordType.FirstHand]: '一手房东',
-    [LandlordType.SecondHand]: '二手房东',
-    [LandlordType.Agent]: '中介',
-    [LandlordType.Other]: '其他'
-  }
-  return map[type] || '未知'
-}
-
-function handleExport() {
-  try {
-    const timestamp = new Date().toISOString().slice(0, 10)
-    exportToExcel(propertyStore.landlords, `租房信息_${timestamp}.xlsx`)
-    ElMessage.success('导出成功')
-  } catch (error: any) {
-    ElMessage.error(`导出失败: ${error.message}`)
-  }
-}
-
-function handleImport() {
-  const input = document.createElement('input')
-  input.type = 'file'
-  input.accept = '.json'
-  
-  input.onchange = async (e) => {
-    const file = (e.target as HTMLInputElement).files?.[0]
-    if (!file) return
-
-    try {
-      const data = await importFromJson(file)
-      // TODO: 实现批量导入逻辑
-      ElMessage.success(`成功导入 ${data.length} 条数据`)
-      await propertyStore.loadLandlords()
-    } catch (error: any) {
-      ElMessage.error(`导入失败: ${error.message}`)
-    }
-  }
-
-  input.click()
-}
-</script>
-
 <style scoped>
-.app-container {
-  height: 100vh;
-  background-color: #f5f7fa;
+*:not(.el-button) {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
 }
 
-.app-header {
+.app-container {
+  width: 100vw;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: #f0f2f5;
+}
+
+.toolbar {
+  height: 60px;
   background: white;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 24px;
+  z-index: 100;
+}
+
+.logo h1 {
+  font-size: 20px;
+  color: #409eff;
+  margin: 0;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.main-content {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+}
+
+.left-panel {
+  width: 420px;
+  background: white;
+  box-shadow: 2px 0 8px rgba(0, 0, 0, 0.1);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.property-list {
+  flex: 1;
+  padding: 16px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.list-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 0 20px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  margin-bottom: 12px;
 }
 
-.header-left h1 {
-  margin: 0;
-  font-size: 20px;
+.list-header h3 {
+  font-size: 16px;
   color: #303133;
 }
 
-.header-right {
+.filters {
   display: flex;
-  align-items: center;
-  gap: 20px;
+  gap: 8px;
 }
 
-.app-main {
-  padding: 20px;
+.property-item {
+  display: flex;
+  gap: 12px;
+  padding: 12px;
+  margin-bottom: 12px;
+  margin-right: 12px;
+  background: #f5f7fa;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s;
+  border: 2px solid transparent;
 }
 
-.filter-card {
-  margin-top: 20px;
+.property-item:hover {
+  background: #e6f7ff;
+  border: 2px solid #409eff70;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
-.card-header {
+.el-tag {
+  padding: 0 6px;
+}
+
+.property-item.active {
+  border-color: #409eff;
+  background: #e6f7ff;
+}
+
+.property-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.info-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
 }
 
-.landlord-list-card {
-  margin-top: 20px;
-}
-
-.landlord-list {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.landlord-item {
-  padding: 12px;
-  border: 1px solid #ebeef5;
-  border-radius: 4px;
-  cursor: pointer;
-  transition: all 0.3s;
-}
-
-.landlord-item:hover {
-  background-color: #f5f7fa;
-  border-color: #409eff;
-}
-
-.landlord-info {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.landlord-name {
+.property-info .phone {
   font-weight: bold;
+  color: #303133;
   font-size: 14px;
 }
 
-.landlord-meta {
-  display: flex;
-  gap: 8px;
-}
-
-.landlord-address {
+.property-info .phone.secondary {
   font-size: 12px;
   color: #909399;
+  font-weight: normal;
+}
+
+.property-info .nickname {
+  font-weight: bold;
+  color: #303133;
+  font-size: 14px;
+}
+
+.property-info .address {
+  font-size: 12px;
+  color: #606266;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.property-info .stats {
+  font-size: 12px;
+  color: #909399;
+  display: flex;
+  align-items: center;
+}
+
+.landlord-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 50px;
+  height: 50px;
+  background: #f0f9ff;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.right-panel {
+  flex: 1;
+  background: white;
+  margin: 12px;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 </style>

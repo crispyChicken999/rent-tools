@@ -1,201 +1,520 @@
 <template>
   <div class="photo-upload">
-    <el-card>
-      <template #header>
-        <div class="card-header">
-          <span>批量导入照片</span>
-          <el-tag v-if="folderPath" type="success">{{ folderPath }}</el-tag>
-        </div>
-      </template>
+    <div class="upload-section">
+      <div v-if="folderPath" class="current-folder">
+        当前文件夹：<el-tag type="success">{{ folderPath }}</el-tag>
+      </div>
+      <el-alert
+        v-if="!isSupported"
+        title="浏览器不支持"
+        type="warning"
+        description="当前浏览器不支持 File System Access API，请使用 Chrome 86+ 或 Edge 86+"
+        :closable="false"
+        show-icon
+      />
 
-      <div class="upload-section">
-        <el-alert
-          v-if="!isSupported"
-          title="浏览器不支持"
+      <div v-else class="button-group">
+        <el-button
+          type="primary"
+          size="large"
+          :icon="Folder"
+          
+          @click="selectFolder"
+          :loading="scanning"
+        >
+          选择照片文件夹
+        </el-button>
+
+        <el-button
+          v-if="folderPath"
+          type="success"
+          size="large"
+          :icon="Refresh"
+          
+          @click="scanFolder"
+          :loading="scanning"
+        >
+          扫描文件夹
+        </el-button>
+
+        <el-button
+          v-if="folderPath"
           type="warning"
-          description="当前浏览器不支持 File System Access API，请使用 Chrome 86+ 或 Edge 86+"
-          :closable="false"
-          show-icon
-        />
+          size="large"
+          :icon="Edit"
+          
+          @click="startQuickOrganize"
+        >
+          快速整理
+        </el-button>
 
-        <div v-else class="button-group">
-          <el-button
-            type="primary"
-            size="large"
-            :icon="Folder"
-            @click="selectFolder"
-            :loading="scanning"
-          >
-            选择照片文件夹
-          </el-button>
+        <el-button
+          type="danger"
+          size="large"
+          :icon="Delete"
+          
+          @click="handleClearData"
+          :loading="scanning"
+        >
+          清空所有数据
+        </el-button>
+      </div>
 
-          <el-button
-            v-if="folderPath"
-            type="success"
-            size="large"
-            :icon="Refresh"
-            @click="scanFolder"
-            :loading="scanning"
+      <el-progress
+        v-if="scanning"
+        :percentage="progress"
+        :format="formatProgress"
+        style="margin-top: 20px"
+      />
+
+      <div v-if="scanResult" class="scan-result">
+        <el-descriptions :column="2" border>
+          <el-descriptions-item label="总文件数">
+            {{ scanResult.total }}
+          </el-descriptions-item>
+          <el-descriptions-item label="成功导入">
+            {{ scanResult.success }}
+          </el-descriptions-item>
+          <el-descriptions-item label="失败数">
+            {{ scanResult.failed }}
+          </el-descriptions-item>
+          <el-descriptions-item label="用时">
+            {{ scanResult.duration }}秒
+          </el-descriptions-item>
+        </el-descriptions>
+      </div>
+    </div>
+
+    <!-- 快速整理弹窗 -->
+    <el-dialog
+      v-model="showQuickOrganize"
+      title="快速整理房东信息 (快捷键: Ctrl+←/→ 切换, Ctrl+Delete 删除, Enter 保存)"
+      fullscreen
+      :show-close="true"
+      @closed="closeQuickOrganize"
+      class="quick-organize-dialog"
+    >
+      <div
+        class="organize-container"
+        v-if="organizeLandlord"
+        @keydown="handleOrganizeKeydown"
+        tabindex="0"
+        ref="containerRef"
+        style="outline: none; height: 100%; display: flex"
+      >
+        <div class="left-panel">
+          <el-carousel
+            trigger="click"
+            height="80vh"
+            :autoplay="false"
+            indicator-position="outside"
+            v-if="currentImageUrls.length > 0"
           >
-            扫描文件夹
-          </el-button>
+            <el-carousel-item
+              v-for="(url, index) in currentImageUrls"
+              :key="index"
+            >
+              <div class="image-wrapper">
+                <img :src="url" class="carousel-image" />
+              </div>
+            </el-carousel-item>
+          </el-carousel>
+          <div v-else class="no-image">无照片</div>
+          <div class="photo-info">{{ currentImageUrls.length }} 张照片</div>
         </div>
 
-        <el-progress
-          v-if="scanning"
-          :percentage="progress"
-          :format="formatProgress"
-        />
+        <div class="right-panel">
+          <div class="info-card">
+            <h3>
+              房东 {{ organizeIndex + 1 }} /
+              {{ propertyStore.landlords.length }}
+            </h3>
+            <p class="landlord-id">ID: {{ organizeLandlord.id }}</p>
 
-        <div v-if="scanResult" class="scan-result">
-          <el-descriptions :column="2" border>
-            <el-descriptions-item label="总文件数">
-              {{ scanResult.total }}
-            </el-descriptions-item>
-            <el-descriptions-item label="成功导入">
-              {{ scanResult.success }}
-            </el-descriptions-item>
-            <el-descriptions-item label="失败数">
-              {{ scanResult.failed }}
-            </el-descriptions-item>
-            <el-descriptions-item label="用时">
-              {{ scanResult.duration }}秒
-            </el-descriptions-item>
-          </el-descriptions>
+            <div class="form-section">
+              <el-input
+                ref="phoneInputRef"
+                v-model="currentPhone"
+                placeholder="输入电话号码"
+                size="large"
+                @keydown.enter.prevent="saveAndNext"
+                clearable
+              >
+                <template #prepend>电话</template>
+              </el-input>
+              <div class="input-tip">按回车保存并跳转下一个</div>
+            </div>
+
+            <div class="actions">
+              <el-button
+                type="danger"
+                size="large"
+                @click="handleDeleteRequest"
+                class="action-btn"
+              >
+                删除 (Ctrl+Del) {{ deleteConfirmCount > 0 ? "再次确认" : "" }}
+              </el-button>
+
+              <div class="nav-buttons">
+                <el-button
+                  size="large"
+                  @click="prevLandlord"
+                  :disabled="organizeIndex <= 0"
+                >
+                  上一个 (Ctrl+←)
+                </el-button>
+                <el-button
+                  type="primary"
+                  size="large"
+                  @click="nextLandlord"
+                  :disabled="
+                    organizeIndex >= propertyStore.landlords.length - 1
+                  "
+                >
+                  下一个 (Ctrl+→)
+                </el-button>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
-    </el-card>
+      <div v-else class="empty-state">
+        <el-empty description="没有房东数据" />
+      </div>
+    </el-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
-import { ElMessage } from 'element-plus'
-import { Folder, Refresh } from '@element-plus/icons-vue'
+import { ref, onMounted, computed, nextTick } from "vue";
+import { ElMessage, ElMessageBox } from "element-plus";
+import { Folder, Refresh, Delete, Edit } from "@element-plus/icons-vue";
 import {
   isFileSystemAccessSupported,
   requestDirectoryAccess,
   getValidDirectoryHandle,
-  scanDirectory
-} from '@/utils/fileSystem'
-import { extractExif } from '@/utils/exif'
-import { usePropertyStore } from '@/stores/property'
-import type { Photo } from '@/types'
+  scanDirectory,
+  getFileByName,
+} from "@/utils/fileSystem";
+import { extractExif } from "@/utils/exif";
+import { usePropertyStore } from "@/stores/property";
+import type { Photo } from "@/types";
 
-const propertyStore = usePropertyStore()
+const propertyStore = usePropertyStore();
 
-const isSupported = ref(isFileSystemAccessSupported())
-const folderPath = ref('')
-const scanning = ref(false)
-const progress = ref(0)
-const currentFile = ref(0)
-const totalFiles = ref(0)
+const isSupported = ref(isFileSystemAccessSupported());
+const folderPath = ref("");
+const scanning = ref(false);
+const progress = ref(0);
+const currentFile = ref(0);
+const totalFiles = ref(0);
 
 const scanResult = ref<{
-  total: number
-  success: number
-  failed: number
-  duration: number
-} | null>(null)
+  total: number;
+  success: number;
+  failed: number;
+  duration: number;
+} | null>(null);
 
-let dirHandle: FileSystemDirectoryHandle | null = null
+const handleClearData = async () => {
+  try {
+    await ElMessageBox.confirm(
+      "确定要清空所有数据吗？此操作不可恢复！",
+      "警告",
+      {
+        confirmButtonText: "确定清空",
+        cancelButtonText: "取消",
+        type: "warning",
+      }
+    );
+
+    scanning.value = true;
+    await propertyStore.clearAllData();
+    folderPath.value = "";
+    scanResult.value = null;
+    dirHandle = null;
+    ElMessage.success("所有数据已清空");
+  } catch (error) {
+    if (error !== "cancel") {
+      console.error("Clear data error:", error);
+      ElMessage.error("清空数据失败");
+    }
+  } finally {
+    scanning.value = false;
+  }
+};
+
+let dirHandle: FileSystemDirectoryHandle | null = null;
 
 onMounted(async () => {
   // 尝试恢复已保存的文件夹访问权限
-  const savedHandle = await getValidDirectoryHandle()
+  const savedHandle = await getValidDirectoryHandle();
   if (savedHandle) {
-    dirHandle = savedHandle
-    folderPath.value = savedHandle.name
+    dirHandle = savedHandle;
+    folderPath.value = savedHandle.name;
   }
-})
+});
 
 async function selectFolder() {
   try {
-    const result = await requestDirectoryAccess()
-    dirHandle = result.handle
-    folderPath.value = result.displayPath
-    ElMessage.success('文件夹访问权限已授予')
+    const result = await requestDirectoryAccess();
+    dirHandle = result.handle;
+    folderPath.value = result.displayPath;
+    ElMessage.success("文件夹访问权限已授予");
   } catch (error: any) {
-    if (error.message.includes('取消')) {
-      ElMessage.info('已取消选择')
+    if (error.message.includes("取消")) {
+      ElMessage.info("已取消选择");
     } else {
-      ElMessage.error(`选择文件夹失败: ${error.message}`)
+      ElMessage.error(`选择文件夹失败: ${error.message}`);
     }
   }
 }
 
 async function scanFolder() {
   if (!dirHandle) {
-    ElMessage.warning('请先选择文件夹')
-    return
+    ElMessage.warning("请先选择文件夹");
+    return;
   }
 
-  scanning.value = true
-  scanResult.value = null
-  const startTime = Date.now()
+  scanning.value = true;
+  scanResult.value = null;
+  const startTime = Date.now();
 
   try {
     // 扫描文件
     const files = await scanDirectory(dirHandle, (current, total) => {
-      currentFile.value = current
-      totalFiles.value = total
-      progress.value = Math.round((current / total) * 100)
-    })
+      currentFile.value = current;
+      totalFiles.value = total;
+      progress.value = Math.round((current / total) * 100);
+    });
 
-    let successCount = 0
-    let failedCount = 0
+    let successCount = 0;
+    let failedCount = 0;
 
     // 处理每个文件
     for (const fileEntry of files) {
       try {
-        if (fileEntry.type === 'image') {
-          const file = await fileEntry.handle.getFile()
-          const exifData = await extractExif(file)
+        if (fileEntry.type === "image") {
+          // 检查是否已存在相同文件名的照片
+          const isDuplicate = propertyStore.landlords.some((l) =>
+            l.photos.some((p) => p.fileName === fileEntry.name)
+          );
+
+          if (isDuplicate) {
+            console.log(`跳过重复文件: ${fileEntry.name}`);
+            continue;
+          }
+
+          const file = await fileEntry.handle.getFile();
+          const exifData = await extractExif(file);
 
           const photo: Photo = {
-            id: `photo-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+            id: `photo-${Date.now()}-${Math.random()
+              .toString(36)
+              .substr(2, 9)}`,
             fileName: fileEntry.name,
-            folderId: 'userPhotosFolder',
+            folderId: "userPhotosFolder",
             captureTime: exifData.captureTime,
-            gps: exifData.gps
-          }
+            gps: exifData.gps,
+          };
 
           // 自动建档
           await propertyStore.createLandlord({
             photos: [photo],
             gps: exifData.gps,
             captureTime: exifData.captureTime,
-            folderId: 'userPhotosFolder'
-          })
+            folderId: "userPhotosFolder",
+          });
 
-          successCount++
+          successCount++;
         }
       } catch (error) {
-        console.error(`处理文件失败 ${fileEntry.name}:`, error)
-        failedCount++
+        console.error(`处理文件失败 ${fileEntry.name}:`, error);
+        failedCount++;
       }
     }
 
-    const duration = ((Date.now() - startTime) / 1000).toFixed(2)
+    const duration = ((Date.now() - startTime) / 1000).toFixed(2);
 
     scanResult.value = {
       total: files.length,
       success: successCount,
       failed: failedCount,
-      duration: Number(duration)
-    }
+      duration: Number(duration),
+    };
 
-    ElMessage.success(`扫描完成！成功导入 ${successCount} 个文件`)
+    ElMessage.success(`扫描完成！成功导入 ${successCount} 个文件`);
   } catch (error: any) {
-    ElMessage.error(`扫描失败: ${error.message}`)
+    ElMessage.error(`扫描失败: ${error.message}`);
   } finally {
-    scanning.value = false
-    progress.value = 0
+    scanning.value = false;
+    progress.value = 0;
   }
 }
 
-function formatProgress(percentage: number): string {
-  return `${currentFile.value} / ${totalFiles.value}`
+// ========== 快速整理功能 ==========
+
+const showQuickOrganize = ref(false);
+const organizeIndex = ref(0);
+const currentPhone = ref("");
+const deleteConfirmCount = ref(0);
+const currentImageUrls = ref<string[]>([]);
+const phoneInputRef = ref<any>(null);
+const containerRef = ref<HTMLElement | null>(null);
+let loadingImagesVersion = 0;
+
+const organizeLandlord = computed(() => {
+  if (propertyStore.landlords.length === 0) return null;
+  return propertyStore.landlords[organizeIndex.value];
+});
+
+const loadImagesForCurrentLandlord = async () => {
+  const myVersion = ++loadingImagesVersion;
+
+  // 释放旧的 URL
+  currentImageUrls.value.forEach((url) => URL.revokeObjectURL(url));
+  currentImageUrls.value = [];
+
+  if (!organizeLandlord.value) return;
+
+  // 设置当前电话
+  currentPhone.value = organizeLandlord.value.phoneNumbers?.[0] || "";
+  deleteConfirmCount.value = 0;
+
+  // 确保有文件夹访问权限
+  if (!dirHandle) {
+    dirHandle = await getValidDirectoryHandle();
+  }
+
+  if (!dirHandle) return;
+
+  const urls: string[] = [];
+  // 只加载前5张图片以提高性能，或者全部加载
+  for (const photo of organizeLandlord.value.photos) {
+    if (myVersion !== loadingImagesVersion) return; // 如果有新的加载请求，中止当前请求
+    try {
+      const file = await getFileByName(dirHandle, photo.fileName);
+      if (file) {
+        urls.push(URL.createObjectURL(file));
+      }
+    } catch (e) {
+      console.error("Load image error", e);
+    }
+  }
+
+  if (myVersion === loadingImagesVersion) {
+    currentImageUrls.value = urls;
+  } else {
+    // 如果版本不匹配，说明有新的加载请求，这些 URL 应该被释放（虽然它们还没被赋值给 currentImageUrls，但已经创建了 Blob URL）
+    urls.forEach((url) => URL.revokeObjectURL(url));
+  }
+};
+
+const startQuickOrganize = async () => {
+  if (propertyStore.landlords.length === 0) {
+    ElMessage.warning("没有房东数据");
+    return;
+  }
+  showQuickOrganize.value = true;
+  organizeIndex.value = 0;
+  await loadImagesForCurrentLandlord();
+  nextTick(() => {
+    phoneInputRef.value?.focus();
+    containerRef.value?.focus();
+  });
+};
+
+const closeQuickOrganize = () => {
+  showQuickOrganize.value = false;
+  currentImageUrls.value.forEach((url) => URL.revokeObjectURL(url));
+  currentImageUrls.value = [];
+};
+
+const nextLandlord = () => {
+  if (organizeIndex.value < propertyStore.landlords.length - 1) {
+    organizeIndex.value++;
+    loadImagesForCurrentLandlord();
+    nextTick(() => {
+      phoneInputRef.value?.focus();
+    });
+  } else {
+    ElMessage.info("已经是最后一个了");
+  }
+};
+
+const prevLandlord = () => {
+  if (organizeIndex.value > 0) {
+    organizeIndex.value--;
+    loadImagesForCurrentLandlord();
+    nextTick(() => {
+      phoneInputRef.value?.focus();
+    });
+  }
+};
+
+const saveAndNext = async () => {
+  if (organizeLandlord.value) {
+    // 保存电话
+    if (currentPhone.value.trim()) {
+      await propertyStore.updateLandlordData(organizeLandlord.value.id, {
+        phoneNumbers: [currentPhone.value.trim()],
+      });
+      ElMessage.success("保存成功");
+    }
+
+    // 自动跳转下一个
+    if (organizeIndex.value < propertyStore.landlords.length - 1) {
+      nextLandlord();
+    } else {
+      ElMessage.success("整理完成！");
+    }
+  }
+};
+
+const handleDeleteRequest = async () => {
+  deleteConfirmCount.value++;
+  if (deleteConfirmCount.value >= 2) {
+    if (organizeLandlord.value) {
+      const idToDelete = organizeLandlord.value.id;
+      await propertyStore.removeLandlord(idToDelete);
+      ElMessage.success("已删除");
+
+      if (propertyStore.landlords.length === 0) {
+        closeQuickOrganize();
+      } else {
+        if (organizeIndex.value >= propertyStore.landlords.length) {
+          organizeIndex.value = propertyStore.landlords.length - 1;
+        }
+        // 重新加载当前（新的）房东
+        loadImagesForCurrentLandlord();
+        nextTick(() => {
+          phoneInputRef.value?.focus();
+        });
+      }
+    }
+  } else {
+    ElMessage.warning("再按一次删除键确认删除");
+  }
+};
+
+const handleOrganizeKeydown = (e: KeyboardEvent) => {
+  if (!showQuickOrganize.value) return;
+
+  // Ctrl + Arrow Left/Right for navigation
+  if (e.key === "ArrowRight" && (e.ctrlKey || e.metaKey)) {
+    e.preventDefault();
+    nextLandlord();
+  } else if (e.key === "ArrowLeft" && (e.ctrlKey || e.metaKey)) {
+    e.preventDefault();
+    prevLandlord();
+  } else if (e.key === "Delete" && (e.ctrlKey || e.metaKey)) {
+    e.preventDefault();
+    handleDeleteRequest();
+  }
+};
+
+function formatProgress(_percentage: number): string {
+  return `${currentFile.value} / ${totalFiles.value}`;
 }
 </script>
 
@@ -216,12 +535,136 @@ function formatProgress(percentage: number): string {
   gap: 20px;
 }
 
+.current-folder {
+  text-align: center;
+  font-size: 14px;
+  padding: 5px 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  border-radius: 4px;
+  background-color: #f0f0f0;
+  border: 1px solid #dcdfe6;
+}
+
 .button-group {
   display: flex;
+  flex-direction: column;
   gap: 10px;
+}
+
+.el-button {
+  margin: 0;
 }
 
 .scan-result {
   margin-top: 20px;
+}
+
+:deep(.quick-organize-dialog .el-dialog__body) {
+  padding: 0;
+  height: calc(100vh - 54px);
+  overflow: hidden;
+}
+
+.organize-container {
+  display: flex;
+  height: 100%;
+}
+
+.left-panel {
+  flex: 2;
+  background: #000;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  position: relative;
+}
+
+.carousel-image {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.image-wrapper {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.photo-info {
+  position: absolute;
+  bottom: 20px;
+  right: 20px;
+  color: white;
+  background: rgba(0, 0, 0, 0.5);
+  padding: 5px 10px;
+  border-radius: 4px;
+}
+
+.right-panel {
+  flex: 1;
+  padding: 20px;
+  background: #f5f7fa;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.info-card {
+  background: white;
+  padding: 30px;
+  border-radius: 8px;
+  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
+}
+
+.landlord-id {
+  color: #909399;
+  font-size: 12px;
+  margin-bottom: 20px;
+}
+
+.form-section {
+  margin: 30px 0;
+}
+
+.input-tip {
+  font-size: 12px;
+  color: #909399;
+  margin-top: 5px;
+}
+
+.actions {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.nav-buttons {
+  display: flex;
+  gap: 10px;
+}
+
+.nav-buttons .el-button {
+  flex: 1;
+}
+
+.action-btn {
+  width: 100%;
+}
+
+.no-image {
+  color: white;
+  text-align: center;
+}
+
+.empty-state {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100%;
 }
 </style>
