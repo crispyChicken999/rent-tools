@@ -39,13 +39,13 @@ export async function getAddressFromGps(gps: GPS): Promise<string> {
     const AMap = await loadAMap()
     const geocoder = new AMap.Geocoder()
 
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve) => {
       geocoder.getAddress([gps.lng, gps.lat], (status: string, result: any) => {
         if (status === 'complete' && result.info === 'OK') {
           const address = result.regeocode.formattedAddress
           resolve(address)
         } else {
-          reject(new Error('逆地理编码失败'))
+          // reject(new Error('逆地理编码失败'))
         }
       })
     })

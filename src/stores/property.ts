@@ -55,7 +55,7 @@ export const usePropertyStore = defineStore("property", () => {
     if (filters.value.rentRange) {
       const [min, max] = filters.value.rentRange;
       result = result.filter((l) =>
-        l.properties.some((p:any) => p.rent >= min && p.rent <= max)
+        l.properties.some((p: any) => p.rent >= min && p.rent <= max)
       );
     }
 
@@ -118,7 +118,7 @@ export const usePropertyStore = defineStore("property", () => {
       try {
         address = await getAddressFromGps(finalGps);
       } catch (error) {
-        console.error("获取地址失败:", error);
+        // 忽略逆地理编码失败，地址保持为空
       }
     }
 
