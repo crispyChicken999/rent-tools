@@ -1,5 +1,5 @@
 import { defineStore } from "pinia";
-import { ref, computed } from "vue";
+import { ref, computed, toRaw } from "vue";
 import type { Landlord, Property, FilterOptions, GPS } from "@/types";
 import { LandlordType, WechatStatus, ContactStatus } from "@/types";
 import {
@@ -158,12 +158,13 @@ export const usePropertyStore = defineStore("property", () => {
 
     const landlord = landlords.value[index];
     const updatedLandlord = {
-      ...landlord,
+      ...toRaw(landlord),
       ...updates,
       updatedAt: new Date().toISOString(),
     };
 
-    await updateLandlord(updatedLandlord);
+    // 使用 toRaw 确保传入 IndexedDB 的是原始对象，避免 Proxy 克隆错误
+    await updateLandlord(toRaw(updatedLandlord));
     landlords.value[index] = updatedLandlord;
 
     if (currentLandlord.value?.id === id) {

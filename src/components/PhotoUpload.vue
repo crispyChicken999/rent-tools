@@ -88,9 +88,10 @@
     <!-- 快速整理弹窗 -->
     <el-dialog
       v-model="showQuickOrganize"
-      title="快速整理房东信息 (快捷键: Ctrl+←/→ 切换, Ctrl+Delete 删除, Enter 保存)"
+      title="快速整理房东信息 (快捷键: ←/→/A/D 切换, +/- 缩放, Delete 删除, Enter 保存)"
       fullscreen
       :show-close="true"
+      @opened="onQuickOrganizeOpened"
       @closed="closeQuickOrganize"
       class="quick-organize-dialog"
     >
@@ -114,7 +115,11 @@
               v-for="(url, index) in currentImageUrls"
               :key="index"
             >
-              <div class="image-wrapper">
+              <div
+                class="image-wrapper"
+                :class="{ 'is-zoomed': isImageZoomed }"
+                @click="toggleImageZoom"
+              >
                 <img :src="url" class="carousel-image" />
               </div>
             </el-carousel-item>
@@ -132,17 +137,27 @@
             <p class="landlord-id">ID: {{ organizeLandlord.id }}</p>
 
             <div class="form-section">
-              <el-input
-                ref="phoneInputRef"
-                v-model="currentPhone"
-                placeholder="输入电话号码"
-                size="large"
-                @keydown.enter.prevent="saveAndNext"
-                clearable
+              <div
+                v-for="(phone, index) in currentPhones"
+                :key="index"
+                class="phone-input-wrapper"
+                style="margin-bottom: 10px"
               >
-                <template #prepend>电话</template>
-              </el-input>
-              <div class="input-tip">按回车保存并跳转下一个</div>
+                <el-input
+                  :ref="(el:any) => (phoneInputRefs[index] = el)"
+                  v-model="currentPhones[index]"
+                  placeholder="输入电话号码"
+                  size="large"
+                  @keydown.enter.exact.prevent="saveAndNext"
+                  @keydown.ctrl.enter.prevent="addPhoneField"
+                  clearable
+                >
+                  <template #prepend>电话 {{ index + 1 }}</template>
+                </el-input>
+              </div>
+              <div class="input-tip">
+                Enter 保存 | Ctrl+Enter 添加号码 | A/D 切换
+              </div>
             </div>
 
             <div class="actions">
@@ -152,7 +167,7 @@
                 @click="handleDeleteRequest"
                 class="action-btn"
               >
-                删除 (Ctrl+Del) {{ deleteConfirmCount > 0 ? "再次确认" : "" }}
+                删除 (Delete) {{ deleteConfirmCount > 0 ? "再次确认" : "" }}
               </el-button>
 
               <div class="nav-buttons">
@@ -161,7 +176,7 @@
                   @click="prevLandlord"
                   :disabled="organizeIndex <= 0"
                 >
-                  上一个 (Ctrl+←)
+                  上一个 (←/A)
                 </el-button>
                 <el-button
                   type="primary"
@@ -171,7 +186,7 @@
                     organizeIndex >= propertyStore.landlords.length - 1
                   "
                 >
-                  下一个 (Ctrl+→)
+                  下一个 (→/D)
                 </el-button>
               </div>
             </div>
@@ -356,10 +371,11 @@ async function scanFolder() {
 
 const showQuickOrganize = ref(false);
 const organizeIndex = ref(0);
-const currentPhone = ref("");
+const currentPhones = ref<string[]>([""]);
 const deleteConfirmCount = ref(0);
 const currentImageUrls = ref<string[]>([]);
-const phoneInputRef = ref<any>(null);
+const isImageZoomed = ref(false);
+const phoneInputRefs = ref<any[]>([]);
 const containerRef = ref<HTMLElement | null>(null);
 let loadingImagesVersion = 0;
 
@@ -374,11 +390,14 @@ const loadImagesForCurrentLandlord = async () => {
   // 释放旧的 URL
   currentImageUrls.value.forEach((url) => URL.revokeObjectURL(url));
   currentImageUrls.value = [];
+  phoneInputRefs.value = [];
 
   if (!organizeLandlord.value) return;
 
   // 设置当前电话
-  currentPhone.value = organizeLandlord.value.phoneNumbers?.[0] || "";
+  currentPhones.value = organizeLandlord.value.phoneNumbers?.length
+    ? [...organizeLandlord.value.phoneNumbers]
+    : [""];
   deleteConfirmCount.value = 0;
 
   // 确保有文件夹访问权限
@@ -415,12 +434,50 @@ const startQuickOrganize = async () => {
     ElMessage.warning("没有房东数据");
     return;
   }
+
+  // 查找第一个没有电话号码的房东
+  const nextIndex = propertyStore.landlords.findIndex(
+    (l) => !l.phoneNumbers || l.phoneNumbers.length === 0
+  );
+
   showQuickOrganize.value = true;
-  organizeIndex.value = 0;
+  organizeIndex.value = nextIndex !== -1 ? nextIndex : 0;
+
+  if (nextIndex !== -1) {
+    ElMessage.success(`已自动跳转到第 ${nextIndex + 1} 个待整理房东`);
+  } else {
+    ElMessage.info("所有房东都已整理，从头开始浏览");
+  }
+
   await loadImagesForCurrentLandlord();
+};
+
+const toggleImageZoom = () => {
+  isImageZoomed.value = !isImageZoomed.value;
   nextTick(() => {
-    phoneInputRef.value?.focus();
-    containerRef.value?.focus();
+    if (isImageZoomed.value) {
+      // 放大时滚动到中间
+      const wrappers = document.querySelectorAll(".image-wrapper.is-zoomed");
+      wrappers.forEach((wrapper) => {
+        const img = wrapper.querySelector("img");
+        if (img) {
+          // 垂直居中
+          wrapper.scrollTop = (img.scrollHeight - wrapper.clientHeight) / 2;
+        }
+      });
+    }
+
+    if (phoneInputRefs.value.length > 0) {
+      phoneInputRefs.value[0]?.focus();
+    }
+  });
+};
+
+const onQuickOrganizeOpened = () => {
+  nextTick(() => {
+    if (phoneInputRefs.value.length > 0) {
+      phoneInputRefs.value[0]?.focus();
+    }
   });
 };
 
@@ -433,9 +490,12 @@ const closeQuickOrganize = () => {
 const nextLandlord = () => {
   if (organizeIndex.value < propertyStore.landlords.length - 1) {
     organizeIndex.value++;
+    isImageZoomed.value = false;
     loadImagesForCurrentLandlord();
     nextTick(() => {
-      phoneInputRef.value?.focus();
+      if (phoneInputRefs.value.length > 0) {
+        phoneInputRefs.value[0]?.focus();
+      }
     });
   } else {
     ElMessage.info("已经是最后一个了");
@@ -445,19 +505,39 @@ const nextLandlord = () => {
 const prevLandlord = () => {
   if (organizeIndex.value > 0) {
     organizeIndex.value--;
+    isImageZoomed.value = false;
     loadImagesForCurrentLandlord();
     nextTick(() => {
-      phoneInputRef.value?.focus();
+      if (phoneInputRefs.value.length > 0) {
+        phoneInputRefs.value[0]?.focus();
+      }
     });
   }
+};
+
+const addPhoneField = () => {
+  currentPhones.value.push("");
+  nextTick(() => {
+    const inputs = phoneInputRefs.value;
+    if (inputs && inputs.length > 0) {
+      inputs[inputs.length - 1]?.focus();
+    }
+  });
 };
 
 const saveAndNext = async () => {
   if (organizeLandlord.value) {
     // 保存电话
-    if (currentPhone.value.trim()) {
+    const validPhones = currentPhones.value
+      .map((p) => p.trim())
+      .filter((p) => p);
+
+    if (
+      validPhones.length > 0 ||
+      organizeLandlord.value.phoneNumbers.length > 0
+    ) {
       await propertyStore.updateLandlordData(organizeLandlord.value.id, {
-        phoneNumbers: [currentPhone.value.trim()],
+        phoneNumbers: validPhones,
       });
       ElMessage.success("保存成功");
     }
@@ -486,9 +566,12 @@ const handleDeleteRequest = async () => {
           organizeIndex.value = propertyStore.landlords.length - 1;
         }
         // 重新加载当前（新的）房东
+        isImageZoomed.value = false;
         loadImagesForCurrentLandlord();
         nextTick(() => {
-          phoneInputRef.value?.focus();
+          if (phoneInputRefs.value.length > 0) {
+            phoneInputRefs.value[0]?.focus();
+          }
         });
       }
     }
@@ -500,16 +583,19 @@ const handleDeleteRequest = async () => {
 const handleOrganizeKeydown = (e: KeyboardEvent) => {
   if (!showQuickOrganize.value) return;
 
-  // Ctrl + Arrow Left/Right for navigation
-  if (e.key === "ArrowRight" && (e.ctrlKey || e.metaKey)) {
+  // Arrow Left/Right or A/D for navigation
+  if (e.key === "ArrowRight" || e.key === "d" || e.key === "D") {
     e.preventDefault();
     nextLandlord();
-  } else if (e.key === "ArrowLeft" && (e.ctrlKey || e.metaKey)) {
+  } else if (e.key === "ArrowLeft" || e.key === "a" || e.key === "A") {
     e.preventDefault();
     prevLandlord();
-  } else if (e.key === "Delete" && (e.ctrlKey || e.metaKey)) {
+  } else if (e.key === "Delete") {
     e.preventDefault();
     handleDeleteRequest();
+  } else if (e.key === "+" || e.key === "=" || e.key === "-") {
+    e.preventDefault();
+    toggleImageZoom();
   }
 };
 
@@ -563,13 +649,12 @@ function formatProgress(_percentage: number): string {
 
 :deep(.quick-organize-dialog .el-dialog__body) {
   padding: 0;
-  height: calc(100vh - 54px);
+  height: calc(100vh - 87px);
   overflow: hidden;
 }
 
 .organize-container {
   display: flex;
-  height: 100%;
 }
 
 .left-panel {
@@ -582,9 +667,10 @@ function formatProgress(_percentage: number): string {
 }
 
 .carousel-image {
-  width: 100%;
-  height: 100%;
+  max-width: 100%;
+  max-height: 100%;
   object-fit: contain;
+  transition: all 0.3s ease;
 }
 
 .image-wrapper {
@@ -593,6 +679,27 @@ function formatProgress(_percentage: number): string {
   display: flex;
   align-items: center;
   justify-content: center;
+  cursor: zoom-in;
+  overflow: hidden;
+}
+
+.image-wrapper.is-zoomed {
+  display: block;
+
+}
+.image-wrapper.is-zoomed .carousel-image {
+  width: 100%;
+  height: auto;
+  max-width: none;
+  max-height: none;
+  object-fit: unset;
+}
+
+.image-wrapper {
+  width: 100%;
+  height: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .photo-info {
