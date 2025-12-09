@@ -460,7 +460,7 @@
             class="tip-text"
             style="margin-left: 10px; font-size: 12px; color: #909399"
           >
-            (支持拖拽上传，文件将保存到
+            (支持拖拽或 Ctrl+V 粘贴上传，文件将保存到
             {{
               fileDialogMode === "avatar"
                 ? "微信头像"
@@ -486,9 +486,16 @@
                 fit="cover"
                 class="preview-image"
               />
-              <div v-else class="video-placeholder">
-                <el-icon :size="24"><VideoPlay /></el-icon>
-              </div>
+              <video
+                v-else
+                :src="file.url"
+                class="preview-image"
+                style="object-fit: cover"
+                muted
+                preload="metadata"
+                @mouseenter="(e) => (e.target as HTMLVideoElement).play()"
+                @mouseleave="(e) => (e.target as HTMLVideoElement).pause()"
+              ></video>
             </div>
             <span class="file-name" :title="file.name">{{ file.name }}</span>
           </div>
@@ -509,7 +516,6 @@ import {
   Plus,
   Delete,
   Picture,
-  VideoPlay,
   UploadFilled,
   Loading,
 } from "@element-plus/icons-vue";
@@ -619,18 +625,6 @@ watch(
       if (!data.commonFees.electricity)
         data.commonFees.electricity = { type: "civil" };
       if (!data.commonFees.water) data.commonFees.water = { type: "civil" };
-
-      // 兼容旧数据：如果 properties 里有 videoPaths，转换为 videos
-      data.properties.forEach((room: any) => {
-        if (room.videoPaths && (!room.videos || room.videos.length === 0)) {
-          room.videos = room.videoPaths.map((path: string) => ({
-            id: crypto.randomUUID(),
-            fileName: path,
-            folderId: "default",
-          }));
-        }
-        if (!room.videos) room.videos = [];
-      });
 
       editForm.value = data;
       activeTab.value = "basic";
@@ -876,16 +870,7 @@ const openFileSelector = async (
   }
 };
 
-// 监听对话框关闭，清理资源
-watch(fileDialogVisible, (val) => {
-  if (!val) {
-    fileList.value.forEach((item) => {
-      if (item.url) URL.revokeObjectURL(item.url);
-    });
-    fileList.value = [];
-    isDragging.value = false;
-  }
-});
+
 
 const saveFile = async (file: File) => {
   const dirHandle = await getValidDirectoryHandle();
@@ -949,6 +934,66 @@ const handleDrop = async (e: DragEvent) => {
     await openFileSelector(fileDialogMode.value, currentRoomIndex.value);
   }
 };
+
+const handlePaste = async (e: ClipboardEvent) => {
+  if (!fileDialogVisible.value) return;
+
+  // 避免在输入框中粘贴时触发
+  const target = e.target as HTMLElement;
+  if (
+    ["INPUT", "TEXTAREA"].includes(target.tagName) ||
+    target.isContentEditable
+  ) {
+    return;
+  }
+
+  const items = e.clipboardData?.items;
+  if (!items) return;
+
+  const filesToProcess: File[] = [];
+  for (let i = 0; i < items.length; i++) {
+    const item = items[i];
+    if (item.kind === "file") {
+      const file = item.getAsFile();
+      if (file) filesToProcess.push(file);
+    }
+  }
+
+  if (filesToProcess.length === 0) return;
+
+  e.preventDefault();
+
+  let successCount = 0;
+  for (const file of filesToProcess) {
+    const savedName = await saveFile(file);
+    if (savedName) {
+      successCount++;
+    }
+  }
+
+  if (successCount > 0) {
+    ElMessage.success(`成功粘贴并上传 ${successCount} 个文件`);
+    await openFileSelector(fileDialogMode.value, currentRoomIndex.value);
+  }
+};
+
+// 监听对话框关闭，清理资源
+watch(fileDialogVisible, (val) => {
+  if (val) {
+    window.addEventListener("paste", handlePaste);
+  } else {
+    window.removeEventListener("paste", handlePaste);
+    fileList.value.forEach((item) => {
+      if (item.url) URL.revokeObjectURL(item.url);
+    });
+    fileList.value = [];
+    isDragging.value = false;
+  }
+});
+
+onUnmounted(() => {
+  window.removeEventListener("paste", handlePaste);
+});
 
 const handleUpload = async () => {
   try {
@@ -1042,6 +1087,7 @@ const handleFileSelect = (fileItem: FileItem) => {
       fileName: finalPath,
       folderId: "default",
     });
+    getVideoUrl(finalPath);
   } else if (fileDialogMode.value === "photo") {
     // 照片模式通常在根目录
     finalPath = fileName;
