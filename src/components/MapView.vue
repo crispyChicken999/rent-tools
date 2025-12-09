@@ -292,6 +292,16 @@ defineExpose({
   margin-bottom: 0;
 }
 
+.legend-divider {
+  height: 1px;
+  background: #ebeef5;
+  margin: 8px 0;
+}
+
+.filter-item {
+  margin-top: 4px;
+}
+
 .dot {
   width: 10px;
   height: 10px;

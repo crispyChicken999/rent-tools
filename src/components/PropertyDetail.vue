@@ -6,316 +6,191 @@
     direction="rtl"
     destroy-on-close
     @closed="handleClosed"
+    class="detail-drawer"
   >
     <div v-if="landlord" class="landlord-detail">
       <el-tabs v-model="activeTab">
         <!-- 基本信息 Tab -->
         <el-tab-pane label="基本信息" name="basic">
-          <!-- 照片展示区 -->
-          <div class="photo-section">
-            <div class="main-photo" v-if="mainPhotoUrl">
-              <el-image
-                :src="mainPhotoUrl"
-                :preview-src-list="allPhotoUrls"
-                fit="contain"
-                hide-on-click-modal
-                style="width: 100%; height: 200px; border-radius: 8px"
-              >
-                <template #error>
-                  <div class="image-error">
-                    <el-icon><Picture /></el-icon>
-                    <div>照片加载失败</div>
-                    <div class="sub-text">请确认已授权访问照片文件夹</div>
-                  </div>
-                </template>
-              </el-image>
-            </div>
-            <div class="photo-thumbnails" v-if="photoUrls.length > 1">
-              <div
-                v-for="(url, index) in photoUrls"
-                :key="editForm.photos[index].id"
-                class="thumbnail"
-                :class="{ active: index === currentPhotoIndex }"
-                @click="currentPhotoIndex = index"
-              >
-                <el-image :src="url" fit="cover" />
-              </div>
-            </div>
-          </div>
-
-          <el-form :model="editForm" label-width="100px">
-            <!-- 电话号码 (动态添加) -->
-            <el-form-item label="电话号码" required>
-              <div style="display: flex; flex-direction: column; gap: 8px">
-                <div
-                  v-for="(_phone, index) in editForm.phoneNumbers"
-                  :key="index"
-                  class="phone-item"
-                >
-                  <el-input
-                    v-model="editForm.phoneNumbers[index]"
-                    placeholder="输入电话号码"
-                    @blur="
-                      checkDuplicatePhone(editForm.phoneNumbers[index], index)
-                    "
+          <el-scrollbar>
+            <div class="tab-content-wrapper">
+              <!-- 照片展示区 -->
+              <div class="photo-section">
+                <div class="main-photo" v-if="mainPhotoUrl">
+                  <el-image
+                    :src="mainPhotoUrl"
+                    :preview-src-list="allPhotoUrls"
+                    fit="contain"
+                    hide-on-click-modal
+                    style="width: 100%; height: 200px; border-radius: 8px"
                   >
-                    <template #append v-if="editForm.phoneNumbers.length > 1">
-                      <el-button :icon="Delete" @click="removePhone(index)" />
+                    <template #error>
+                      <div class="image-error">
+                        <el-icon><Picture /></el-icon>
+                        <div>照片加载失败</div>
+                        <div class="sub-text">请确认已授权访问照片文件夹</div>
+                      </div>
                     </template>
-                  </el-input>
+                  </el-image>
                 </div>
-                <el-button type="primary" link :icon="Plus" @click="addPhone"
-                  >添加电话</el-button
-                >
+                <div class="photo-thumbnails" v-if="photoUrls.length > 1">
+                  <div
+                    v-for="(url, index) in photoUrls"
+                    :key="editForm.photos[index].id"
+                    class="thumbnail"
+                    :class="{ active: index === currentPhotoIndex }"
+                    @click="currentPhotoIndex = index"
+                  >
+                    <el-image :src="url" fit="cover" />
+                  </div>
+                </div>
               </div>
-            </el-form-item>
 
-            <el-form-item label="房东类型">
-              <el-radio-group v-model="editForm.landlordType">
-                <el-radio-button
-                  v-for="opt in LANDLORD_TYPES"
-                  :key="opt.value"
-                  :label="opt.value"
-                  :value="opt.value"
-                >
-                  {{ opt.label }}
-                </el-radio-button>
-              </el-radio-group>
-            </el-form-item>
+              <el-form :model="editForm" label-width="100px">
+                <!-- 电话号码 (动态添加) -->
+                <el-form-item label="电话号码" required>
+                  <div style="display: flex; flex-direction: column; gap: 8px">
+                    <div
+                      v-for="(_phone, index) in editForm.phoneNumbers"
+                      :key="index"
+                      class="phone-item"
+                    >
+                      <el-input
+                        v-model="editForm.phoneNumbers[index]"
+                        placeholder="输入电话号码"
+                        @blur="
+                          checkDuplicatePhone(editForm.phoneNumbers[index], index)
+                        "
+                      >
+                        <template #append v-if="editForm.phoneNumbers.length > 1">
+                          <el-button :icon="Delete" @click="removePhone(index)" />
+                        </template>
+                      </el-input>
+                    </div>
+                    <el-button type="primary" link :icon="Plus" @click="addPhone"
+                      >添加电话</el-button
+                    >
+                  </div>
+                </el-form-item>
 
-            <el-form-item label="微信状态">
-              <el-radio-group v-model="editForm.wechatStatus">
-                <el-radio
-                  v-for="opt in WECHAT_STATUS_TYPES"
-                  :key="opt.value"
-                  :label="opt.value"
-                  >{{ opt.label }}</el-radio
-                >
-              </el-radio-group>
-            </el-form-item>
+                <el-form-item label="房东类型">
+                  <el-radio-group v-model="editForm.landlordType">
+                    <el-radio-button
+                      v-for="opt in LANDLORD_TYPES"
+                      :key="opt.value"
+                      :label="opt.value"
+                      :value="opt.value"
+                    >
+                      {{ opt.label }}
+                    </el-radio-button>
+                  </el-radio-group>
+                </el-form-item>
+
+                <el-form-item label="微信状态">
+                  <el-radio-group v-model="editForm.wechatStatus">
+                    <el-radio
+                      v-for="opt in WECHAT_STATUS_TYPES"
+                      :key="opt.value"
+                      :label="opt.value"
+                      >{{ opt.label }}</el-radio
+                    >
+                  </el-radio-group>
+                </el-form-item>
 
             <!-- 微信头像 -->
             <el-form-item label="微信头像">
               <div style="display: flex; flex-direction: column; align-items: center; gap: 5px">
                 <div class="avatar-uploader" @click="openFileSelector('avatar')">
-                  <img v-if="avatarUrl" :src="avatarUrl" class="avatar" />
+                  <el-image
+                    v-if="avatarUrl"
+                    :src="avatarUrl"
+                    class="avatar"
+                    :preview-src-list="[avatarUrl]"
+                    :preview-teleported="true"
+                    fit="cover"
+                    @click.stop
+                  />
                   <el-icon v-else class="avatar-uploader-icon"><Plus /></el-icon>
                 </div>
                 <div class="sub-text" v-if="!avatarUrl">点击选择头像</div>
-                <el-button 
-                  v-if="avatarUrl" 
-                  type="danger" 
-                  link 
-                  size="small" 
-                  :icon="Delete"
-                  @click.stop="clearAvatar"
-                >
-                  清除头像
-                </el-button>
-              </div>
-            </el-form-item>
-
-            <el-form-item label="微信昵称">
-              <el-input
-                v-model="editForm.wechatNickname"
-                placeholder="输入微信昵称"
-              />
-            </el-form-item>
-
-            <el-form-item label="联系状态">
-              <el-radio-group v-model="editForm.contactStatus">
-                <el-radio
-                  v-for="opt in CONTACT_STATUS_TYPES"
-                  :key="opt.value"
-                  :label="opt.value"
-                  >{{ opt.label }}</el-radio
-                >
-              </el-radio-group>
-            </el-form-item>
-
-            <el-form-item label="位置信息" style="flex: 1;">
-              <div class="location-info">
-                <el-input 
-                  v-model="editForm.address" 
-                  placeholder="输入地址" 
-                  clearable
-                >
-                  <template #prefix>📍</template>
-                  <template #append>
-                    <el-button 
-                      :icon="Refresh" 
-                      :loading="refreshingAddress"
-                      @click="refreshAddress"
-                      title="根据 GPS 重新获取地址"
-                    />
-                  </template>
-                </el-input>
-                <div v-if="editForm.gps" class="gps-coords">
-                  GPS: {{ editForm.gps.lng.toFixed(6) }}, {{ editForm.gps.lat.toFixed(6) }}
-                </div>
-              </div>
-            </el-form-item>
-
-            <el-form-item label="拍摄时间">
-              {{
-                editForm.captureTime
-                  ? new Date(editForm.captureTime).toLocaleString()
-                  : "未知"
-              }}
-            </el-form-item>
-
-            <el-form-item label="押金方式">
-              <el-select
-                v-model="editForm.deposit"
-                placeholder="选择押金方式"
-                allow-create
-                filterable
-              >
-                <el-option
-                  v-for="opt in DEPOSIT_METHODS"
-                  :key="opt.value"
-                  :label="opt.label"
-                  :value="opt.value"
-                />
-              </el-select>
-            </el-form-item>
-
-            <el-form-item label="补充信息">
-              <el-input
-                v-model="editForm.additionalInfo"
-                type="textarea"
-                :rows="2"
-              />
-            </el-form-item>
-          </el-form>
-        </el-tab-pane>
-
-        <!-- 费用设置 Tab -->
-        <el-tab-pane label="费用设置" name="fees">
-          <el-form :model="editForm.commonFees" label-width="100px">
-            <el-form-item label="电费">
-              <el-select
-                v-model="editForm.commonFees.electricity.type"
-                style="width: 100%"
-              >
-                <el-option
-                  v-for="opt in ELECTRICITY_TYPES"
-                  :key="opt.value"
-                  :label="opt.label"
-                  :value="opt.value"
-                />
-              </el-select>
-              <el-input
-                v-if="editForm.commonFees.electricity.type === 'custom'"
-                v-model.number="editForm.commonFees.electricity.price"
-                type="number"
-              >
-                <template #append>元/度</template>
-              </el-input>
-            </el-form-item>
-
-            <el-form-item label="水费">
-              <el-select
-                v-model="editForm.commonFees.water.type"
-                style="width: 100%"
-              >
-                <el-option
-                  v-for="opt in WATER_TYPES"
-                  :key="opt.value"
-                  :label="opt.label"
-                  :value="opt.value"
-                />
-              </el-select>
-              <el-input
-                v-if="editForm.commonFees.water.type === 'custom'"
-                v-model.number="editForm.commonFees.water.price"
-                type="number"
-              >
-                <template #append>元/吨</template>
-              </el-input>
-            </el-form-item>
-
-            <el-form-item label="其他费用">
-              <div class="fee-grid">
-                <el-input
-                  v-model.number="editForm.commonFees.internet"
-                  placeholder="网费"
-                  type="number"
-                >
-                  <template #prepend>网费</template>
-                  <template #append>元</template>
-                </el-input>
-                <el-input
-                  v-model.number="editForm.commonFees.management"
-                  placeholder="管理费"
-                  type="number"
-                >
-                  <template #prepend>管理费</template>
-                  <template #append>元</template>
-                </el-input>
-                <el-input
-                  v-model.number="editForm.commonFees.garbage"
-                  placeholder="垃圾费"
-                  type="number"
-                >
-                  <template #prepend>垃圾费</template>
-                  <template #append>元</template>
-                </el-input>
-              </div>
-              <el-input
-                v-model="editForm.commonFees.other"
-                placeholder="其他费用说明"
-                type="textarea"
-                :rows="2"
-                style="margin-top: 10px"
-              />
-            </el-form-item>
-          </el-form>
-        </el-tab-pane>
-
-        <!-- 房源管理 Tab -->
-        <el-tab-pane label="房源管理" name="rooms">
-          <div class="properties-list">
-            <el-card
-              v-for="(room, index) in editForm.properties"
-              :key="room.id"
-              class="room-card"
-              shadow="hover"
-            >
-              <template #header>
-                <div class="card-header">
-                  <span>房源 {{ index + 1 }}</span>
+                <div v-if="avatarUrl" style="display: flex; gap: 8px">
+                  <el-button
+                    type="primary"
+                    link
+                    size="small"
+                    @click="openFileSelector('avatar')"
+                  >
+                    更换
+                  </el-button>
                   <el-button
                     type="danger"
+                    link
                     size="small"
-                    text
-                    @click="removeRoom(index)"
-                    >删除</el-button
+                    :icon="Delete"
+                    @click.stop="clearAvatar"
                   >
+                    清除
+                  </el-button>
                 </div>
-              </template>
-
-              <el-form label-width="80px" size="default" class="room-form">
-                <el-form-item label="房型">
-                  <el-select v-model="room.roomType" placeholder="请选择房型">
-                    <el-option
-                      v-for="opt in ROOM_TYPES"
-                      :key="opt.value"
-                      :label="opt.label"
-                      :value="opt.value"
-                    />
-                  </el-select>
+              </div>
+            </el-form-item>                <el-form-item label="微信昵称">
+                  <el-input
+                    v-model="editForm.wechatNickname"
+                    placeholder="输入微信昵称"
+                  />
                 </el-form-item>
 
-                <el-form-item label="楼层">
+                <el-form-item label="联系状态">
+                  <el-radio-group v-model="editForm.contactStatus">
+                    <el-radio
+                      v-for="opt in CONTACT_STATUS_TYPES"
+                      :key="opt.value"
+                      :label="opt.value"
+                      >{{ opt.label }}</el-radio
+                    >
+                  </el-radio-group>
+                </el-form-item>
+
+                <el-form-item label="位置信息" style="flex: 1;">
+                  <div class="location-info">
+                    <el-input 
+                      v-model="editForm.address" 
+                      placeholder="输入地址" 
+                      clearable
+                    >
+                      <template #prefix>📍</template>
+                      <template #append>
+                        <el-button 
+                          :icon="Refresh" 
+                          :loading="refreshingAddress"
+                          @click="refreshAddress"
+                          title="根据 GPS 重新获取地址"
+                        />
+                      </template>
+                    </el-input>
+                    <div v-if="editForm.gps" class="gps-coords">
+                      GPS: {{ editForm.gps.lng.toFixed(6) }}, {{ editForm.gps.lat.toFixed(6) }}
+                    </div>
+                  </div>
+                </el-form-item>
+
+                <el-form-item label="拍摄时间">
+                  {{
+                    editForm.captureTime
+                      ? new Date(editForm.captureTime).toLocaleString()
+                      : "未知"
+                  }}
+                </el-form-item>
+
+                <el-form-item label="押金方式">
                   <el-select
-                    v-model="room.floor"
-                    placeholder="请选择楼层"
-                    filterable
+                    v-model="editForm.deposit"
+                    placeholder="选择押金方式"
                     allow-create
+                    filterable
                   >
                     <el-option
-                      v-for="opt in FLOOR_OPTIONS"
+                      v-for="opt in DEPOSIT_METHODS"
                       :key="opt.value"
                       :label="opt.label"
                       :value="opt.value"
@@ -323,102 +198,259 @@
                   </el-select>
                 </el-form-item>
 
-                <el-form-item label="租金">
+                <el-form-item label="补充信息">
                   <el-input
-                    v-model.number="room.rent"
-                    type="number"
-                    placeholder="输入租金"
-                  >
-                    <template #append>元/月</template>
-                  </el-input>
-                </el-form-item>
-
-                <el-form-item label="配套设施">
-                  <el-checkbox-group v-model="room.amenities">
-                    <el-checkbox
-                      v-for="opt in AMENITY_OPTIONS"
-                      :key="opt"
-                      :label="opt"
-                    />
-                  </el-checkbox-group>
-                </el-form-item>
-
-                <el-form-item label="房源描述">
-                  <el-input
-                    v-model="room.description"
+                    v-model="editForm.additionalInfo"
                     type="textarea"
                     :rows="2"
                   />
                 </el-form-item>
+              </el-form>
+            </div>
+          </el-scrollbar>
+        </el-tab-pane>
 
-                <el-form-item label="视频">
-                  <div style="display: flex; flex-direction: column; gap: 8px">
-                    <div
-                      v-for="(video, vIndex) in room.videos"
-                      :key="video.id"
-                      class="video-item"
-                    >
-                      <div class="video-header">
-                        <span>{{ video.fileName }}</span>
-                        <el-button
-                          :icon="Delete"
-                          size="small"
-                          text
-                          type="danger"
-                          @click="room.videos.splice(vIndex, 1)"
-                        />
-                      </div>
-                      <div class="video-wrapper">
-                        <video
-                          v-if="videoUrls.get(video.fileName)"
-                          controls
-                          preload="metadata"
-                          class="video-preview"
-                          :src="videoUrls.get(video.fileName)"
-                        >
-                          您的浏览器不支持视频播放
-                        </video>
-                        <div v-else class="video-loading">
-                          <el-icon class="is-loading"><Loading /></el-icon>
-                          <span style="margin-left: 8px">加载中...</span>
-                        </div>
-                      </div>
-                    </div>
-                    <el-button plain @click="openFileSelector('video', index)">
-                      <el-icon><Plus /></el-icon> 添加视频
-                    </el-button>
-                  </div>
+        <!-- 费用设置 Tab -->
+        <el-tab-pane label="费用设置" name="fees">
+          <el-scrollbar>
+            <div class="tab-content-wrapper">
+              <el-form :model="editForm.commonFees" label-width="100px">
+                <el-form-item label="电费">
+                  <el-select
+                    v-model="editForm.commonFees.electricity.type"
+                    style="width: 100%"
+                  >
+                    <el-option
+                      v-for="opt in ELECTRICITY_TYPES"
+                      :key="opt.value"
+                      :label="opt.label"
+                      :value="opt.value"
+                    />
+                  </el-select>
+                  <el-input
+                    v-if="editForm.commonFees.electricity.type === 'custom'"
+                    v-model.number="editForm.commonFees.electricity.price"
+                    type="number"
+                  >
+                    <template #append>元/度</template>
+                  </el-input>
                 </el-form-item>
 
-                <el-form-item label="状态">
-                  <el-switch
-                    v-model="room.available"
-                    active-text="可租"
-                    inactive-text="已租"
+                <el-form-item label="水费">
+                  <el-select
+                    v-model="editForm.commonFees.water.type"
+                    style="width: 100%"
+                  >
+                    <el-option
+                      v-for="opt in WATER_TYPES"
+                      :key="opt.value"
+                      :label="opt.label"
+                      :value="opt.value"
+                    />
+                  </el-select>
+                  <el-input
+                    v-if="editForm.commonFees.water.type === 'custom'"
+                    v-model.number="editForm.commonFees.water.price"
+                    type="number"
+                  >
+                    <template #append>元/吨</template>
+                  </el-input>
+                </el-form-item>
+
+                <el-form-item label="其他费用">
+                  <div class="fee-grid">
+                    <el-input
+                      v-model.number="editForm.commonFees.internet"
+                      placeholder="网费"
+                      type="number"
+                    >
+                      <template #prepend>网费</template>
+                      <template #append>元</template>
+                    </el-input>
+                    <el-input
+                      v-model.number="editForm.commonFees.management"
+                      placeholder="管理费"
+                      type="number"
+                    >
+                      <template #prepend>管理费</template>
+                      <template #append>元</template>
+                    </el-input>
+                    <el-input
+                      v-model.number="editForm.commonFees.garbage"
+                      placeholder="垃圾费"
+                      type="number"
+                    >
+                      <template #prepend>垃圾费</template>
+                      <template #append>元</template>
+                    </el-input>
+                  </div>
+                  <el-input
+                    v-model="editForm.commonFees.other"
+                    placeholder="其他费用说明"
+                    type="textarea"
+                    :rows="2"
+                    style="margin-top: 10px"
                   />
                 </el-form-item>
               </el-form>
-            </el-card>
+            </div>
+          </el-scrollbar>
+        </el-tab-pane>
 
-            <el-button
-              type="primary"
-              plain
-              class="add-room-btn"
-              @click="addRoom"
-            >
-              <el-icon><Plus /></el-icon> 添加房源
-            </el-button>
-          </div>
+        <!-- 房源管理 Tab -->
+        <el-tab-pane label="房源管理" name="rooms">
+          <el-scrollbar>
+            <div class="tab-content-wrapper">
+              <div class="properties-list">
+                <el-card
+                  v-for="(room, index) in editForm.properties"
+                  :key="room.id"
+                  class="room-card"
+                  shadow="hover"
+                >
+                  <template #header>
+                    <div class="card-header">
+                      <span>房源 {{ index + 1 }}</span>
+                      <el-button
+                        type="danger"
+                        size="small"
+                        text
+                        @click="removeRoom(index)"
+                        >删除</el-button
+                      >
+                    </div>
+                  </template>
+
+                  <el-form label-width="80px" size="default" class="room-form">
+                    <el-form-item label="房型">
+                      <el-select v-model="room.roomType" placeholder="请选择房型">
+                        <el-option
+                          v-for="opt in ROOM_TYPES"
+                          :key="opt.value"
+                          :label="opt.label"
+                          :value="opt.value"
+                        />
+                      </el-select>
+                    </el-form-item>
+
+                    <el-form-item label="楼层">
+                      <el-select
+                        v-model="room.floor"
+                        placeholder="请选择楼层"
+                        filterable
+                        allow-create
+                      >
+                        <el-option
+                          v-for="opt in FLOOR_OPTIONS"
+                          :key="opt.value"
+                          :label="opt.label"
+                          :value="opt.value"
+                        />
+                      </el-select>
+                    </el-form-item>
+
+                    <el-form-item label="租金">
+                      <el-input
+                        v-model.number="room.rent"
+                        type="number"
+                        placeholder="输入租金"
+                      >
+                        <template #append>元/月</template>
+                      </el-input>
+                    </el-form-item>
+
+                    <el-form-item label="配套设施">
+                      <el-checkbox-group v-model="room.amenities">
+                        <el-checkbox
+                          v-for="opt in AMENITY_OPTIONS"
+                          :key="opt"
+                          :label="opt"
+                        />
+                      </el-checkbox-group>
+                    </el-form-item>
+
+                    <el-form-item label="房源描述">
+                      <el-input
+                        v-model="room.description"
+                        type="textarea"
+                        :rows="2"
+                      />
+                    </el-form-item>
+
+                    <el-form-item label="视频">
+                      <div style="display: flex; flex-direction: column; gap: 8px">
+                        <div
+                          v-for="(video, vIndex) in room.videos"
+                          :key="video.id"
+                          class="video-item"
+                        >
+                          <div class="video-header">
+                            <span>{{ video.fileName }}</span>
+                            <el-button
+                              :icon="Delete"
+                              size="small"
+                              text
+                              type="danger"
+                              @click="room.videos.splice(vIndex, 1)"
+                            />
+                          </div>
+                          <div class="video-wrapper">
+                            <video
+                              v-if="videoUrls.get(video.fileName)"
+                              controls
+                              preload="metadata"
+                              class="video-preview"
+                              :src="videoUrls.get(video.fileName)"
+                            >
+                              您的浏览器不支持视频播放
+                            </video>
+                            <div v-else class="video-loading">
+                              <el-icon class="is-loading"><Loading /></el-icon>
+                              <span style="margin-left: 8px">加载中...</span>
+                            </div>
+                          </div>
+                        </div>
+                        <el-button plain @click="openFileSelector('video', index)">
+                          <el-icon><Plus /></el-icon> 添加视频
+                        </el-button>
+                      </div>
+                    </el-form-item>
+
+                    <el-form-item label="状态">
+                      <el-switch
+                        v-model="room.available"
+                        active-text="可租"
+                        inactive-text="已租"
+                      />
+                    </el-form-item>
+                  </el-form>
+                </el-card>
+
+                <el-button
+                  type="primary"
+                  plain
+                  class="add-room-btn"
+                  @click="addRoom"
+                >
+                  <el-icon><Plus /></el-icon> 添加房源
+                </el-button>
+              </div>
+            </div>
+          </el-scrollbar>
         </el-tab-pane>
 
         <!-- 沟通记录 Tab -->
         <el-tab-pane label="沟通记录" name="notes">
-          <el-input
-            v-model="editForm.contactNotes"
-            type="textarea"
-            :rows="10"
-            placeholder="记录每一次沟通的详情..."
-          />
+          <el-scrollbar>
+            <div class="tab-content-wrapper">
+              <el-input
+                v-model="editForm.contactNotes"
+                type="textarea"
+                :rows="10"
+                placeholder="记录每一次沟通的详情..."
+              />
+            </div>
+          </el-scrollbar>
         </el-tab-pane>
       </el-tabs>
     </div>
@@ -789,7 +821,7 @@ const checkDuplicatePhone = async (phone: string, _index: number) => {
 const addRoom = () => {
   const newRoom: RoomInfo = {
     id: crypto.randomUUID(),
-    roomType: RoomType.Single,
+    roomType: '单间',
     rent: undefined,
     description: "",
     amenities: [],
@@ -1203,11 +1235,13 @@ const closeDrawer = () => {
   propertyStore.selectLandlord(null);
 };
 </script>
-
-<style scoped>
+<style>
 .el-drawer__header {
   margin: 0;
 }
+</style>
+<style scoped>
+
 
 .landlord-detail {
   padding: 0;
@@ -1488,5 +1522,49 @@ const closeDrawer = () => {
   font-size: 16px;
   color: #409eff;
   font-weight: bold;
+}
+
+/* Drawer Layout Fixes */
+:deep(.detail-drawer .el-drawer__body) {
+  padding: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.landlord-detail {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.landlord-detail :deep(.el-tabs) {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.landlord-detail :deep(.el-tabs__header) {
+  margin: 0;
+  padding: 0 20px;
+  background: #fff;
+  z-index: 1;
+  flex-shrink: 0;
+}
+
+.landlord-detail :deep(.el-tabs__content) {
+  flex: 1;
+  overflow: hidden;
+  padding: 0;
+}
+
+.landlord-detail :deep(.el-tab-pane) {
+  height: 100%;
+}
+
+.tab-content-wrapper {
+  padding: 20px;
 }
 </style>

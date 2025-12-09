@@ -175,7 +175,7 @@ export interface Landlord {
 /** 单个房源信息 */
 export interface RoomInfo {
   id: string; // 房源ID
-  roomType: RoomType; // 房型
+  roomType: string; // 房型
   rent?: number; // 租金（元/月）
   floor?: string; // 楼层
   description?: string; // 房源描述
@@ -278,6 +278,7 @@ export interface FilterOptions {
   roomTypes?: RoomType[];
   available?: boolean; // 是否可租
   isPerfect?: boolean; // 是否已完善
+  hideRepeatedPhones?: boolean; // 隐藏重复电话（二房东）
 }
 
 /** 地图标记样式配置 */

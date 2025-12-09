@@ -1,14 +1,14 @@
 <script setup lang="ts">
-import { onMounted, ref, computed } from "vue";
+import { onMounted, ref, computed, watch } from "vue";
 import { ElMessage } from "element-plus";
-import { Delete, Upload } from "@element-plus/icons-vue";
+import { Delete, Upload, QuestionFilled } from "@element-plus/icons-vue";
 import PhotoUpload from "./components/PhotoUpload.vue";
 import MapView from "./components/MapView.vue";
 import PropertyDetail from "./components/PropertyDetail.vue";
 import LandlordAvatar from "./components/LandlordAvatar.vue";
 import { usePropertyStore } from "./stores/property";
 // import { exportToExcel } from "./utils/export";
-import { LandlordType } from "./types";
+import { LandlordType, ContactStatus, WechatStatus, type FilterOptions } from "./types";
 
 const propertyStore = usePropertyStore();
 const mapViewRef = ref<InstanceType<typeof MapView> | null>(null);
@@ -16,37 +16,35 @@ const mapViewRef = ref<InstanceType<typeof MapView> | null>(null);
 // 筛选状态
 const filterContact = ref("all"); // all, contacted, uncontacted
 const filterWechat = ref("all"); // all, added, not_added
+const hideRepeatedPhones = ref(false);
 
 onMounted(async () => {
   await propertyStore.loadLandlords();
 });
 
-// 过滤后的房东列表
-const filteredLandlords = computed(() => {
-  return propertyStore.landlords.filter((l) => {
-    // 联系状态筛选
+// 监听筛选条件变化，同步到 Store
+watch(
+  [filterContact, filterWechat, hideRepeatedPhones],
+  () => {
+    const filters: FilterOptions = {};
+
     if (filterContact.value !== "all") {
-      if (
-        filterContact.value === "contacted" &&
-        l.contactStatus !== "contacted"
-      )
-        return false;
-      if (
-        filterContact.value === "uncontacted" &&
-        l.contactStatus === "contacted"
-      )
-        return false;
+      filters.contactStatus = [filterContact.value as ContactStatus];
     }
-    // 微信状态筛选
+
     if (filterWechat.value !== "all") {
-      if (filterWechat.value === "added" && l.wechatStatus !== "added")
-        return false;
-      if (filterWechat.value === "not_added" && l.wechatStatus === "added")
-        return false;
+      filters.wechatStatus = [filterWechat.value as WechatStatus];
     }
-    return true;
-  });
-});
+
+    filters.hideRepeatedPhones = hideRepeatedPhones.value;
+
+    propertyStore.setFilters(filters);
+  },
+  { immediate: true }
+);
+
+// 过滤后的房东列表 (直接使用 Store 的计算属性)
+const filteredLandlords = computed(() => propertyStore.filteredLandlords);
 
 // 导出功能
 const handleExport = () => {
@@ -176,6 +174,17 @@ const showPhotoUpload = ref(false);
                 <el-option label="已加" value="added" />
                 <el-option label="未加" value="not_added" />
               </el-select>
+              <el-tooltip
+                content="隐藏电话号码重复出现的房东（可能是二房东）"
+                placement="top"
+              >
+                <el-checkbox
+                  v-model="hideRepeatedPhones"
+                  label="隐藏重复"
+                  border
+                  style="margin-right: 0; height: 32px; padding: 0 10px"
+                />
+              </el-tooltip>
             </div>
           </div>
 

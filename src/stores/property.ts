@@ -65,6 +65,25 @@ export const usePropertyStore = defineStore("property", () => {
       );
     }
 
+    if (filters.value.hideRepeatedPhones) {
+      // 统计所有电话号码的出现次数
+      const phoneCounts = new Map<string, number>();
+      landlords.value.forEach((l) => {
+        if (l.phoneNumbers && l.phoneNumbers.length > 0) {
+          l.phoneNumbers.forEach((phone) => {
+            phoneCounts.set(phone, (phoneCounts.get(phone) || 0) + 1);
+          });
+        }
+      });
+
+      // 过滤掉包含重复电话号码的房东
+      result = result.filter((l) => {
+        if (!l.phoneNumbers || l.phoneNumbers.length === 0) return true; // 没有电话的不过滤
+        // 只要有一个电话号码出现次数 > 1，就认为是二房东，过滤掉
+        return !l.phoneNumbers.some((phone) => (phoneCounts.get(phone) || 0) > 1);
+      });
+    }
+
     return result;
   });
 
