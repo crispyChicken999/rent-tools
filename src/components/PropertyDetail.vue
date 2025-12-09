@@ -62,10 +62,21 @@
                           checkDuplicatePhone(editForm.phoneNumbers[index], index)
                         "
                       >
-                        <template #append v-if="editForm.phoneNumbers.length > 1">
-                          <el-button :icon="Delete" @click="removePhone(index)" />
+                        <template #append>
+                          <el-button
+                            :icon="CopyDocument"
+                            @click="copyToClipboard(editForm.phoneNumbers[index])"
+                            title="复制号码"
+                          />
+                          
                         </template>
                       </el-input>
+                      <el-button
+                            v-if="editForm.phoneNumbers.length > 1"
+                            :icon="Delete"
+                            @click="removePhone(index)"
+                            title="删除号码"
+                          />
                     </div>
                     <el-button type="primary" link :icon="Plus" @click="addPhone"
                       >添加电话</el-button
@@ -559,6 +570,7 @@ import {
   UploadFilled,
   Loading,
   Refresh,
+  CopyDocument,
 } from "@element-plus/icons-vue";
 import { usePropertyStore } from "@/stores/property";
 import {
@@ -1233,6 +1245,16 @@ const deleteLandlord = async () => {
 const closeDrawer = () => {
   propertyStore.selectLandlord(null);
 };
+
+const copyToClipboard = async (text: string) => {
+  if (!text) return;
+  try {
+    await navigator.clipboard.writeText(text);
+    ElMessage.success("复制成功");
+  } catch (err) {
+    ElMessage.error("复制失败");
+  }
+};
 </script>
 <style>
 .el-drawer__header {
@@ -1294,6 +1316,8 @@ const closeDrawer = () => {
 
 .phone-item {
   margin-bottom: 8px;
+  display: flex;
+  gap: 8px;
 }
 
 .fee-grid {

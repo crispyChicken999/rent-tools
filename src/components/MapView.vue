@@ -17,23 +17,33 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch } from "vue";
+import { ref, onMounted, watch, onUnmounted, h, render } from "vue";
+import { ElImage, ElButton, ElMessage, ElIcon } from "element-plus";
+import { CopyDocument } from "@element-plus/icons-vue";
 import { loadAMap } from "@/utils/geocode";
 import { usePropertyStore } from "@/stores/property";
 import { LandlordType, ContactStatus } from "@/types";
 import type { Landlord } from "@/types";
+import { getValidDirectoryHandle } from "@/utils/fileSystem";
 
 const propertyStore = usePropertyStore();
 const mapContainer = ref<HTMLDivElement>();
 
 let map: any = null;
 let markers: Map<string, any> = new Map();
+let currentInfoWinImage: string | null = null;
 
 onMounted(async () => {
   await initMap();
   await renderMarkers();
   if (map && markers.size > 0) {
     map.setFitView();
+  }
+});
+
+onUnmounted(() => {
+  if (currentInfoWinImage) {
+    URL.revokeObjectURL(currentInfoWinImage);
   }
 });
 
@@ -59,6 +69,11 @@ async function initMap() {
     // 添加地图控件
     map.addControl(new AMap.Scale());
     map.addControl(new AMap.ToolBar());
+
+    // 点击地图空白处，清除选中状态
+    map.on("click", () => {
+      propertyStore.setFocusedLandlord(null);
+    });
   } catch (error) {
     console.error("地图初始化失败:", error);
   }
@@ -207,37 +222,149 @@ function createMarkerContent(style: {
 async function showInfoWindow(marker: any, landlord: Landlord) {
   const AMap = await loadAMap();
 
-  const content = `
-    <div style="padding: 12px; min-width: 200px;">
-      <h3 style="margin: 0 0 10px 0; font-size: 16px;">
-        ${landlord.alias || "待完善房东"}
-      </h3>
-      <div style="font-size: 14px; line-height: 1.8;">
-        <p><strong>电话:</strong> ${
-          landlord.phoneNumbers.join(", ") || "未填写"
-        }</p>
-        <p style="white-space:nowrap;"><strong>地址:</strong> ${
-          landlord.address || "未知"
-        }</p>
-        <p><strong>房源数:</strong> ${landlord.properties.length}</p>
-        <p><strong>类型:</strong> ${translateLandlordType(
-          landlord.landlordType
-        )}</p>
-      </div>
-      <div style="margin-top: 10px; text-align: center;">
-        <button 
-          onclick="window.openLandlordDetail('${landlord.id}')"
-          style="padding: 6px 16px; background: #409EFF; color: white; border: none; border-radius: 4px; cursor: pointer;"
-        >
-          查看详情
-        </button>
-      </div>
-    </div>
-  `;
+  // 清理旧图片
+  if (currentInfoWinImage) {
+    URL.revokeObjectURL(currentInfoWinImage);
+    currentInfoWinImage = null;
+  }
+
+  // 尝试加载图片
+  let imageUrl = "";
+  if (landlord.photos && landlord.photos.length > 0) {
+    try {
+      const dirHandle = await getValidDirectoryHandle();
+      if (dirHandle) {
+        const fileHandle = await dirHandle.getFileHandle(
+          landlord.photos[0].fileName
+        );
+        const file = await fileHandle.getFile();
+        imageUrl = URL.createObjectURL(file);
+        currentInfoWinImage = imageUrl;
+      }
+    } catch (e) {
+      console.error("加载房东图片失败", e);
+    }
+  }
+
+  // 创建容器
+  const container = document.createElement("div");
+
+  // 构建 VNode
+  const vnode = h(
+    "div",
+    { style: { padding: "12px", minWidth: "220px" } },
+    [
+      // 图片
+      imageUrl
+        ? h(ElImage, {
+            src: imageUrl,
+            previewSrcList: [imageUrl],
+            fit: "cover",
+            style: {
+              width: "100%",
+              height: "150px",
+              borderRadius: "4px",
+              marginBottom: "10px",
+              display: "block",
+            },
+            previewTeleported: true,
+            hideOnClickModal: true,
+          })
+        : null,
+
+      // 标题
+      h(
+        "h3",
+        { style: { margin: "0 0 10px 0", fontSize: "16px" } },
+        landlord.alias || "待完善房东"
+      ),
+
+      // 信息列表
+      h("div", { style: { fontSize: "14px", lineHeight: "1.8" } }, [
+        // 电话
+        h("div", { style: { display: "flex", alignItems: "flex-start" } }, [
+          h("strong", "电话: "),
+          h(
+            "div",
+            { style: { marginLeft: "4px", flex: 1 } },
+            landlord.phoneNumbers && landlord.phoneNumbers.length > 0
+              ? landlord.phoneNumbers.map((phone) =>
+                  h(
+                    "div",
+                    {
+                      style: {
+                        display: "flex",
+                        alignItems: "center",
+                        marginBottom: "2px",
+                      },
+                    },
+                    [
+                      h("span", phone),
+                      h(
+                        ElIcon,
+                        {
+                          style: {
+                            marginLeft: "4px",
+                            cursor: "pointer",
+                            color: "#409EFF",
+                          },
+                          onClick: () => copyText(phone),
+                          title: "复制",
+                        },
+                        () => h(CopyDocument)
+                      ),
+                    ]
+                  )
+                )
+              : "未填写"
+          ),
+        ]),
+        // 地址
+        h("p", { style: { margin: "4px 0" } }, [
+          h("strong", "地址: "),
+          h("span", landlord.address || "未知"),
+        ]),
+        // 房源数
+        h("p", { style: { margin: "4px 0" } }, [
+          h("strong", "房源数: "),
+          h("span", landlord.properties.length),
+        ]),
+        // 类型
+        h("p", { style: { margin: "4px 0" } }, [
+          h("strong", "类型: "),
+          h("span", translateLandlordType(landlord.landlordType)),
+        ]),
+      ]),
+
+      // 按钮
+      h("div", { style: { marginTop: "10px", textAlign: "center" } }, [
+        h(
+          ElButton,
+          {
+            type: "primary",
+            size: "small",
+            onClick: () => {
+              propertyStore.selectLandlord(landlord);
+            },
+          },
+          () => "查看详情"
+        ),
+      ]),
+    ]
+  );
+
+  // 渲染
+  render(vnode, container);
 
   const infoWindow = new AMap.InfoWindow({
-    content,
+    content: container,
     offset: new AMap.Pixel(0, -30),
+    closeWhenClickMap: true,
+  });
+
+  // 监听关闭，清理 Vue 实例
+  infoWindow.on("close", () => {
+    render(null, container);
   });
 
   infoWindow.open(map, marker.getPosition());
@@ -253,11 +380,12 @@ function translateLandlordType(type: LandlordType): string {
   return map[type] || "未知";
 }
 
-// 暴露给全局的方法
-(window as any).openLandlordDetail = (landlordId: string) => {
-  const landlord = propertyStore.landlords.find((l) => l.id === landlordId);
-  if (landlord) {
-    propertyStore.selectLandlord(landlord);
+const copyText = async (text: string) => {
+  try {
+    await navigator.clipboard.writeText(text);
+    ElMessage.success("复制成功");
+  } catch (err) {
+    ElMessage.error("复制失败");
   }
 };
 
