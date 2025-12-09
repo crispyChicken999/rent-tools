@@ -17,6 +17,7 @@ export const usePropertyStore = defineStore("property", () => {
   // ========== 状态 ==========
   const landlords = ref<Landlord[]>([]);
   const currentLandlord = ref<Landlord | null>(null);
+  const focusedLandlordId = ref<string | null>(null);
   const filters = ref<FilterOptions>({});
   const loading = ref(false);
 
@@ -83,6 +84,13 @@ export const usePropertyStore = defineStore("property", () => {
         return !l.phoneNumbers.some((phone) => (phoneCounts.get(phone) || 0) > 1);
       });
     }
+
+    // 排序：收藏的排在前面，然后按更新时间倒序
+    result.sort((a, b) => {
+      if (a.isFavorite && !b.isFavorite) return -1;
+      if (!a.isFavorite && b.isFavorite) return 1;
+      return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
+    });
 
     return result;
   });
@@ -158,6 +166,7 @@ export const usePropertyStore = defineStore("property", () => {
       },
       properties: [],
       isPerfect: false,
+      isFavorite: false,
       createdAt: now,
       updatedAt: now,
     };
@@ -204,6 +213,14 @@ export const usePropertyStore = defineStore("property", () => {
   /** 检查电话号码重复 */
   async function checkPhoneDuplicate(phone: string): Promise<Landlord[]> {
     return await findLandlordsByPhone(phone);
+  }
+
+  /** 切换收藏状态 */
+  async function toggleFavorite(id: string) {
+    const landlord = landlords.value.find((l) => l.id === id);
+    if (landlord) {
+      await updateLandlordData(id, { isFavorite: !landlord.isFavorite });
+    }
   }
 
   /** 合并房东记录 */
@@ -311,6 +328,14 @@ export const usePropertyStore = defineStore("property", () => {
   /** 设置当前查看的房东 */
   function selectLandlord(landlord: Landlord | null) {
     currentLandlord.value = landlord;
+    if (landlord) {
+      focusedLandlordId.value = landlord.id;
+    }
+  }
+
+  /** 设置当前聚焦的房东（仅高亮，不打开详情） */
+  function setFocusedLandlord(id: string | null) {
+    focusedLandlordId.value = id;
   }
 
   /** 清空所有数据 */
@@ -353,6 +378,7 @@ export const usePropertyStore = defineStore("property", () => {
     // 状态
     landlords,
     currentLandlord,
+    focusedLandlordId,
     filters,
     loading,
 
@@ -375,7 +401,9 @@ export const usePropertyStore = defineStore("property", () => {
     setFilters,
     clearFilters,
     selectLandlord,
+    setFocusedLandlord,
     clearAllData,
     restoreBackup,
+    toggleFavorite,
   };
 });

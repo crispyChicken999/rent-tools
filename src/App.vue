@@ -1,7 +1,13 @@
 <script setup lang="ts">
 import { onMounted, ref, computed, watch } from "vue";
 import { ElMessage } from "element-plus";
-import { Delete, Upload } from "@element-plus/icons-vue";
+import {
+  Delete,
+  Upload,
+  QuestionFilled,
+  Star,
+  StarFilled,
+} from "@element-plus/icons-vue";
 import PhotoUpload from "./components/PhotoUpload.vue";
 import MapView from "./components/MapView.vue";
 import PropertyDetail from "./components/PropertyDetail.vue";
@@ -46,6 +52,22 @@ watch(
 
 // 过滤后的房东列表 (直接使用 Store 的计算属性)
 const filteredLandlords = computed(() => propertyStore.filteredLandlords);
+
+// 监听当前聚焦的房东，自动滚动到列表位置
+watch(
+  () => propertyStore.focusedLandlordId,
+  (newId) => {
+    if (newId) {
+      // 使用 setTimeout 确保 DOM 已更新
+      setTimeout(() => {
+        const el = document.getElementById(`landlord-item-${newId}`);
+        if (el) {
+          el.scrollIntoView({ behavior: "smooth", block: "center" });
+        }
+      }, 100);
+    }
+  }
+);
 
 // 导出功能
 const handleExport = () => {
@@ -110,6 +132,7 @@ const getLandlordTypeTagType = (type: LandlordType) => {
 };
 
 const handleLandlordClick = (landlord: any) => {
+  propertyStore.setFocusedLandlord(landlord.id);
   if (mapViewRef.value) {
     mapViewRef.value.focusLandlord(landlord);
   }
@@ -211,9 +234,10 @@ const showPhotoUpload = ref(false);
             <div
               v-for="landlord in filteredLandlords"
               :key="landlord.id"
+              :id="'landlord-item-' + landlord.id"
               class="property-item"
               :class="{
-                active: propertyStore.currentLandlord?.id === landlord.id,
+                active: propertyStore.focusedLandlordId === landlord.id,
               }"
               @click="handleLandlordClick(landlord)"
             >
@@ -291,6 +315,13 @@ const showPhotoUpload = ref(false);
                   >
                     详情
                   </el-button>
+                  <el-button
+                    :type="landlord.isFavorite ? 'warning' : 'info'"
+                    link
+                    size="small"
+                    :icon="landlord.isFavorite ? StarFilled : Star"
+                    @click.stop="propertyStore.toggleFavorite(landlord.id)"
+                  />
                   <el-popconfirm
                     title="确定删除此房东？"
                     @confirm="handleDeleteLandlord(landlord)"

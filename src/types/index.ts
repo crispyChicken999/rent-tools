@@ -131,6 +131,7 @@ export interface Landlord {
   contactStatus: ContactStatus; // 联系状态
   wechatNickname?: string; // 微信昵称
   avatar?: string; // 头像（文件名或 Base64）
+  isFavorite?: boolean; // 是否收藏
 
   // 位置信息
   gps?: GPS; // GPS 坐标

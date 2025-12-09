@@ -120,6 +120,7 @@ async function renderMarkers() {
           (l) => l.id === landlord.id
         );
         if (current) {
+          propertyStore.setFocusedLandlord(current.id);
           showInfoWindow(marker, current);
         }
       });
@@ -144,15 +145,17 @@ function getMarkerStyle(landlord: Landlord) {
 
   // 根据联系状态调整样式
   const isContacted = landlord.contactStatus === ContactStatus.Contacted;
+  const isFavorite = landlord.isFavorite;
 
   // 样式配置
   return {
     color: baseColor,
     opacity: isContacted ? 1.0 : 0.6,
-    borderColor: "#FFFFFF", // 已联系显示黑色边框，未联系白色
-    borderWidth: isContacted ? "2px" : "1px",
-    scale: isContacted ? 1.2 : 1.0, // 已联系的稍微大一点
-    zIndex: isContacted ? 100 : 10, // 已联系的层级更高
+    borderColor: isFavorite ? "#E6A23C" : "#FFFFFF", // 收藏显示金色边框
+    borderWidth: isFavorite ? "3px" : isContacted ? "2px" : "1px",
+    scale: isFavorite ? 1.4 : isContacted ? 1.2 : 1.0, // 收藏的最大
+    zIndex: isFavorite ? 200 : isContacted ? 100 : 10, // 收藏的层级最高
+    isFavorite,
   };
 }
 
@@ -162,9 +165,29 @@ function createMarkerContent(style: {
   borderColor: string;
   borderWidth: string;
   scale: number;
+  isFavorite?: boolean;
 }) {
-  const { color, opacity, borderColor, borderWidth, scale } = style;
+  const { color, opacity, borderColor, borderWidth, scale, isFavorite } = style;
   const size = 18 * scale;
+
+  // 如果是收藏，显示星星图标
+  if (isFavorite) {
+    return `
+      <div style="
+        width: ${size}px;
+        height: ${size}px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: all 0.3s;
+      ">
+        <svg viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}">
+          <path d="M512 73.143l158.286 320.571 353.714 51.429-256 249.714 60.571 352.571L512 880.571l-316.571 166.857 60.571-352.571-256-249.714 353.714-51.429z" fill="${color}" stroke="${borderColor}" stroke-width="50" />
+        </svg>
+      </div>
+    `;
+  }
 
   return `
     <div style="
