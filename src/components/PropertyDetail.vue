@@ -141,6 +141,14 @@
                   clearable
                 >
                   <template #prefix>📍</template>
+                  <template #append>
+                    <el-button 
+                      :icon="Refresh" 
+                      :loading="refreshingAddress"
+                      @click="refreshAddress"
+                      title="根据 GPS 重新获取地址"
+                    />
+                  </template>
                 </el-input>
                 <div v-if="editForm.gps" class="gps-coords">
                   GPS: {{ editForm.gps.lng.toFixed(6) }}, {{ editForm.gps.lat.toFixed(6) }}
@@ -518,6 +526,7 @@ import {
   Picture,
   UploadFilled,
   Loading,
+  Refresh,
 } from "@element-plus/icons-vue";
 import { usePropertyStore } from "@/stores/property";
 import {
@@ -540,6 +549,7 @@ import {
   type RoomInfo,
   RoomType,
 } from "@/types";
+import { getAddressFromGps } from "@/utils/geocode";
 
 const FLOOR_OPTIONS = Array.from({ length: 99 }, (_, i) => ({
   value: (i + 1).toString(),
@@ -565,6 +575,7 @@ const fileList = ref<FileItem[]>([]);
 const currentRoomIndex = ref(-1);
 const videoUrls = reactive(new Map<string, string>()); // 缓存视频 URL
 const isDragging = ref(false);
+const refreshingAddress = ref(false);
 
 const visible = computed({
   get: () => !!propertyStore.currentLandlord,
@@ -1129,6 +1140,29 @@ const getVideoUrl = async (fileName: string) => {
   } catch (e) {
     console.error("Failed to load video", e);
     return "";
+  }
+};
+
+const refreshAddress = async () => {
+  if (!editForm.value.gps) {
+    ElMessage.warning("没有 GPS 信息，无法刷新地址");
+    return;
+  }
+
+  refreshingAddress.value = true;
+  try {
+    const address = await getAddressFromGps(editForm.value.gps);
+    if (address && address !== "未知地址") {
+      editForm.value.address = address;
+      ElMessage.success("地址已更新");
+    } else {
+      ElMessage.warning("未能获取到有效地址");
+    }
+  } catch (e) {
+    console.error("刷新地址失败", e);
+    ElMessage.error("刷新地址失败");
+  } finally {
+    refreshingAddress.value = false;
   }
 };
 
