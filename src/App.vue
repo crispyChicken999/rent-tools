@@ -207,7 +207,7 @@ const showPhotoUpload = ref(false);
             </div>
           </div>
 
-          <el-scrollbar height="calc(100vh - 0px)">
+          <el-scrollbar height="calc(100vh - 150px)">
             <div
               v-for="landlord in filteredLandlords"
               :key="landlord.id"
