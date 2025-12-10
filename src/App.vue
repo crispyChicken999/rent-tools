@@ -9,6 +9,8 @@ import {
   Filter,
   Setting,
   QuestionFilled,
+  Download,
+  Document,
 } from "@element-plus/icons-vue";
 import PhotoUpload from "./components/PhotoUpload.vue";
 import MapView from "./components/MapView.vue";
@@ -82,7 +84,10 @@ const deleteWithImages = ref(true);
 const landlordToDelete = ref<any>(null);
 
 onMounted(async () => {
-  if(!localStorage.getItem('amap_key') || !localStorage.getItem('amap_security_code')) {
+  if (
+    !localStorage.getItem("amap_key") ||
+    !localStorage.getItem("amap_security_code")
+  ) {
     settingDialogVisible.value = true;
   }
   await propertyStore.loadLandlords();
@@ -283,50 +288,85 @@ const showPhotoUpload = ref(false);
         >
           批量导入照片
         </el-button>
-        <el-button
-          id="btn-export-excel"
-          @click="handleExport"
-          :disabled="propertyStore.landlords.length === 0"
-        >
-          导出Excel
-        </el-button>
-        <el-tooltip
-          content="需选择存放照片的文件夹，点击「批量导入图片」- 「选择照片文件夹」，不然没法加载图片"
-          placement="bottom"
-        >
+
+        <el-tooltip content="导出Excel" placement="bottom">
+          <el-button
+            id="btn-export-excel"
+            :icon="Document"
+            circle
+            @click="handleExport"
+            type="success"
+            plain
+            :disabled="propertyStore.landlords.length === 0"
+          />
+        </el-tooltip>
+
+        <el-tooltip placement="bottom">
+          <template #content>
+            <p><b>导入备份</b></p>
+            <p>需选择存放照片的文件夹（不然图片加载不出来）</p>
+            <p>点击「批量导入图片」-「选择照片文件夹」</p>
+            <p>然后选择之前导出的备份文件</p>
+          </template>
           <el-button
             id="btn-backup-import"
+            :icon="Upload"
+            circle
             type="primary"
+            plain
             @click="handleImport"
-          >
-            导入备份
-          </el-button>
+          />
         </el-tooltip>
-        <el-button
-          id="btn-backup"
-          @click="handleBackup"
-          :disabled="propertyStore.landlords.length === 0"
-        >
-          导出备份
-        </el-button>
-        <el-button :icon="Filter" @click="showFilterDrawer = true" title="筛选">
-          筛选
-        </el-button>
-        <el-button
-          :icon="QuestionFilled"
-          circle
-          @click="tourOpen = true"
-          title="使用说明"
-        />
-        <el-button
-          :icon="Setting"
-          circle
-          @click="
-            initSettings();
-            settingDialogVisible = true;
-          "
-          title="设置"
-        />
+
+        <el-tooltip content="导出备份（JSON文件）" placement="bottom">
+          <el-button
+            id="btn-backup"
+            :icon="Download"
+            circle
+            plain
+            type="warning"
+            @click="handleBackup"
+            :disabled="propertyStore.landlords.length === 0"
+          />
+        </el-tooltip>
+
+        <el-tooltip content="使用说明" placement="bottom">
+          <el-button
+            id="btn-tour"
+            :icon="QuestionFilled"
+            circle
+            plain
+            type="info"
+            @click="tourOpen = true"
+          />
+        </el-tooltip>
+
+        <el-tooltip content="设置" placement="bottom">
+          <el-button
+            id="btn-settings"
+            :icon="Setting"
+            circle
+            plain
+            type="info"
+            @click="
+              initSettings();
+              settingDialogVisible = true;
+            "
+          />
+        </el-tooltip>
+
+        <el-tooltip content="筛选房东" placement="bottom">
+          <el-button
+            id="btn-filter"
+            :icon="Filter"
+            @click="showFilterDrawer = true"
+            type="primary"
+            plain
+            circle
+            title="筛选"
+          />
+        </el-tooltip>
+
         <el-tag type="info" style="margin-left: 12px">
           共 {{ propertyStore.landlords.length }} 个房东
         </el-tag>
@@ -343,7 +383,7 @@ const showPhotoUpload = ref(false);
             <h3>房东列表 ({{ filteredLandlords.length }})</h3>
           </div>
 
-          <el-scrollbar height="calc(100vh - 150px)">
+          <el-scrollbar height="calc(100vh - 130px)">
             <div
               v-for="landlord in filteredLandlords"
               :key="landlord.id"
@@ -699,6 +739,21 @@ const showPhotoUpload = ref(false);
         description="需点击「批量导入照片」中的「选择照片文件夹」，选择你存放图片的文件夹（不选择的话，没法加载图片🖼️），然后选择之前导出的备份文件即可恢复数据。"
       />
       <el-tour-step
+        target="#btn-settings"
+        title="设置高德地图 API 🔧"
+        description="本软件使用到地图功能，请在「设置」中输入高德地图的 Key 和安全密钥。可以在高德开放平台注册账号获取。注册为个人开发者享受免费额度。"
+      />
+      <el-tour-step
+        target="#btn-filter"
+        title="筛选功能 🔍"
+        description="可以根据联系状态、微信状态、房东类型等条件进行筛选，快速找到目标房东。"
+      />
+      <el-tour-step
+        target="#btn-tour"
+        title="使用说明 Tour 🎓"
+        description="点击此按钮可以重新查看使用说明。"
+      />
+      <el-tour-step
         title="温馨提示 💡"
         description="全部数据保存在您的本地计算机💻上，系统不会上传任何信息。请定期备份重要数据。祝您使用愉快！🎉"
       />
@@ -737,6 +792,11 @@ const showPhotoUpload = ref(false);
   display: flex;
   align-items: center;
   gap: 12px;
+}
+
+.actions .el-button {
+  margin-left: 0;
+  font-size: 16px;
 }
 
 .main-content {
