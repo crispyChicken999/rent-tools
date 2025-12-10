@@ -645,7 +645,7 @@ const showPhotoUpload = ref(false);
     </el-drawer>
 
     <!-- 删除确认对话框 -->
-    <el-dialog v-model="deleteDialogVisible" title="删除确认" width="30%">
+    <el-dialog v-model="deleteDialogVisible" title="删除确认" width="450px">
       <span>确定要删除这个房东吗？此操作无法撤销。</span>
       <div style="margin-top: 15px">
         <el-checkbox

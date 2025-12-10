@@ -34,9 +34,9 @@
                       </template>
                     </el-image>
                     <div class="photo-actions">
-                      <el-button 
-                        type="danger" 
-                        size="small" 
+                      <el-button
+                        type="danger"
+                        size="small"
                         :icon="Delete"
                         @click="deletePhoto(currentPhotoIndex)"
                       >
@@ -44,7 +44,11 @@
                       </el-button>
                     </div>
                   </div>
-                  <div v-else class="no-photo-placeholder" @click="openFileSelector('photo')">
+                  <div
+                    v-else
+                    class="no-photo-placeholder"
+                    @click="openFileSelector('photo')"
+                  >
                     <el-icon :size="64" color="#909399"><Picture /></el-icon>
                     <div class="placeholder-text">点击上传照片</div>
                   </div>
@@ -52,8 +56,8 @@
 
                 <!-- 缩略图列表 + 上传按钮 -->
                 <div class="thumbnails-container">
-                  <div 
-                    v-for="(url, index) in photoUrls" 
+                  <div
+                    v-for="(url, index) in photoUrls"
                     :key="editForm.photos[index]?.id || index"
                     class="thumbnail-item"
                     :class="{ active: index === currentPhotoIndex }"
@@ -64,9 +68,12 @@
                       <el-icon><View /></el-icon>
                     </div>
                   </div>
-                  
+
                   <!-- 上传按钮 -->
-                  <div class="upload-btn-wrapper" @click="openFileSelector('photo')">
+                  <div
+                    class="upload-btn-wrapper"
+                    @click="openFileSelector('photo')"
+                  >
                     <div class="upload-btn">
                       <el-icon :size="24"><Plus /></el-icon>
                       <div class="upload-text">上传</div>
@@ -92,26 +99,34 @@
                         v-model="editForm.phoneNumbers[index]"
                         placeholder="输入电话号码"
                         @blur="
-                          checkDuplicatePhone(editForm.phoneNumbers[index], index)
+                          checkDuplicatePhone(
+                            editForm.phoneNumbers[index],
+                            index
+                          )
                         "
                       >
                         <template #append>
                           <el-button
                             :icon="CopyDocument"
-                            @click="copyToClipboard(editForm.phoneNumbers[index])"
+                            @click="
+                              copyToClipboard(editForm.phoneNumbers[index])
+                            "
                             title="复制号码"
                           />
-                          
                         </template>
                       </el-input>
                       <el-button
-                            v-if="editForm.phoneNumbers.length > 1"
-                            :icon="Delete"
-                            @click="removePhone(index)"
-                            title="删除号码"
-                          />
+                        v-if="editForm.phoneNumbers.length > 1"
+                        :icon="Delete"
+                        @click="removePhone(index)"
+                        title="删除号码"
+                      />
                     </div>
-                    <el-button type="primary" link :icon="Plus" @click="addPhone"
+                    <el-button
+                      type="primary"
+                      link
+                      :icon="Plus"
+                      @click="addPhone"
                       >添加电话</el-button
                     >
                   </div>
@@ -141,43 +156,56 @@
                   </el-radio-group>
                 </el-form-item>
 
-            <!-- 微信头像 -->
-            <el-form-item label="微信头像">
-              <div style="display: flex; flex-direction: column; align-items: center; gap: 5px">
-                <div class="avatar-uploader" @click="openFileSelector('avatar')">
-                  <el-image
-                    v-if="avatarUrl"
-                    :src="avatarUrl"
-                    class="avatar"
-                    :preview-src-list="[avatarUrl]"
-                    :preview-teleported="true"
-                    fit="cover"
-                    @click.stop
-                  />
-                  <el-icon v-else class="avatar-uploader-icon"><Plus /></el-icon>
-                </div>
-                <div class="sub-text" v-if="!avatarUrl">点击选择头像</div>
-                <div v-if="avatarUrl" style="display: flex; gap: 8px">
-                  <el-button
-                    type="primary"
-                    link
-                    size="small"
-                    @click="openFileSelector('avatar')"
+                <!-- 微信头像 -->
+                <el-form-item label="微信头像">
+                  <div
+                    style="
+                      display: flex;
+                      flex-direction: column;
+                      align-items: center;
+                      gap: 5px;
+                    "
                   >
-                    更换
-                  </el-button>
-                  <el-button
-                    type="danger"
-                    link
-                    size="small"
-                    :icon="Delete"
-                    @click.stop="clearAvatar"
-                  >
-                    清除
-                  </el-button>
-                </div>
-              </div>
-            </el-form-item>                <el-form-item label="微信昵称">
+                    <div
+                      class="avatar-uploader"
+                      @click="openFileSelector('avatar')"
+                    >
+                      <el-image
+                        v-if="avatarUrl"
+                        :src="avatarUrl"
+                        class="avatar"
+                        :preview-src-list="[avatarUrl]"
+                        :preview-teleported="true"
+                        fit="cover"
+                        @click.stop
+                      />
+                      <el-icon v-else class="avatar-uploader-icon"
+                        ><Plus
+                      /></el-icon>
+                    </div>
+                    <div class="sub-text" v-if="!avatarUrl">点击选择头像</div>
+                    <div v-if="avatarUrl" style="display: flex; gap: 8px">
+                      <el-button
+                        type="primary"
+                        link
+                        size="small"
+                        @click="openFileSelector('avatar')"
+                      >
+                        更换
+                      </el-button>
+                      <el-button
+                        type="danger"
+                        link
+                        size="small"
+                        :icon="Delete"
+                        @click.stop="clearAvatar"
+                      >
+                        清除
+                      </el-button>
+                    </div>
+                  </div>
+                </el-form-item>
+                <el-form-item label="微信昵称">
                   <el-input
                     v-model="editForm.wechatNickname"
                     placeholder="输入微信昵称"
@@ -195,17 +223,17 @@
                   </el-radio-group>
                 </el-form-item>
 
-                <el-form-item label="位置信息" style="flex: 1;">
+                <el-form-item label="位置信息" style="flex: 1">
                   <div class="location-info">
-                    <el-input 
-                      v-model="editForm.address" 
-                      placeholder="输入地址" 
+                    <el-input
+                      v-model="editForm.address"
+                      placeholder="输入地址"
                       clearable
                     >
                       <template #prefix>📍</template>
                       <template #append>
-                        <el-button 
-                          :icon="Refresh" 
+                        <el-button
+                          :icon="Refresh"
                           :loading="refreshingAddress"
                           @click="refreshAddress"
                           title="根据 GPS 重新获取地址"
@@ -213,7 +241,8 @@
                       </template>
                     </el-input>
                     <div v-if="editForm.gps" class="gps-coords">
-                      GPS: {{ editForm.gps.lng.toFixed(6) }}, {{ editForm.gps.lat.toFixed(6) }}
+                      GPS: {{ editForm.gps.lng.toFixed(6) }},
+                      {{ editForm.gps.lat.toFixed(6) }}
                     </div>
                   </div>
                 </el-form-item>
@@ -367,7 +396,10 @@
 
                   <el-form label-width="80px" size="default" class="room-form">
                     <el-form-item label="房型">
-                      <el-select v-model="room.roomType" placeholder="请选择房型">
+                      <el-select
+                        v-model="room.roomType"
+                        placeholder="请选择房型"
+                      >
                         <el-option
                           v-for="opt in ROOM_TYPES"
                           :key="opt.value"
@@ -422,7 +454,9 @@
                     </el-form-item>
 
                     <el-form-item label="视频">
-                      <div style="display: flex; flex-direction: column; gap: 8px">
+                      <div
+                        style="display: flex; flex-direction: column; gap: 8px"
+                      >
                         <div
                           v-for="(video, vIndex) in room.videos"
                           :key="video.id"
@@ -454,7 +488,10 @@
                             </div>
                           </div>
                         </div>
-                        <el-button plain @click="openFileSelector('video', index)">
+                        <el-button
+                          plain
+                          @click="openFileSelector('video', index)"
+                        >
                           <el-icon><Plus /></el-icon> 添加视频
                         </el-button>
                       </div>
@@ -510,11 +547,12 @@
           >保存修改</el-button
         >
         <el-button @click="closeDrawer" size="large">关闭</el-button>
-        <el-popconfirm title="确定删除此房东信息？" @confirm="deleteLandlord">
-          <template #reference>
-            <el-button type="danger" size="large">删除</el-button>
-          </template>
-        </el-popconfirm>
+        <el-button
+          type="danger"
+          size="large"
+          @click="deleteDialogVisible = true"
+          >删除</el-button
+        >
       </div>
     </template>
 
@@ -525,7 +563,7 @@
       width="500px"
       append-to-body
     >
-      <div 
+      <div
         class="dialog-content-wrapper"
         @dragover.prevent="isDragging = true"
         @dragleave.prevent="isDragging = false"
@@ -550,7 +588,7 @@
                 ? "微信头像"
                 : fileDialogMode === "video"
                 ? "视频"
-                : "根"
+                : "上传图片"
             }}
             目录)
           </span>
@@ -591,11 +629,40 @@
         </div>
       </div>
     </el-dialog>
+
+    <!-- 删除确认对话框 -->
+    <el-dialog
+      v-model="deleteDialogVisible"
+      title="确认删除"
+      width="450px"
+      append-to-body
+    >
+      <div style="margin-bottom: 20px">
+        <p style="margin-bottom: 15px; font-size: 14px; color: #606266">
+          确定要删除此房东信息吗？
+        </p>
+        <el-checkbox v-model="deleteWithImages">
+          同时删除根目录下的照片（不会删除"上传图片"文件夹中的照片）
+        </el-checkbox>
+      </div>
+      <template #footer>
+        <el-button @click="deleteDialogVisible = false">取消</el-button>
+        <el-button type="danger" @click="deleteLandlord">确认删除</el-button>
+      </template>
+    </el-dialog>
   </el-drawer>
 </template>
 
 <script setup lang="ts">
-import { ref, watch, computed, onUnmounted, onMounted, toRaw, reactive } from "vue";
+import {
+  ref,
+  watch,
+  computed,
+  onUnmounted,
+  onMounted,
+  toRaw,
+  reactive,
+} from "vue";
 import { ElMessage, ElMessageBox } from "element-plus";
 import {
   Plus,
@@ -655,6 +722,8 @@ const currentRoomIndex = ref(-1);
 const videoUrls = reactive(new Map<string, string>()); // 缓存视频 URL
 const isDragging = ref(false);
 const refreshingAddress = ref(false);
+const deleteDialogVisible = ref(false);
+const deleteWithImages = ref(true);
 
 const visible = computed({
   get: () => !!propertyStore.currentLandlord,
@@ -796,10 +865,15 @@ const loadPhotos = async (photos: any[]) => {
 
     for (const photo of photos) {
       try {
-        const fileHandle = await dirHandle.getFileHandle(photo.fileName);
-        const file = await fileHandle.getFile();
-        const url = URL.createObjectURL(file);
-        photoUrls.value.push(url);
+        // 使用 getFileByPath 处理可能包含路径的文件名
+        const file = await getFileByPath(dirHandle, photo.fileName);
+        if (file) {
+          const url = URL.createObjectURL(file);
+          photoUrls.value.push(url);
+        } else {
+          console.error(`加载照片失败: ${photo.fileName} - 文件不存在`);
+          photoUrls.value.push("");
+        }
       } catch (e) {
         console.error(`加载照片失败: ${photo.fileName}`, e);
         // 占位符或错误处理
@@ -813,24 +887,26 @@ const loadPhotos = async (photos: any[]) => {
 
 // 上传文件的核心逻辑
 const uploadFiles = async (files: File[]) => {
-  const imageFiles = files.filter(f => f.type.startsWith('image/'));
-  
+  const imageFiles = files.filter((f) => f.type.startsWith("image/"));
+
   if (imageFiles.length === 0) {
-    ElMessage.warning('没有找到图片文件');
+    ElMessage.warning("没有找到图片文件");
     return;
   }
 
   try {
     const dirHandle = await getValidDirectoryHandle();
-    
+
     if (!dirHandle) {
-      ElMessage.warning('请先在主页面选择照片文件夹');
+      ElMessage.warning("请先在主页面选择照片文件夹");
       return;
     }
 
-    const writePermission = await dirHandle.requestPermission({ mode: "readwrite" });
+    const writePermission = await dirHandle.requestPermission({
+      mode: "readwrite",
+    });
     if (writePermission !== "granted") {
-      ElMessage.error('需要文件夹写入权限才能上传图片');
+      ElMessage.error("需要文件夹写入权限才能上传图片");
       return;
     }
 
@@ -865,16 +941,16 @@ const uploadFiles = async (files: File[]) => {
       ElMessage.success(`成功上传 ${uploadedPhotos.length} 张照片`);
     }
   } catch (error) {
-    console.error('上传失败:', error);
-    ElMessage.error('上传失败，请重试');
+    console.error("上传失败:", error);
+    ElMessage.error("上传失败，请重试");
   }
 };
 
 // 处理粘贴事件（在基本信息 tab 时上传照片）
 const handlePhotosPaste = async (e: ClipboardEvent) => {
   // 只在基本信息 tab 且不在文件选择对话框时处理
-  if (activeTab.value !== 'basic' || fileDialogVisible.value) return;
-  
+  if (activeTab.value !== "basic" || fileDialogVisible.value) return;
+
   // 避免在输入框中粘贴时触发
   const target = e.target as HTMLElement;
   if (
@@ -883,13 +959,13 @@ const handlePhotosPaste = async (e: ClipboardEvent) => {
   ) {
     return;
   }
-  
+
   const items = e.clipboardData?.items;
   if (!items) return;
 
   const imageFiles: File[] = [];
   for (const item of Array.from(items)) {
-    if (item.type.indexOf('image') !== -1) {
+    if (item.type.indexOf("image") !== -1) {
       const file = item.getAsFile();
       if (file) imageFiles.push(file);
     }
@@ -905,27 +981,26 @@ const handlePhotosPaste = async (e: ClipboardEvent) => {
 const deletePhoto = async (index: number) => {
   try {
     await ElMessageBox.confirm(
-      '确定要从记录中删除这张照片吗？（文件不会被删除）',
-      '确认删除',
+      "确定要从记录中删除这张照片吗？（文件不会被删除）",
+      "确认删除",
       {
-        confirmButtonText: '确定',
-        cancelButtonText: '取消',
-        type: 'warning',
+        confirmButtonText: "确定",
+        cancelButtonText: "取消",
+        type: "warning",
       }
     );
 
     // 只从记录中删除，不删除源文件
     editForm.value.photos.splice(index, 1);
-    
+
     // 重置索引，避免越界
     if (currentPhotoIndex.value >= editForm.value.photos.length) {
       currentPhotoIndex.value = Math.max(0, editForm.value.photos.length - 1);
     }
-    
+
     await loadPhotos(editForm.value.photos);
+    ElMessage.success("照片已从记录中删除");
     await saveChanges();
-    
-    ElMessage.success('照片已从记录中删除');
   } catch {
     // 用户取消
   }
@@ -933,11 +1008,11 @@ const deletePhoto = async (index: number) => {
 
 // 监听粘贴事件
 onMounted(() => {
-  document.addEventListener('paste', handlePhotosPaste);
+  document.addEventListener("paste", handlePhotosPaste);
 });
 
 onUnmounted(() => {
-  document.removeEventListener('paste', handlePhotosPaste);
+  document.removeEventListener("paste", handlePhotosPaste);
   window.removeEventListener("paste", handlePaste);
   handleClosed();
 });
@@ -972,7 +1047,7 @@ const allPhotoUrls = computed(() => {
 });
 
 const mainPhotoUrl = computed(() => {
-  return photoUrls.value[currentPhotoIndex.value] || '';
+  return photoUrls.value[currentPhotoIndex.value] || "";
 });
 
 const addPhone = () => {
@@ -999,7 +1074,7 @@ const checkDuplicatePhone = async (phone: string, _index: number) => {
 const addRoom = () => {
   const newRoom: RoomInfo = {
     id: crypto.randomUUID(),
-    roomType: '单间',
+    roomType: "单间",
     rent: undefined,
     description: "",
     amenities: [],
@@ -1050,15 +1125,11 @@ const openFileSelector = async (
         targetDirHandle = await dirHandle.getDirectoryHandle("视频");
       } catch {}
     } else {
-      // 照片模式：扫描根目录
-      for await (const entry of dirHandle.values()) {
-        if (entry.kind === "file") {
-          const isImage = /\.(jpg|jpeg|png|gif)$/i.test(entry.name);
-          if (isImage) {
-            fileNames.push(entry.name);
-          }
-        }
-      }
+      // 照片模式：扫描 "上传图片" 目录
+      fileNames = await scanSubdirectory(dirHandle, "上传图片", ["image"]);
+      try {
+        targetDirHandle = await dirHandle.getDirectoryHandle("上传图片");
+      } catch {}
     }
 
     // 生成预览
@@ -1091,30 +1162,29 @@ const openFileSelector = async (
   }
 };
 
-
-
 const saveFile = async (file: File) => {
   const dirHandle = await getValidDirectoryHandle();
   if (!dirHandle) return null;
 
   let targetDirName = "";
-  
+
   // 验证文件类型
   if (fileDialogMode.value === "avatar") {
     targetDirName = "微信头像";
-    if (!file.type.startsWith('image/')) {
+    if (!file.type.startsWith("image/")) {
       ElMessage.warning(`文件 ${file.name} 不是图片`);
       return null;
     }
   } else if (fileDialogMode.value === "video") {
     targetDirName = "视频";
-    if (!file.type.startsWith('video/')) {
+    if (!file.type.startsWith("video/")) {
       ElMessage.warning(`文件 ${file.name} 不是视频`);
       return null;
     }
   } else {
     // 照片模式
-    if (!file.type.startsWith('image/')) {
+    targetDirName = "上传图片";
+    if (!file.type.startsWith("image/")) {
       ElMessage.warning(`文件 ${file.name} 不是图片`);
       return null;
     }
@@ -1122,12 +1192,9 @@ const saveFile = async (file: File) => {
 
   try {
     let savedName = "";
-    if (targetDirName) {
-      const targetDir = await ensureDirectory(dirHandle, targetDirName);
-      savedName = await saveFileToDirectory(targetDir, file);
-    } else {
-      savedName = await saveFileToDirectory(dirHandle, file);
-    }
+    // 现在所有模式都有 targetDirName
+    const targetDir = await ensureDirectory(dirHandle, targetDirName);
+    savedName = await saveFileToDirectory(targetDir, file);
     return savedName;
   } catch (e) {
     console.error("Save file failed", e);
@@ -1310,8 +1377,8 @@ const handleFileSelect = (fileItem: FileItem) => {
     });
     getVideoUrl(finalPath);
   } else if (fileDialogMode.value === "photo") {
-    // 照片模式通常在根目录
-    finalPath = fileName;
+    // 照片模式：上传图片目录
+    finalPath = `上传图片/${fileName}`;
     editForm.value.photos.push({
       id: crypto.randomUUID(),
       fileName: finalPath,
@@ -1402,11 +1469,16 @@ const saveChanges = async () => {
 const deleteLandlord = async () => {
   if (!landlord.value) return;
   try {
-    await propertyStore.removeLandlord(landlord.value.id);
+    await propertyStore.removeLandlord(
+      landlord.value.id,
+      deleteWithImages.value
+    );
     ElMessage.success("删除成功");
+    deleteDialogVisible.value = false;
     closeDrawer();
   } catch (error) {
     ElMessage.error("删除失败");
+    deleteDialogVisible.value = false;
   }
 };
 
@@ -1430,8 +1502,6 @@ const copyToClipboard = async (text: string) => {
 }
 </style>
 <style scoped>
-
-
 .landlord-detail {
   padding: 0;
 }

@@ -26,7 +26,7 @@ import { loadAMap } from "@/utils/geocode";
 import { usePropertyStore } from "@/stores/property";
 import { LandlordType, ContactStatus } from "@/types";
 import type { Landlord } from "@/types";
-import { getValidDirectoryHandle } from "@/utils/fileSystem";
+import { getValidDirectoryHandle, getFileByPath } from "@/utils/fileSystem";
 
 const propertyStore = usePropertyStore();
 const mapContainer = ref<HTMLDivElement>();
@@ -316,12 +316,12 @@ async function showInfoWindow(marker: any, landlord: Landlord) {
     try {
       const dirHandle = await getValidDirectoryHandle();
       if (dirHandle) {
-        const fileHandle = await dirHandle.getFileHandle(
-          landlord.photos[0].fileName
-        );
-        const file = await fileHandle.getFile();
-        imageUrl = URL.createObjectURL(file);
-        currentInfoWinImage = imageUrl;
+        // 使用 getFileByPath 处理可能包含路径的文件名
+        const file = await getFileByPath(dirHandle, landlord.photos[0].fileName);
+        if (file) {
+          imageUrl = URL.createObjectURL(file);
+          currentInfoWinImage = imageUrl;
+        }
       }
     } catch (e) {
       console.error("加载房东图片失败", e);

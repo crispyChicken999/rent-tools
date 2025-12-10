@@ -229,14 +229,32 @@ export const usePropertyStore = defineStore("property", () => {
       const landlord = landlords.value.find((l) => l.id === id);
       if (landlord && landlord.photos && landlord.photos.length > 0) {
         try {
-          // 尝试获取默认文件夹句柄
-          // 注意：如果照片分布在不同文件夹，这里可能需要根据 photo.folderId 获取对应的句柄
-          // 目前简化处理，假设都在默认文件夹
           const dirHandle = await getValidDirectoryHandle();
           if (dirHandle) {
             for (const photo of landlord.photos) {
               try {
-                // 移动到回收站而不是直接删除
+                // 只处理根目录下的图片（不包含路径分隔符的文件名）
+                const isRootFile = !photo.fileName.includes('/') && !photo.fileName.includes('\\');
+                
+                if (!isRootFile) {
+                  // 跳过"上传图片"等子目录中的文件
+                  continue;
+                }
+                
+                // 检查该图片是否被其他房东使用
+                const isUsedByOthers = landlords.value.some(l => 
+                  l.id !== id && 
+                  l.photos && 
+                  l.photos.some(p => p.fileName === photo.fileName)
+                );
+                
+                if (isUsedByOthers) {
+                  // 如果被其他房东使用，不删除
+                  console.log(`文件 ${photo.fileName} 被其他房东使用，跳过删除`);
+                  continue;
+                }
+                
+                // 移动到回收站
                 await moveToTrash(dirHandle, photo.fileName);
               } catch (e) {
                 console.warn(`无法删除文件 ${photo.fileName}:`, e);
