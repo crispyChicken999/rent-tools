@@ -381,7 +381,6 @@ const deleteConfirmCount = ref(0);
 const currentImageUrls = ref<string[]>([]);
 const isImageZoomed = ref(false);
 const phoneInputRefs = ref<any[]>([]);
-const containerRef = ref<HTMLElement | null>(null);
 let loadingImagesVersion = 0;
 
 const organizeLandlord = computed(() => {

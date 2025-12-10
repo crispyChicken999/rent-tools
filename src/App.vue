@@ -24,7 +24,6 @@ import {
   type FilterOptions,
   ROOM_TYPES,
 } from "./types";
-import { el } from "element-plus/es/locales.mjs";
 
 const propertyStore = usePropertyStore();
 const mapViewRef = ref<InstanceType<typeof MapView> | null>(null);
