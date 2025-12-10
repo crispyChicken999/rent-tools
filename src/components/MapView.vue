@@ -12,13 +12,15 @@
       <div class="legend-item">
         <span class="dot dark"></span> 未联系 (暗色)
       </div>
+      <div class="legend-divider"></div>
+      <div class="legend-tip">💡 右键地图创建房东</div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted, watch, onUnmounted, h, render } from "vue";
-import { ElImage, ElButton, ElMessage, ElIcon } from "element-plus";
+import { ElImage, ElButton, ElMessage, ElIcon, ElMessageBox } from "element-plus";
 import { CopyDocument } from "@element-plus/icons-vue";
 import { loadAMap } from "@/utils/geocode";
 import { usePropertyStore } from "@/stores/property";
@@ -74,6 +76,35 @@ async function initMap() {
     map.on("click", () => {
       propertyStore.setFocusedLandlord(null);
     });
+
+    // 创建右键菜单
+    const contextMenu = new AMap.ContextMenu();
+    
+    // 添加"创建房东"菜单项
+    contextMenu.addItem(
+      "📍 在此位置创建房东",
+      async () => {
+        const position = contextMenu.getPosition();
+        if (position) {
+          try {
+            await createLandlordAtLocation({
+              lng: position.lng,
+              lat: position.lat,
+            });
+          } catch (error) {
+            console.error("创建房东失败:", error);
+            ElMessage.error("创建房东失败");
+          }
+        }
+      },
+      0
+    );
+
+    // 地图右键事件 - 显示创建房东菜单
+    map.on("rightclick", (e: any) => {
+      contextMenu.open(map, e.lnglat);
+    });
+
   } catch (error) {
     console.error("地图初始化失败:", error);
   }
@@ -107,7 +138,7 @@ async function renderMarkers() {
     const style = getMarkerStyle(landlord);
     const content = createMarkerContent(style);
     const position = [landlord.gps.lng, landlord.gps.lat];
-    const title = landlord.alias || landlord.phoneNumbers[0] || "待完善";
+    const title = landlord.wechatNickname || landlord.phoneNumbers[0] || "待完善";
 
     if (markers.has(landlord.id)) {
       // 更新现有标记
@@ -140,10 +171,61 @@ async function renderMarkers() {
         }
       });
 
+      // 创建标记的右键菜单
+      const markerContextMenu = createMarkerContextMenu(landlord.id);
+      marker.on("rightclick", (e: any) => {
+        markerContextMenu.open(map, e.lnglat);
+      });
+
       map.add(marker);
       markers.set(landlord.id, marker);
     }
   });
+}
+
+// 创建标记的右键菜单
+function createMarkerContextMenu(landlordId: string) {
+  const AMap = (window as any).AMap;
+  const contextMenu = new AMap.ContextMenu();
+  
+  contextMenu.addItem(
+    "🗑️ 删除此房东",
+    async () => {
+      try {
+        await ElMessageBox.confirm(
+          '确定要删除这个房东吗？',
+          '确认删除',
+          {
+            confirmButtonText: '确定',
+            cancelButtonText: '取消',
+            type: 'warning',
+          }
+        );
+        
+        await propertyStore.removeLandlord(landlordId, false);
+        ElMessage.success("房东已删除");
+        await renderMarkers();
+      } catch (error: any) {
+        if (error !== 'cancel') {
+          ElMessage.error("删除失败");
+        }
+      }
+    },
+    0
+  );
+  
+  contextMenu.addItem(
+    "📋 查看详情",
+    () => {
+      const landlord = propertyStore.landlords.find(l => l.id === landlordId);
+      if (landlord) {
+        propertyStore.selectLandlord(landlord);
+      }
+    },
+    1
+  );
+  
+  return contextMenu;
 }
 
 function getMarkerStyle(landlord: Landlord) {
@@ -276,7 +358,7 @@ async function showInfoWindow(marker: any, landlord: Landlord) {
       h(
         "h3",
         { style: { margin: "0 0 10px 0", fontSize: "16px" } },
-        landlord.alias || "待完善房东"
+        landlord.wechatNickname || "待完善房东"
       ),
 
       // 信息列表
@@ -344,7 +426,11 @@ async function showInfoWindow(marker: any, landlord: Landlord) {
             type: "primary",
             size: "small",
             onClick: () => {
-              propertyStore.selectLandlord(landlord);
+              // 每次点击时从 store 获取最新数据
+              const latestLandlord = propertyStore.landlords.find(l => l.id === landlord.id);
+              if (latestLandlord) {
+                propertyStore.selectLandlord(latestLandlord);
+              }
             },
           },
           () => "查看详情"
@@ -368,6 +454,50 @@ async function showInfoWindow(marker: any, landlord: Landlord) {
   });
 
   infoWindow.open(map, marker.getPosition());
+}
+
+async function createLandlordAtLocation(gps: { lng: number; lat: number }) {
+  try {
+    // 提示用户输入微信昵称
+    const { value: wechatNickname } = await ElMessageBox.prompt(
+      "在此位置创建新房东，请输入微信昵称（可选）",
+      "创建房东",
+      {
+        confirmButtonText: "确认",
+        cancelButtonText: "取消",
+        inputPlaceholder: "例如：张三",
+      }
+    );
+
+    // 创建房东
+    const newLandlord = await propertyStore.createLandlord({
+      photos: [],
+      gps: gps,
+      folderId: "manual-create", // 手动创建的标记
+    });
+
+    // 如果用户输入了微信昵称，更新房东信息
+    if (wechatNickname && wechatNickname.trim()) {
+      await propertyStore.updateLandlordData(newLandlord.id, {
+        wechatNickname: wechatNickname.trim(),
+      });
+    }
+
+    ElMessage.success("房东创建成功，可在列表中查看并完善信息");
+
+    // 刷新地图标记
+    await renderMarkers();
+
+    // 选中新创建的房东（重新从store获取最新数据）
+    const updatedLandlord = propertyStore.landlords.find(l => l.id === newLandlord.id);
+    if (updatedLandlord) {
+      propertyStore.selectLandlord(updatedLandlord);
+    }
+  } catch (error: any) {
+    if (error !== "cancel") {
+      throw error;
+    }
+  }
 }
 
 function translateLandlordType(type: LandlordType): string {
@@ -441,6 +571,14 @@ defineExpose({
 
 .legend-item:last-child {
   margin-bottom: 0;
+}
+
+.legend-tip {
+  text-align: center;
+  color: #409eff;
+  font-size: 12px;
+  margin-top: 4px;
+  font-weight: 500;
 }
 
 .legend-divider {

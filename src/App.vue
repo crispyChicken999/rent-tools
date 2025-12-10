@@ -633,7 +633,7 @@ const showPhotoUpload = ref(false);
       <div style="margin-top: 15px">
         <el-checkbox
           v-model="deleteWithImages"
-          label="同时删除对应的图片文件"
+          label="同时删除对应的图片文件（图片会移动到 .trash 文件夹内）"
         />
       </div>
       <template #footer>

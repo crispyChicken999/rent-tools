@@ -16,33 +16,66 @@
             <div class="tab-content-wrapper">
               <!-- 照片展示区 -->
               <div class="photo-section">
-                <div class="main-photo" v-if="mainPhotoUrl">
-                  <el-image
-                    :src="mainPhotoUrl"
-                    :preview-src-list="allPhotoUrls"
-                    fit="contain"
-                    hide-on-click-modal
-                    style="width: 100%; height: 200px; border-radius: 8px"
-                  >
-                    <template #error>
-                      <div class="image-error">
-                        <el-icon><Picture /></el-icon>
-                        <div>照片加载失败</div>
-                        <div class="sub-text">请确认已授权访问照片文件夹</div>
-                      </div>
-                    </template>
-                  </el-image>
+                <!-- 主图展示 -->
+                <div class="main-photo-container">
+                  <div v-if="mainPhotoUrl" class="main-photo">
+                    <el-image
+                      :src="mainPhotoUrl"
+                      :preview-src-list="allPhotoUrls"
+                      :initial-index="currentPhotoIndex"
+                      fit="contain"
+                      class="main-image"
+                    >
+                      <template #error>
+                        <div class="image-error">
+                          <el-icon :size="48"><Picture /></el-icon>
+                          <div>照片加载失败</div>
+                        </div>
+                      </template>
+                    </el-image>
+                    <div class="photo-actions">
+                      <el-button 
+                        type="danger" 
+                        size="small" 
+                        :icon="Delete"
+                        @click="deletePhoto(currentPhotoIndex)"
+                      >
+                        删除
+                      </el-button>
+                    </div>
+                  </div>
+                  <div v-else class="no-photo-placeholder" @click="openFileSelector('photo')">
+                    <el-icon :size="64" color="#909399"><Picture /></el-icon>
+                    <div class="placeholder-text">点击上传照片</div>
+                  </div>
                 </div>
-                <div class="photo-thumbnails" v-if="photoUrls.length > 1">
-                  <div
-                    v-for="(url, index) in photoUrls"
-                    :key="editForm.photos[index].id"
-                    class="thumbnail"
+
+                <!-- 缩略图列表 + 上传按钮 -->
+                <div class="thumbnails-container">
+                  <div 
+                    v-for="(url, index) in photoUrls" 
+                    :key="editForm.photos[index]?.id || index"
+                    class="thumbnail-item"
                     :class="{ active: index === currentPhotoIndex }"
                     @click="currentPhotoIndex = index"
                   >
-                    <el-image :src="url" fit="cover" />
+                    <el-image :src="url" fit="cover" class="thumbnail-image" />
+                    <div class="thumbnail-overlay">
+                      <el-icon><View /></el-icon>
+                    </div>
                   </div>
+                  
+                  <!-- 上传按钮 -->
+                  <div class="upload-btn-wrapper" @click="openFileSelector('photo')">
+                    <div class="upload-btn">
+                      <el-icon :size="24"><Plus /></el-icon>
+                      <div class="upload-text">上传</div>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="photo-count" v-if="photoUrls.length > 0">
+                  共 {{ photoUrls.length }} 张照片
                 </div>
               </div>
 
@@ -561,8 +594,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, computed, onUnmounted, toRaw, reactive } from "vue";
-import { ElMessage } from "element-plus";
+import { ref, watch, computed, onUnmounted, onMounted, toRaw, reactive } from "vue";
+import { ElMessage, ElMessageBox } from "element-plus";
 import {
   Plus,
   Delete,
@@ -571,6 +604,7 @@ import {
   Loading,
   Refresh,
   CopyDocument,
+  View,
 } from "@element-plus/icons-vue";
 import { usePropertyStore } from "@/stores/property";
 import {
@@ -591,6 +625,7 @@ import {
   DEPOSIT_METHODS,
   type Landlord,
   type RoomInfo,
+  type Photo,
 } from "@/types";
 import { getAddressFromGps } from "@/utils/geocode";
 
@@ -775,6 +810,137 @@ const loadPhotos = async (photos: any[]) => {
   }
 };
 
+// 上传文件的核心逻辑
+const uploadFiles = async (files: File[]) => {
+  const imageFiles = files.filter(f => f.type.startsWith('image/'));
+  
+  if (imageFiles.length === 0) {
+    ElMessage.warning('没有找到图片文件');
+    return;
+  }
+
+  try {
+    const dirHandle = await getValidDirectoryHandle();
+    
+    if (!dirHandle) {
+      ElMessage.warning('请先在主页面选择照片文件夹');
+      return;
+    }
+
+    const writePermission = await dirHandle.requestPermission({ mode: "readwrite" });
+    if (writePermission !== "granted") {
+      ElMessage.error('需要文件夹写入权限才能上传图片');
+      return;
+    }
+
+    const uploadFolder = await ensureDirectory(dirHandle, "上传图片");
+    const uploadedPhotos: Photo[] = [];
+
+    for (const file of imageFiles) {
+      try {
+        const timestamp = Date.now();
+        const random = Math.random().toString(36).substring(2, 9);
+        const ext = file.name.substring(file.name.lastIndexOf("."));
+        const newFileName = `upload_${timestamp}_${random}${ext}`;
+
+        await saveFileToDirectory(uploadFolder, file, newFileName);
+
+        const photo: Photo = {
+          id: `${timestamp}-${random}`,
+          fileName: `上传图片/${newFileName}`,
+          folderId: "user-uploaded",
+        };
+
+        uploadedPhotos.push(photo);
+      } catch (error) {
+        console.error(`上传文件 ${file.name} 失败:`, error);
+      }
+    }
+
+    if (uploadedPhotos.length > 0) {
+      editForm.value.photos = [...editForm.value.photos, ...uploadedPhotos];
+      await loadPhotos(editForm.value.photos);
+      await saveChanges();
+      ElMessage.success(`成功上传 ${uploadedPhotos.length} 张照片`);
+    }
+  } catch (error) {
+    console.error('上传失败:', error);
+    ElMessage.error('上传失败，请重试');
+  }
+};
+
+// 处理粘贴事件（在基本信息 tab 时上传照片）
+const handlePhotosPaste = async (e: ClipboardEvent) => {
+  // 只在基本信息 tab 且不在文件选择对话框时处理
+  if (activeTab.value !== 'basic' || fileDialogVisible.value) return;
+  
+  // 避免在输入框中粘贴时触发
+  const target = e.target as HTMLElement;
+  if (
+    ["INPUT", "TEXTAREA"].includes(target.tagName) ||
+    target.isContentEditable
+  ) {
+    return;
+  }
+  
+  const items = e.clipboardData?.items;
+  if (!items) return;
+
+  const imageFiles: File[] = [];
+  for (const item of Array.from(items)) {
+    if (item.type.indexOf('image') !== -1) {
+      const file = item.getAsFile();
+      if (file) imageFiles.push(file);
+    }
+  }
+
+  if (imageFiles.length > 0) {
+    e.preventDefault();
+    await uploadFiles(imageFiles);
+  }
+};
+
+// 删除照片
+const deletePhoto = async (index: number) => {
+  try {
+    await ElMessageBox.confirm(
+      '确定要从记录中删除这张照片吗？（文件不会被删除）',
+      '确认删除',
+      {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning',
+      }
+    );
+
+    // 只从记录中删除，不删除源文件
+    editForm.value.photos.splice(index, 1);
+    
+    // 重置索引，避免越界
+    if (currentPhotoIndex.value >= editForm.value.photos.length) {
+      currentPhotoIndex.value = Math.max(0, editForm.value.photos.length - 1);
+    }
+    
+    await loadPhotos(editForm.value.photos);
+    await saveChanges();
+    
+    ElMessage.success('照片已从记录中删除');
+  } catch {
+    // 用户取消
+  }
+};
+
+// 监听粘贴事件
+onMounted(() => {
+  document.addEventListener('paste', handlePhotosPaste);
+});
+
+onUnmounted(() => {
+  document.removeEventListener('paste', handlePhotosPaste);
+  window.removeEventListener("paste", handlePaste);
+  handleClosed();
+});
+
 const loadVideos = async (properties: RoomInfo[]) => {
   if (!properties) return;
 
@@ -800,12 +966,12 @@ onUnmounted(() => {
   handleClosed();
 });
 
-const mainPhotoUrl = computed(() => {
-  return photoUrls.value[currentPhotoIndex.value];
-});
-
 const allPhotoUrls = computed(() => {
   return photoUrls.value.filter((url) => url);
+});
+
+const mainPhotoUrl = computed(() => {
+  return photoUrls.value[currentPhotoIndex.value] || '';
 });
 
 const addPhone = () => {
@@ -1217,6 +1383,7 @@ const saveChanges = async () => {
     const rawData = toRaw(editForm.value);
     const dataToSave = {
       ...rawData,
+      photos: toRaw(editForm.value.photos), // 确保 photos 也是原始数据
       phoneNumbers: validPhones,
       updatedAt: new Date().toISOString(),
       isPerfect: true,
@@ -1312,6 +1479,164 @@ const copyToClipboard = async (text: string) => {
   margin-top: 4px;
   color: #909399;
   text-align: center;
+}
+
+/* 照片轮播样式 */
+.photo-carousel-container {
+  margin-bottom: 20px;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #f5f7fa;
+}
+
+/* 照片展示区域 */
+.photo-section {
+  margin-bottom: 24px;
+}
+
+.main-photo-container {
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.main-photo {
+  position: relative;
+  width: 100%;
+  height: 280px;
+  background: #000;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.main-image {
+  width: 100%;
+  height: 100%;
+}
+
+.photo-actions {
+  position: absolute;
+  bottom: 12px;
+  right: 12px;
+  z-index: 10;
+}
+
+.no-photo-placeholder {
+  height: 280px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: #fafafa;
+  border: 2px dashed #dcdfe6;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.no-photo-placeholder:hover {
+  border-color: #409eff;
+  background: #f0f9ff;
+}
+
+.placeholder-text {
+  margin-top: 12px;
+  color: #606266;
+  font-size: 15px;
+  font-weight: 500;
+}
+
+.placeholder-hint {
+  margin-top: 6px;
+  color: #909399;
+  font-size: 12px;
+}
+
+/* 缩略图列表 */
+.thumbnails-container {
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  padding-top: 8px;
+}
+
+.thumbnail-item {
+  position: relative;
+  width: 80px;
+  height: 80px;
+  flex-shrink: 0;
+  border-radius: 6px;
+  overflow: hidden;
+  cursor: pointer;
+  border: 2px solid transparent;
+  transition: all 0.3s;
+}
+
+.thumbnail-item:hover .thumbnail-overlay {
+  opacity: 1;
+}
+
+.thumbnail-item.active {
+  border-color: #409eff;
+  box-shadow: 0 0 8px rgba(64, 158, 255, 0.5);
+}
+
+.thumbnail-image {
+  width: 100%;
+  height: 100%;
+}
+
+.thumbnail-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.3s;
+  color: white;
+  font-size: 20px;
+}
+
+.upload-btn-wrapper {
+  width: 80px;
+  height: 80px;
+  flex-shrink: 0;
+}
+
+.upload-btn {
+  width: 100%;
+  height: 100%;
+  border: 2px dashed #dcdfe6;
+  border-radius: 6px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.3s;
+  color: #909399;
+}
+
+.upload-btn:hover {
+  border-color: #409eff;
+  color: #409eff;
+  background: #f0f9ff;
+}
+
+.upload-btn .upload-text {
+  font-size: 12px;
+  margin-top: 4px;
+}
+
+.photo-count {
+  text-align: center;
+  margin-top: 8px;
+  font-size: 13px;
+  color: #909399;
 }
 
 .phone-item {

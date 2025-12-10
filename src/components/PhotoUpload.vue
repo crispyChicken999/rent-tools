@@ -276,10 +276,11 @@ onMounted(async () => {
 
 async function selectFolder() {
   try {
-    const result = await requestDirectoryAccess();
+    // 请求读写权限
+    const result = await requestDirectoryAccess('userPhotosFolder', 'readwrite');
     dirHandle = result.handle;
     folderPath.value = result.displayPath;
-    ElMessage.success("文件夹访问权限已授予");
+    ElMessage.success("文件夹访问权限已授予（包含写入权限）");
   } catch (error: any) {
     if (error.message.includes("取消")) {
       ElMessage.info("已取消选择");

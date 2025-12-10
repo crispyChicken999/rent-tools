@@ -6,7 +6,7 @@ export function isFileSystemAccessSupported(): boolean {
 }
 
 /** 请求用户选择文件夹并获取持久化访问权限 */
-export async function requestDirectoryAccess(id: string = 'userPhotosFolder'): Promise<{
+export async function requestDirectoryAccess(id: string = 'userPhotosFolder', mode: 'read' | 'readwrite' = 'read'): Promise<{
   handle: FileSystemDirectoryHandle
   displayPath: string
 }> {
@@ -15,9 +15,9 @@ export async function requestDirectoryAccess(id: string = 'userPhotosFolder'): P
   }
 
   try {
-    // 请求目录访问权限（只读模式）
+    // 请求目录访问权限
     const dirHandle = await window.showDirectoryPicker({
-      mode: 'read'
+      mode
     })
 
     // 尝试获取用户友好的路径显示
