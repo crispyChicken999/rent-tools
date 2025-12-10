@@ -276,6 +276,7 @@
                     v-model="editForm.additionalInfo"
                     type="textarea"
                     :rows="2"
+                    placeholder="备注一些额外的信息..."
                   />
                 </el-form-item>
               </el-form>
@@ -1499,6 +1500,9 @@ const copyToClipboard = async (text: string) => {
 <style>
 .el-drawer__header {
   margin: 0;
+}
+.el-drawer__body {
+  padding: 0 20px;
 }
 </style>
 <style scoped>

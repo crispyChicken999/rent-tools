@@ -183,7 +183,7 @@ watch(
     if (newId && virtualListRef.value) {
       // 使用 setTimeout 确保 DOM 已更新
       setTimeout(() => {
-        const index = filteredLandlords.value.findIndex(l => l.id === newId);
+        const index = filteredLandlords.value.findIndex((l) => l.id === newId);
         if (index !== -1) {
           virtualListRef.value.scrollToItem(index);
         }
@@ -402,7 +402,7 @@ const showPhotoUpload = ref(false);
               v-model="phoneSearchKeyword"
               placeholder="搜索电话号码..."
               clearable
-              style="margin-top: 8px; max-width: 200px; margin-right: 12px;"
+              style="margin-top: 8px; max-width: 200px"
             >
               <template #prefix>
                 <el-icon><Search /></el-icon>
@@ -410,23 +410,35 @@ const showPhotoUpload = ref(false);
             </el-input>
           </div>
 
-          <RecycleScroller
+          <DynamicScroller
             ref="virtualListRef"
             :items="filteredLandlords"
-            :item-size="132"
+            :min-item-size="80"
             key-field="id"
-            v-slot="{ item: landlord }"
             class="virtual-scroller"
-            style="height: calc(100vh - 130px);"
+            style="height: calc(100vh - 130px)"
           >
-            <div
-              :id="'landlord-item-' + landlord.id"
-              class="property-item"
-              :class="{
-                active: propertyStore.focusedLandlordId === landlord.id,
-              }"
-              @click="handleLandlordClick(landlord)"
-            >
+            <template v-slot="{ item: landlord, index, active }">
+              <DynamicScrollerItem
+                :item="landlord"
+                :active="active"
+                :size-dependencies="[
+                  landlord.wechatNickname,
+                  landlord.phoneNumbers,
+                  landlord.address,
+                  landlord.properties?.length,
+                ]"
+                :data-index="index"
+                class="scroller-item"
+              >
+                <div
+                  :id="'landlord-item-' + landlord.id"
+                  class="property-item"
+                  :class="{
+                    active: propertyStore.focusedLandlordId === landlord.id,
+                  }"
+                  @click="handleLandlordClick(landlord)"
+                >
               <div class="landlord-icon">
                 <LandlordAvatar
                   :avatar="landlord.avatar"
@@ -441,21 +453,23 @@ const showPhotoUpload = ref(false);
               </div>
 
               <div class="property-info">
-                <div class="info-row">
-                  <span class="nickname" v-if="landlord.wechatNickname">{{
-                    landlord.wechatNickname
-                  }}</span>
-                  <div style="display: flex; align-items: center; gap: 8px">
-                    <span
-                      class="phone"
-                      :class="{ secondary: landlord.wechatNickname }"
-                      >{{ getPhoneDisplay(landlord.phoneNumbers) }}</span
-                    >
+                <div style="display: flex; flex-direction: column; gap: 4px">
+                  <div class="info-row">
+                    <span class="nickname" v-if="landlord.wechatNickname">{{
+                      landlord.wechatNickname
+                    }}</span>
+                    <div style="display: flex; align-items: center; gap: 8px">
+                      <span
+                        class="phone"
+                        :class="{ secondary: landlord.wechatNickname }"
+                        >{{ getPhoneDisplay(landlord.phoneNumbers) }}</span
+                      >
+                    </div>
                   </div>
-                </div>
 
-                <div class="address">
-                  {{ landlord.address || "未知地址" }}
+                  <div class="address">
+                    {{ landlord.address || "未知地址" }}
+                  </div>
                 </div>
 
                 <div class="stats">
@@ -537,12 +551,19 @@ const showPhotoUpload = ref(false);
                   </div>
                 </div>
               </div>
-            </div>
-          </RecycleScroller>
+                </div>
+              </DynamicScrollerItem>
+            </template>
+          </DynamicScroller>
           <el-empty
             v-if="filteredLandlords.length === 0"
             description="暂无符合条件的数据"
-            style="height: calc(100vh - 130px); display: flex; align-items: center; justify-content: center;"
+            style="
+              height: calc(100vh - 130px);
+              display: flex;
+              align-items: center;
+              justify-content: center;
+            "
           />
         </div>
       </div>
@@ -660,7 +681,10 @@ const showPhotoUpload = ref(false);
         </el-form-item>
 
         <el-form-item>
-          <el-tooltip content="（只显示电话出现3次及以上的房东）" placement="top">
+          <el-tooltip
+            content="（只显示电话出现3次及以上的房东）"
+            placement="top"
+          >
             <el-checkbox
               v-model="showRepeatedPhones"
               label="只显示疑似二房东"
@@ -886,13 +910,13 @@ const showPhotoUpload = ref(false);
   display: flex;
   gap: 12px;
   padding: 12px;
-  margin: 6px 12px 6px 0;
+  margin: 0 12px 0 0;
   background: #f5f7fa;
   border-radius: 8px;
   cursor: pointer;
   transition: all 0.3s;
   border: 2px solid transparent;
-  height: 120px; /* 固定高度以适配虚拟列表 */
+  min-height: 80px; /* 最小高度,允许动态高度 */
   box-sizing: border-box;
 }
 
@@ -983,6 +1007,15 @@ const showPhotoUpload = ref(false);
 
 .virtual-scroller :deep(.vue-recycle-scroller__slot) {
   padding-right: 4px;
+}
+
+/* 动态虚拟列表item间距 */
+.scroller-item {
+  padding-bottom: 12px;
+}
+
+.virtual-scroller :deep(.vue-recycle-scroller__item-view) {
+  margin-bottom: 0;
 }
 
 /* 自定义滚动条样式 */

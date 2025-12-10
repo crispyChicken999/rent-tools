@@ -24,7 +24,13 @@
 
 <script setup lang="ts">
 import { ref, onMounted, watch, onUnmounted, h, render } from "vue";
-import { ElImage, ElButton, ElMessage, ElIcon, ElMessageBox } from "element-plus";
+import {
+  ElImage,
+  ElButton,
+  ElMessage,
+  ElIcon,
+  ElMessageBox,
+} from "element-plus";
 import { CopyDocument } from "@element-plus/icons-vue";
 import { loadAMap } from "@/utils/geocode";
 import { usePropertyStore } from "@/stores/property";
@@ -42,8 +48,9 @@ let highlightedPhones = ref<Set<string>>(new Set()); // 当前高亮的手机号
 
 // 判断房东是否为疑似二房东（电话出现3次及以上）
 function isSuspectedSecondHand(landlord: Landlord): boolean {
-  if (!landlord.phoneNumbers || landlord.phoneNumbers.length === 0) return false;
-  
+  if (!landlord.phoneNumbers || landlord.phoneNumbers.length === 0)
+    return false;
+
   // 统计所有电话号码的出现次数
   const phoneCounts = new Map<string, number>();
   propertyStore.landlords.forEach((l) => {
@@ -53,9 +60,11 @@ function isSuspectedSecondHand(landlord: Landlord): boolean {
       });
     }
   });
-  
+
   // 只要有一个电话号码出现次数 >= 3，就认为是疑似二房东
-  return landlord.phoneNumbers.some((phone) => (phoneCounts.get(phone) || 0) >= 3);
+  return landlord.phoneNumbers.some(
+    (phone) => (phoneCounts.get(phone) || 0) >= 3
+  );
 }
 
 onMounted(async () => {
@@ -103,7 +112,7 @@ async function initMap() {
 
     // 创建右键菜单
     const contextMenu = new AMap.ContextMenu();
-    
+
     // 添加"创建房东"菜单项
     contextMenu.addItem(
       "📍 在此位置创建房东",
@@ -128,7 +137,6 @@ async function initMap() {
     map.on("rightclick", (e: any) => {
       contextMenu.open(map, e.lnglat);
     });
-
   } catch (error) {
     console.error("地图初始化失败:", error);
   }
@@ -162,7 +170,8 @@ async function renderMarkers() {
     const style = getMarkerStyle(landlord);
     const content = createMarkerContent(style);
     const position = [landlord.gps.lng, landlord.gps.lat];
-    const title = landlord.wechatNickname || landlord.phoneNumbers[0] || "待完善";
+    const title =
+      landlord.wechatNickname || landlord.phoneNumbers[0] || "待完善";
 
     if (markers.has(landlord.id)) {
       // 更新现有标记
@@ -213,44 +222,40 @@ async function renderMarkers() {
 function createMarkerContextMenu(landlordId: string) {
   const AMap = (window as any).AMap;
   const contextMenu = new AMap.ContextMenu();
-  
+
   contextMenu.addItem(
     "🗑️ 删除此房东",
     async () => {
       try {
-        await ElMessageBox.confirm(
-          '确定要删除这个房东吗？',
-          '确认删除',
-          {
-            confirmButtonText: '确定',
-            cancelButtonText: '取消',
-            type: 'warning',
-          }
-        );
-        
+        await ElMessageBox.confirm("确定要删除这个房东吗？", "确认删除", {
+          confirmButtonText: "确定",
+          cancelButtonText: "取消",
+          type: "warning",
+        });
+
         await propertyStore.removeLandlord(landlordId, false);
         ElMessage.success("房东已删除");
         await renderMarkers();
       } catch (error: any) {
-        if (error !== 'cancel') {
+        if (error !== "cancel") {
           ElMessage.error("删除失败");
         }
       }
     },
     0
   );
-  
+
   contextMenu.addItem(
     "📋 查看详情",
     () => {
-      const landlord = propertyStore.landlords.find(l => l.id === landlordId);
+      const landlord = propertyStore.landlords.find((l) => l.id === landlordId);
       if (landlord) {
         propertyStore.selectLandlord(landlord);
       }
     },
     1
   );
-  
+
   return contextMenu;
 }
 
@@ -260,26 +265,71 @@ function highlightMarkersWithSamePhone(landlord: Landlord) {
     clearHighlight();
     return;
   }
-  
-  // 设置高亮的手机号
-  highlightedPhones.value = new Set(landlord.phoneNumbers);
-  
-  // 重新渲染所有marker以应用高亮效果
-  renderMarkers();
+
+  const oldPhones = new Set(highlightedPhones.value);
+  const newPhones = new Set(landlord.phoneNumbers);
+
+  // 设置新的高亮手机号
+  highlightedPhones.value = newPhones;
+
+  // 只更新受影响的marker(之前高亮或现在高亮的)
+  markers.forEach((marker, id) => {
+    const l = propertyStore.landlords.find((x) => x.id === id);
+    if (!l || !l.gps) return;
+
+    const wasHighlighted =
+      l.phoneNumbers?.some((p) => oldPhones.has(p)) || false;
+    const isHighlighted =
+      l.phoneNumbers?.some((p) => newPhones.has(p)) || false;
+
+    // 只有状态改变的marker才需要更新
+    if (wasHighlighted !== isHighlighted) {
+      updateSingleMarker(marker, l);
+    }
+  });
 }
 
 // 清除高亮
 function clearHighlight() {
+  const oldPhones = new Set(highlightedPhones.value);
   highlightedPhones.value = new Set();
-  renderMarkers();
+
+  // 只更新之前高亮的marker
+  if (oldPhones.size > 0) {
+    markers.forEach((marker, id) => {
+      const l = propertyStore.landlords.find((x) => x.id === id);
+      if (!l || !l.gps) return;
+
+      const wasHighlighted =
+        l.phoneNumbers?.some((p) => oldPhones.has(p)) || false;
+      if (wasHighlighted) {
+        updateSingleMarker(marker, l);
+      }
+    });
+  }
+}
+
+// 更新单个marker的样式
+function updateSingleMarker(marker: any, landlord: Landlord) {
+  const style = getMarkerStyle(landlord);
+  const content = createMarkerContent(style);
+
+  marker.setContent(content);
+  marker.setOffset(
+    new (window as any).AMap.Pixel(-9 * style.scale, -9 * style.scale)
+  );
+  marker.setzIndex(style.zIndex);
 }
 
 // 判断房东是否应该被高亮
 function shouldHighlight(landlord: Landlord): boolean {
   if (highlightedPhones.value.size === 0) return false;
-  if (!landlord.phoneNumbers || landlord.phoneNumbers.length === 0) return false;
-  
-  return landlord.phoneNumbers.some(phone => highlightedPhones.value.has(phone));
+  if (!landlord.phoneNumbers || landlord.phoneNumbers.length === 0)
+    return false;
+
+  return landlord.phoneNumbers.some((phone) =>
+    highlightedPhones.value.has(phone)
+  );
 }
 
 function getMarkerStyle(landlord: Landlord) {
@@ -304,10 +354,16 @@ function getMarkerStyle(landlord: Landlord) {
   return {
     color: baseColor,
     opacity: isContacted ? 1.0 : 0.6,
-    borderColor: isHighlighted ? "#FF4444" : (isFavorite ? "#E6A23C" : "#FFFFFF"), // 高亮时显示红色边框
-    borderWidth: isHighlighted ? "4px" : (isFavorite ? "3px" : isContacted ? "2px" : "1px"),
+    borderColor: isHighlighted ? "#FF4444" : isFavorite ? "#E6A23C" : "#FFFFFF", // 高亮时显示红色边框
+    borderWidth: isHighlighted
+      ? "4px"
+      : isFavorite
+      ? "3px"
+      : isContacted
+      ? "2px"
+      : "1px",
     scale: isFavorite ? 1.4 : isContacted ? 1.2 : 1.0, // 高亮时不放大,保持原始大小
-    zIndex: isHighlighted ? 300 : (isFavorite ? 200 : isContacted ? 100 : 10),
+    zIndex: isHighlighted ? 300 : isFavorite ? 200 : isContacted ? 100 : 10,
     isFavorite,
     isSuspected,
     isHighlighted,
@@ -324,7 +380,16 @@ function createMarkerContent(style: {
   isSuspected?: boolean;
   isHighlighted?: boolean;
 }) {
-  const { color, opacity, borderColor, borderWidth, scale, isFavorite, isSuspected, isHighlighted } = style;
+  const {
+    color,
+    opacity,
+    borderColor,
+    borderWidth,
+    scale,
+    isFavorite,
+    isSuspected,
+    isHighlighted,
+  } = style;
   const size = 18 * scale;
 
   // 如果是收藏，显示星星图标
@@ -346,26 +411,9 @@ function createMarkerContent(style: {
     `;
   }
 
-  // 如果是疑似二房东，使用方形标识
+  // 如果是疑似二房东,使用方形标识
   if (isSuspected) {
-    const animationStyle = isHighlighted ? `
-      animation: breathe 1.5s ease-in-out infinite;
-      box-shadow: 0 0 15px rgba(255, 68, 68, 0.8), 0 0 30px rgba(255, 100, 100, 0.5);
-    ` : '';
-    
     return `
-      <style>
-        @keyframes breathe {
-          0%, 100% { 
-            box-shadow: 0 0 10px rgba(255, 68, 68, 0.6), 0 0 20px rgba(255, 100, 100, 0.4);
-            border-color: #FF4444;
-          }
-          50% { 
-            box-shadow: 0 0 25px rgba(255, 68, 68, 1), 0 0 40px rgba(255, 100, 100, 0.8);
-            border-color: #FF6666;
-          }
-        }
-      </style>
       <div style="
         width: ${size}px;
         height: ${size}px;
@@ -373,31 +421,14 @@ function createMarkerContent(style: {
         opacity: ${opacity};
         border: ${borderWidth} solid ${borderColor};
         border-radius: 3px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.3);
         cursor: pointer;
         transition: all 0.3s;
-        ${animationStyle}
       "></div>
     `;
   }
 
-  const animationStyle = isHighlighted ? `
-    animation: breathe 1.5s ease-in-out infinite;
-    box-shadow: 0 0 15px rgba(255, 68, 68, 0.8), 0 0 30px rgba(255, 100, 100, 0.5);
-  ` : '';
-
   return `
-    <style>
-      @keyframes breathe {
-        0%, 100% { 
-          box-shadow: 0 0 10px rgba(255, 68, 68, 0.6), 0 0 20px rgba(255, 100, 100, 0.4);
-          border-color: #FF4444;
-        }
-        50% { 
-          box-shadow: 0 0 25px rgba(255, 68, 68, 1), 0 0 40px rgba(255, 100, 100, 0.8);
-          border-color: #FF6666;
-        }
-      }
-    </style>
     <div style="
       width: ${size}px;
       height: ${size}px;
@@ -405,9 +436,9 @@ function createMarkerContent(style: {
       opacity: ${opacity};
       border: ${borderWidth} solid ${borderColor};
       border-radius: 50%;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.3);
       cursor: pointer;
       transition: all 0.3s;
-      ${animationStyle}
     "></div>
   `;
 }
@@ -428,7 +459,10 @@ async function showInfoWindow(marker: any, landlord: Landlord) {
       const dirHandle = await getValidDirectoryHandle();
       if (dirHandle) {
         // 使用 getFileByPath 处理可能包含路径的文件名
-        const file = await getFileByPath(dirHandle, landlord.photos[0].fileName);
+        const file = await getFileByPath(
+          dirHandle,
+          landlord.photos[0].fileName
+        );
         if (file) {
           imageUrl = URL.createObjectURL(file);
           currentInfoWinImage = imageUrl;
@@ -443,112 +477,114 @@ async function showInfoWindow(marker: any, landlord: Landlord) {
   const container = document.createElement("div");
 
   // 构建 VNode
-  const vnode = h(
-    "div",
-    { style: { padding: "12px", minWidth: "220px" } },
-    [
-      // 图片
-      imageUrl
-        ? h(ElImage, {
-            src: imageUrl,
-            previewSrcList: [imageUrl],
-            fit: "cover",
-            style: {
-              width: "100%",
-              height: "150px",
-              borderRadius: "4px",
-              marginBottom: "10px",
-              display: "block",
-            },
-            previewTeleported: true,
-            hideOnClickModal: true,
-          })
-        : null,
-
-      // 标题
-      h(
-        "h3",
-        { style: { margin: "0 0 10px 0", fontSize: "16px" } },
-        landlord.wechatNickname || "待完善房东"
-      ),
-
-      // 信息列表
-      h("div", { style: { fontSize: "14px", lineHeight: "1.8" } }, [
-        // 电话
-        h("div", { style: { display: "flex", alignItems: "flex-start" } }, [
-          h("strong", "电话: "),
-          h(
-            "div",
-            { style: { marginLeft: "4px", flex: 1 } },
-            landlord.phoneNumbers && landlord.phoneNumbers.length > 0
-              ? landlord.phoneNumbers.map((phone) =>
-                  h(
-                    "div",
-                    {
-                      style: {
-                        display: "flex",
-                        alignItems: "center",
-                        marginBottom: "2px",
-                      },
-                    },
-                    [
-                      h("span", phone),
-                      h(
-                        ElIcon,
-                        {
-                          style: {
-                            marginLeft: "4px",
-                            cursor: "pointer",
-                            color: "#409EFF",
-                          },
-                          onClick: () => copyText(phone),
-                          title: "复制",
-                        },
-                        () => h(CopyDocument)
-                      ),
-                    ]
-                  )
-                )
-              : "未填写"
-          ),
-        ]),
-        // 地址
-        h("p", { style: { margin: "4px 0" } }, [
-          h("strong", "地址: "),
-          h("span", landlord.address || "未知"),
-        ]),
-        // 房源数
-        h("p", { style: { margin: "4px 0" } }, [
-          h("strong", "房源数: "),
-          h("span", landlord.properties.length),
-        ]),
-        // 类型
-        h("p", { style: { margin: "4px 0" } }, [
-          h("strong", "类型: "),
-          h("span", translateLandlordType(landlord.landlordType)),
-        ]),
-      ]),
-
-      // 按钮
-      h("div", { style: { marginTop: "10px", textAlign: "center" } }, [
-        h(
-          ElButton,
-          {
-            type: "primary",
-            size: "small",
-            onClick: () => {
-              // 每次点击时从 store 获取最新数据
-              const latestLandlord = propertyStore.landlords.find(l => l.id === landlord.id);
-              if (latestLandlord) {
-                propertyStore.selectLandlord(latestLandlord);
-              }
-            },
+  const vnode = h("div", { style: { padding: "12px", minWidth: "220px" } }, [
+    // 图片
+    imageUrl
+      ? h(ElImage, {
+          src: imageUrl,
+          previewSrcList: [imageUrl],
+          fit: "cover",
+          style: {
+            width: "100%",
+            height: "150px",
+            borderRadius: "4px",
+            marginBottom: "10px",
+            display: "block",
           },
-          () => "查看详情"
+          previewTeleported: true,
+          hideOnClickModal: true,
+        })
+      : null,
+
+    // 标题
+    h(
+      "h3",
+      { style: { margin: "0 0 10px 0", fontSize: "16px" } },
+      landlord.wechatNickname || "待完善房东"
+    ),
+
+    // 信息列表
+    h("div", { style: { fontSize: "14px", lineHeight: "1.8" } }, [
+      // 电话
+      h("div", { style: { display: "flex", alignItems: "flex-start" } }, [
+        h("strong", "电话: "),
+        h(
+          "div",
+          { style: { marginLeft: "4px", flex: 1 } },
+          landlord.phoneNumbers && landlord.phoneNumbers.length > 0
+            ? landlord.phoneNumbers.map((phone) =>
+                h(
+                  "div",
+                  {
+                    style: {
+                      display: "flex",
+                      alignItems: "center",
+                      marginBottom: "2px",
+                    },
+                  },
+                  [
+                    h("span", phone),
+                    h(
+                      ElIcon,
+                      {
+                        style: {
+                          marginLeft: "4px",
+                          cursor: "pointer",
+                          color: "#409EFF",
+                        },
+                        onClick: () => copyText(phone),
+                        title: "复制",
+                      },
+                      () => h(CopyDocument)
+                    ),
+                  ]
+                )
+              )
+            : "未填写"
         ),
       ]),
-    ]
-  );
+      // 地址
+      h("div", { style: { margin: "4px 0" } }, [
+        h("strong", { style: { verticalAlign: "top" } }, "地址: "),
+        h(
+          "span",
+          { style: { maxWidth: "300px", display: "inline-block" } },
+          landlord.address || "未知"
+        ),
+      ]),
+      // 房源数
+      h("p", { style: { margin: "4px 0" } }, [
+        h("strong", "房源数: "),
+        h("span", landlord.properties.length),
+      ]),
+      // 类型
+      h("p", { style: { margin: "4px 0" } }, [
+        h("strong", "类型: "),
+        h("span", translateLandlordType(landlord.landlordType)),
+      ]),
+    ]),
+
+    // 按钮
+    h("div", { style: { marginTop: "10px", textAlign: "center" } }, [
+      h(
+        ElButton,
+        {
+          type: "primary",
+          size: "small",
+          onClick: () => {
+            // 每次点击时从 store 获取最新数据
+            const latestLandlord = propertyStore.landlords.find(
+              (l) => l.id === landlord.id
+            );
+            if (latestLandlord) {
+              propertyStore.selectLandlord(latestLandlord);
+            }
+          },
+        },
+        () => "查看详情"
+      ),
+    ]),
+  ]);
 
   // 渲染
   render(vnode, container);
@@ -600,7 +636,9 @@ async function createLandlordAtLocation(gps: { lng: number; lat: number }) {
     await renderMarkers();
 
     // 选中新创建的房东（重新从store获取最新数据）
-    const updatedLandlord = propertyStore.landlords.find(l => l.id === newLandlord.id);
+    const updatedLandlord = propertyStore.landlords.find(
+      (l) => l.id === newLandlord.id
+    );
     if (updatedLandlord) {
       propertyStore.selectLandlord(updatedLandlord);
     }
@@ -635,6 +673,9 @@ const focusLandlord = (landlord: Landlord) => {
 
   // Pan to location
   map.setZoomAndCenter(17, [landlord.gps.lng, landlord.gps.lat]);
+
+  // 高亮相同手机号的marker
+  highlightMarkersWithSamePhone(landlord);
 
   // Find marker
   const marker = markers.get(landlord.id);
