@@ -568,6 +568,7 @@
                 v-if="file.type === 'image'"
                 :src="file.url"
                 fit="cover"
+                lazy
                 class="preview-image"
               />
               <video

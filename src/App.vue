@@ -158,21 +158,13 @@ watch(
   { immediate: true }
 );
 
-// 过滤后的房东列表 (直接使用 Store 的计算属性，再应用电话号码筛选)
-const filteredLandlords = computed(() => {
-  const landlords = propertyStore.filteredLandlords;
-  
-  // 如果没有电话搜索关键词，直接返回
-  if (!phoneSearchKeyword.value.trim()) {
-    return landlords;
-  }
-  
-  // 应用电话号码筛选
-  const keyword = phoneSearchKeyword.value.trim();
-  return landlords.filter(landlord => 
-    landlord.phoneNumbers.some(phone => phone.includes(keyword))
-  );
+// 监听电话号码搜索输入框变化，实时同步到 propertyStore.filters.phoneSearch
+watch(phoneSearchKeyword, (val) => {
+  propertyStore.filters.phoneSearch = val;
 });
+
+// 过滤后的房东列表直接用 Store 的计算属性
+const filteredLandlords = computed(() => propertyStore.filteredLandlords);
 
 // 监听当前聚焦的房东，自动滚动到列表位置
 watch(

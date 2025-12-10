@@ -38,6 +38,12 @@ export const usePropertyStore = defineStore("property", () => {
       );
     }
 
+    // 电话号码筛选
+    if (filters.value.phoneSearch && filters.value.phoneSearch.trim()) {
+      const keyword = filters.value.phoneSearch.trim();
+      result = result.filter(l => l.phoneNumbers.some(phone => phone.includes(keyword)));
+    }
+
     if (filters.value.landlordType && filters.value.landlordType.length > 0) {
       result = result.filter((l) =>
         filters.value.landlordType!.includes(l.landlordType)
