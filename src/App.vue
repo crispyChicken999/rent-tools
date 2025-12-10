@@ -11,6 +11,7 @@ import {
   QuestionFilled,
   Download,
   Document,
+  Search,
 } from "@element-plus/icons-vue";
 import PhotoUpload from "./components/PhotoUpload.vue";
 import MapView from "./components/MapView.vue";
@@ -77,6 +78,7 @@ const filterElectricityType = ref("all"); // 'all', 'civil', 'custom'
 const filterRoomTypes = ref<string[]>([]);
 const filterRentMin = ref<number | undefined>(undefined);
 const filterRentMax = ref<number | undefined>(undefined);
+const phoneSearchKeyword = ref("");
 
 // 删除确认状态
 const deleteDialogVisible = ref(false);
@@ -156,8 +158,21 @@ watch(
   { immediate: true }
 );
 
-// 过滤后的房东列表 (直接使用 Store 的计算属性)
-const filteredLandlords = computed(() => propertyStore.filteredLandlords);
+// 过滤后的房东列表 (直接使用 Store 的计算属性，再应用电话号码筛选)
+const filteredLandlords = computed(() => {
+  const landlords = propertyStore.filteredLandlords;
+  
+  // 如果没有电话搜索关键词，直接返回
+  if (!phoneSearchKeyword.value.trim()) {
+    return landlords;
+  }
+  
+  // 应用电话号码筛选
+  const keyword = phoneSearchKeyword.value.trim();
+  return landlords.filter(landlord => 
+    landlord.phoneNumbers.some(phone => phone.includes(keyword))
+  );
+});
 
 // 监听当前聚焦的房东，自动滚动到列表位置
 watch(
@@ -168,7 +183,7 @@ watch(
       setTimeout(() => {
         const el = document.getElementById(`landlord-item-${newId}`);
         if (el) {
-          el.scrollIntoView({ behavior: "smooth", block: "center" });
+          el.scrollIntoView({ behavior: "instant", block: "center" });
         }
       }, 100);
     }
@@ -381,6 +396,16 @@ const showPhotoUpload = ref(false);
         <div class="property-list">
           <div class="list-header">
             <h3>房东列表 ({{ filteredLandlords.length }})</h3>
+            <el-input
+              v-model="phoneSearchKeyword"
+              placeholder="搜索电话号码..."
+              clearable
+              style="margin-top: 8px; max-width: 200px; margin-right: 12px;"
+            >
+              <template #prefix>
+                <el-icon><Search /></el-icon>
+              </template>
+            </el-input>
           </div>
 
           <el-scrollbar height="calc(100vh - 130px)">
