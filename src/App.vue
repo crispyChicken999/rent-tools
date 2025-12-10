@@ -287,9 +287,18 @@ const showPhotoUpload = ref(false);
         >
           导出Excel
         </el-button>
-        <el-button id="btn-backup-import" type="primary" @click="handleImport">
-          导入备份
-        </el-button>
+        <el-tooltip
+          content="需选择存放照片的文件夹，点击「批量导入图片」- 「选择照片文件夹」，不然没法加载图片"
+          placement="bottom"
+        >
+          <el-button
+            id="btn-backup-import"
+            type="primary"
+            @click="handleImport"
+          >
+            导入备份
+          </el-button>
+        </el-tooltip>
         <el-button
           id="btn-backup"
           @click="handleBackup"
