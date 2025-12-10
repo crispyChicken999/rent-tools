@@ -317,3 +317,59 @@ export async function getFileByPath(
     return null;
   }
 }
+
+/** 删除文件 */
+export async function deleteFile(
+  dirHandle: FileSystemDirectoryHandle,
+  fileName: string
+): Promise<void> {
+  try {
+    await dirHandle.removeEntry(fileName);
+  } catch (error) {
+    console.error(`删除文件 ${fileName} 失败:`, error);
+    throw error;
+  }
+}
+
+/** 将文件移动到回收站 (.trash 文件夹) */
+export async function moveToTrash(
+  dirHandle: FileSystemDirectoryHandle,
+  fileName: string
+): Promise<void> {
+  try {
+    // 1. 获取或创建 .trash 目录
+    // 注意：有些文件系统可能不允许创建以 . 开头的文件夹，如果失败可以尝试 'trash'
+    let trashHandle: FileSystemDirectoryHandle;
+    try {
+      trashHandle = await dirHandle.getDirectoryHandle('.trash', { create: true });
+    } catch (e) {
+      trashHandle = await dirHandle.getDirectoryHandle('trash_bin', { create: true });
+    }
+
+    // 2. 获取源文件句柄
+    const sourceHandle = await dirHandle.getFileHandle(fileName);
+    const sourceFile = await sourceHandle.getFile();
+
+    // 3. 生成新文件名 (避免冲突)
+    // 格式: YYYYMMDD-HHmmss_原始文件名
+    const now = new Date();
+    const timestamp = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}-${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}${String(now.getSeconds()).padStart(2, '0')}`;
+    const newFileName = `${timestamp}_${fileName}`;
+
+    // 4. 在 .trash 中创建新文件
+    const newFileHandle = await trashHandle.getFileHandle(newFileName, { create: true });
+    const writable = await newFileHandle.createWritable();
+
+    // 5. 写入内容
+    await writable.write(sourceFile);
+    await writable.close();
+
+    // 6. 删除源文件
+    await dirHandle.removeEntry(fileName);
+
+  } catch (error) {
+    console.error(`移动文件 ${fileName} 到回收站失败:`, error);
+    // 如果移动失败，不执行删除，抛出错误
+    throw error;
+  }
+}

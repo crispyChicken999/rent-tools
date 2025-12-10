@@ -280,6 +280,8 @@ export interface FilterOptions {
   available?: boolean; // 是否可租
   isPerfect?: boolean; // 是否已完善
   hideRepeatedPhones?: boolean; // 隐藏重复电话（二房东）
+  waterType?: string; // 水费类型
+  electricityType?: string; // 电费类型
 }
 
 /** 地图标记样式配置 */

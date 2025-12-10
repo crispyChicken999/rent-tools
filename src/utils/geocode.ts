@@ -2,16 +2,31 @@ import AMapLoader from '@amap/amap-jsapi-loader'
 import type { GPS } from '@/types'
 
 // 高德地图配置
-const AMAP_KEY = 'e60ae69fab449fe000427408f10e5376'
-const AMAP_SECURITY_CODE = 'd3ae266c0437b1a93d309d3f8cf98d86'
+const DEFAULT_AMAP_KEY = 'e60ae69fab449fe000427408f10e5376'
+const DEFAULT_AMAP_SECURITY_CODE = 'd3ae266c0437b1a93d309d3f8cf98d86'
+
+// 获取存储的 Key
+export function getStoredAmapConfig() {
+  return {
+    key: localStorage.getItem('amap_key') || DEFAULT_AMAP_KEY,
+    securityCode: localStorage.getItem('amap_security_code') || DEFAULT_AMAP_SECURITY_CODE
+  }
+}
+
+// 保存 Key
+export function saveAmapConfig(key: string, securityCode: string) {
+  localStorage.setItem('amap_key', key)
+  localStorage.setItem('amap_security_code', securityCode)
+}
 
 // 是否使用 AutoAI (四维图新) 服务
 // 替代 OSM，国内速度更快
 const USE_AUTOAI = true
 
 // 设置安全密钥
+const { securityCode } = getStoredAmapConfig()
 ;(window as any)._AMapSecurityConfig = {
-  securityJsCode: AMAP_SECURITY_CODE
+  securityJsCode: securityCode
 }
 
 let amapInstance: any = null
@@ -22,9 +37,11 @@ export async function loadAMap(): Promise<any> {
     return amapInstance
   }
 
+  const { key } = getStoredAmapConfig()
+
   try {
     const AMap = await AMapLoader.load({
-      key: AMAP_KEY,
+      key: key,
       version: '2.0',
       plugins: ['AMap.Geocoder', 'AMap.Geolocation', 'AMap.Scale', 'AMap.ToolBar']
     })

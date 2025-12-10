@@ -12,6 +12,7 @@ import {
 } from "@/utils/storage";
 import { getAddressFromGps } from "@/utils/geocode";
 import { applyGpsOffset } from "@/utils/exif";
+import {  getValidDirectoryHandle, moveToTrash } from "@/utils/fileSystem";
 
 export const usePropertyStore = defineStore("property", () => {
   // ========== 状态 ==========
@@ -64,6 +65,22 @@ export const usePropertyStore = defineStore("property", () => {
       result = result.filter((l) =>
         l.properties.some((p) => filters.value.roomTypes!.includes(p.roomType))
       );
+    }
+
+    if (filters.value.waterType && filters.value.waterType !== 'all') {
+      result = result.filter((l) => {
+        if (filters.value.waterType === 'civil') return l.commonFees.water.type === 'civil';
+        if (filters.value.waterType === 'custom') return l.commonFees.water.type !== 'civil';
+        return true;
+      });
+    }
+
+    if (filters.value.electricityType && filters.value.electricityType !== 'all') {
+      result = result.filter((l) => {
+        if (filters.value.electricityType === 'civil') return l.commonFees.electricity.type === 'civil';
+        if (filters.value.electricityType === 'custom') return l.commonFees.electricity.type !== 'civil';
+        return true;
+      });
     }
 
     if (filters.value.hideRepeatedPhones) {
@@ -201,7 +218,31 @@ export const usePropertyStore = defineStore("property", () => {
   }
 
   /** 删除房东 */
-  async function removeLandlord(id: string) {
+  async function removeLandlord(id: string, deleteImages: boolean = false) {
+    if (deleteImages) {
+      const landlord = landlords.value.find((l) => l.id === id);
+      if (landlord && landlord.photos && landlord.photos.length > 0) {
+        try {
+          // 尝试获取默认文件夹句柄
+          // 注意：如果照片分布在不同文件夹，这里可能需要根据 photo.folderId 获取对应的句柄
+          // 目前简化处理，假设都在默认文件夹
+          const dirHandle = await getValidDirectoryHandle();
+          if (dirHandle) {
+            for (const photo of landlord.photos) {
+              try {
+                // 移动到回收站而不是直接删除
+                await moveToTrash(dirHandle, photo.fileName);
+              } catch (e) {
+                console.warn(`无法删除文件 ${photo.fileName}:`, e);
+              }
+            }
+          }
+        } catch (error) {
+          console.error("删除图片失败:", error);
+        }
+      }
+    }
+
     await deleteLandlord(id);
     landlords.value = landlords.value.filter((l) => l.id !== id);
 

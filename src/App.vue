@@ -1,28 +1,86 @@
 <script setup lang="ts">
 import { onMounted, ref, computed, watch } from "vue";
-import { ElMessage } from "element-plus";
-import { Delete, Upload, Star, StarFilled } from "@element-plus/icons-vue";
+import { ElMessage, ElMessageBox } from "element-plus";
+import {
+  Delete,
+  Upload,
+  Star,
+  StarFilled,
+  Filter,
+  Setting,
+  QuestionFilled,
+} from "@element-plus/icons-vue";
 import PhotoUpload from "./components/PhotoUpload.vue";
 import MapView from "./components/MapView.vue";
 import PropertyDetail from "./components/PropertyDetail.vue";
 import LandlordAvatar from "./components/LandlordAvatar.vue";
 import { usePropertyStore } from "./stores/property";
 import { exportToExcel, exportToJson, importFromJson } from "./utils/export";
+import { getStoredAmapConfig, saveAmapConfig } from "./utils/geocode";
 import {
   LandlordType,
   ContactStatus,
   WechatStatus,
   type FilterOptions,
+  ROOM_TYPES,
 } from "./types";
+import { el } from "element-plus/es/locales.mjs";
 
 const propertyStore = usePropertyStore();
 const mapViewRef = ref<InstanceType<typeof MapView> | null>(null);
 const fileInput = ref<HTMLInputElement | null>(null);
 
+// Tour 状态
+const tourOpen = ref(false);
+const tourCurrent = ref(0);
+
+// 设置状态
+const settingDialogVisible = ref(false);
+const amapForm = ref({
+  key: "",
+  securityCode: "",
+});
+
+// 初始化设置表单
+const initSettings = () => {
+  const config = getStoredAmapConfig();
+  amapForm.value = { ...config };
+};
+
+// 保存设置
+const handleSaveSettings = () => {
+  if (!amapForm.value.key || !amapForm.value.securityCode) {
+    ElMessage.warning("请输入 Key 和 安全密钥");
+    return;
+  }
+  saveAmapConfig(amapForm.value.key, amapForm.value.securityCode);
+  settingDialogVisible.value = false;
+  ElMessageBox.alert("设置已保存，请刷新页面以生效。", "提示", {
+    confirmButtonText: "刷新页面",
+    callback: () => {
+      window.location.reload();
+    },
+  });
+};
+
 // 筛选状态
+const showFilterDrawer = ref(false);
 const filterContact = ref("all"); // all, contacted, uncontacted
 const filterWechat = ref("all"); // all, added, not_added
-const hideRepeatedPhones = ref(false);
+const hideRepeatedPhones = ref(
+  localStorage.getItem("hideRepeatedPhones") === "true"
+);
+const filterLandlordType = ref<LandlordType[]>([]);
+const filterWaterType = ref("all"); // 'all', 'civil', 'custom'
+const filterElectricityType = ref("all"); // 'all', 'civil', 'custom'
+const filterRoomTypes = ref<string[]>([]);
+const filterRentMin = ref<number | undefined>(undefined);
+const filterRentMax = ref<number | undefined>(undefined);
+
+// 删除确认状态
+const deleteDialogVisible = ref(false);
+const deleteWithImages = ref(true);
+const landlordToDelete = ref<any>(null);
 
 onMounted(async () => {
   await propertyStore.loadLandlords();
@@ -30,7 +88,17 @@ onMounted(async () => {
 
 // 监听筛选条件变化，同步到 Store
 watch(
-  [filterContact, filterWechat, hideRepeatedPhones],
+  [
+    filterContact,
+    filterWechat,
+    hideRepeatedPhones,
+    filterLandlordType,
+    filterWaterType,
+    filterElectricityType,
+    filterRoomTypes,
+    filterRentMin,
+    filterRentMax,
+  ],
   () => {
     const filters: FilterOptions = {};
 
@@ -43,6 +111,38 @@ watch(
     }
 
     filters.hideRepeatedPhones = hideRepeatedPhones.value;
+    localStorage.setItem(
+      "hideRepeatedPhones",
+      String(hideRepeatedPhones.value)
+    );
+
+    if (filterLandlordType.value.length > 0) {
+      filters.landlordType = filterLandlordType.value;
+    }
+
+    if (filterWaterType.value !== "all") {
+      filters.waterType = filterWaterType.value;
+    }
+
+    if (filterElectricityType.value !== "all") {
+      filters.electricityType = filterElectricityType.value;
+    }
+
+    if (filterRoomTypes.value.length > 0) {
+      filters.roomTypes = filterRoomTypes.value;
+    }
+
+    if (
+      (filterRentMin.value !== undefined && filterRentMin.value !== null) ||
+      (filterRentMax.value !== undefined && filterRentMax.value !== null)
+    ) {
+      filters.rentRange = [
+        filterRentMin.value || 0,
+        filterRentMax.value || 999999,
+      ];
+    } else {
+      filters.rentRange = undefined;
+    }
 
     propertyStore.setFilters(filters);
   },
@@ -139,12 +239,26 @@ const handleLandlordClick = (landlord: any) => {
   }
 };
 
-const handleDeleteLandlord = async (landlord: any) => {
+const handleDeleteLandlord = (landlord: any) => {
+  landlordToDelete.value = landlord;
+  deleteWithImages.value = true; // 默认勾选
+  deleteDialogVisible.value = true;
+};
+
+const confirmDelete = async () => {
+  if (!landlordToDelete.value) return;
+
   try {
-    await propertyStore.removeLandlord(landlord.id);
+    await propertyStore.removeLandlord(
+      landlordToDelete.value.id,
+      deleteWithImages.value
+    );
     ElMessage.success("删除成功");
   } catch (error) {
     ElMessage.error("删除失败");
+  } finally {
+    deleteDialogVisible.value = false;
+    landlordToDelete.value = null;
   }
 };
 
@@ -160,6 +274,7 @@ const showPhotoUpload = ref(false);
       </div>
       <div class="actions">
         <el-button
+          id="btn-import-photos"
           type="primary"
           @click="showPhotoUpload = true"
           :icon="Upload"
@@ -167,18 +282,40 @@ const showPhotoUpload = ref(false);
           批量导入照片
         </el-button>
         <el-button
+          id="btn-export-excel"
           @click="handleExport"
           :disabled="propertyStore.landlords.length === 0"
         >
           导出Excel
         </el-button>
-        <el-button type="primary" @click="handleImport"> 导入备份 </el-button>
+        <el-button id="btn-backup-import" type="primary" @click="handleImport">
+          导入备份
+        </el-button>
         <el-button
+          id="btn-backup"
           @click="handleBackup"
           :disabled="propertyStore.landlords.length === 0"
         >
-          备份数据
+          导出备份
         </el-button>
+        <el-button :icon="Filter" @click="showFilterDrawer = true" title="筛选">
+          筛选
+        </el-button>
+        <el-button
+          :icon="QuestionFilled"
+          circle
+          @click="tourOpen = true"
+          title="使用说明"
+        />
+        <el-button
+          :icon="Setting"
+          circle
+          @click="
+            initSettings();
+            settingDialogVisible = true;
+          "
+          title="设置"
+        />
         <el-tag type="info" style="margin-left: 12px">
           共 {{ propertyStore.landlords.length }} 个房东
         </el-tag>
@@ -188,42 +325,11 @@ const showPhotoUpload = ref(false);
     <!-- 主内容区 -->
     <div class="main-content">
       <!-- 左侧：列表 -->
-      <div class="left-panel">
+      <div class="left-panel" id="left-panel">
         <!-- 房东列表 -->
         <div class="property-list">
           <div class="list-header">
             <h3>房东列表 ({{ filteredLandlords.length }})</h3>
-            <div class="filters">
-              <el-select
-                v-model="filterContact"
-                style="width: 90px"
-                placeholder="联系状态"
-              >
-                <el-option label="全部" value="all" />
-                <el-option label="已联系" value="contacted" />
-                <el-option label="未联系" value="uncontacted" />
-              </el-select>
-              <el-select
-                v-model="filterWechat"
-                style="width: 90px"
-                placeholder="微信状态"
-              >
-                <el-option label="全部" value="all" />
-                <el-option label="已加" value="added" />
-                <el-option label="未加" value="not_added" />
-              </el-select>
-              <el-tooltip
-                content="隐藏电话号码重复出现的房东（可能是二房东）"
-                placement="top"
-              >
-                <el-checkbox
-                  v-model="hideRepeatedPhones"
-                  label="隐藏重复"
-                  border
-                  style="margin-right: 0; height: 32px; padding: 0 10px"
-                />
-              </el-tooltip>
-            </div>
           </div>
 
           <el-scrollbar height="calc(100vh - 150px)">
@@ -306,9 +412,11 @@ const showPhotoUpload = ref(false);
                       effect="plain"
                       >已加WX</el-tag
                     >
-                    <span style="margin-left: 4px;">{{ landlord.properties?.length || 0 }} 个房源</span>
+                    <span style="margin-left: 4px"
+                      >{{ landlord.properties?.length || 0 }} 个房源</span
+                    >
                   </div>
-                  <div style="display: flex; gap: 2px;">
+                  <div style="display: flex; gap: 2px">
                     <el-button
                       type="primary"
                       link
@@ -355,7 +463,7 @@ const showPhotoUpload = ref(false);
       </div>
 
       <!-- 右侧：地图 -->
-      <div class="right-panel">
+      <div class="right-panel" id="right-panel">
         <MapView ref="mapViewRef" />
       </div>
     </div>
@@ -381,16 +489,213 @@ const showPhotoUpload = ref(false);
       accept=".json"
       @change="handleFileChange"
     />
+
+    <!-- 筛选抽屉 -->
+    <el-drawer v-model="showFilterDrawer" title="筛选条件" size="300px">
+      <el-form label-position="top">
+        <el-form-item label="联系状态">
+          <el-select v-model="filterContact">
+            <el-option label="全部" value="all" />
+            <el-option label="已联系" value="contacted" />
+            <el-option label="未联系" value="uncontacted" />
+          </el-select>
+        </el-form-item>
+
+        <el-form-item label="微信状态">
+          <el-select v-model="filterWechat">
+            <el-option label="全部" value="all" />
+            <el-option label="已加" value="added" />
+            <el-option label="未加" value="not_added" />
+          </el-select>
+        </el-form-item>
+
+        <el-form-item label="房东类型">
+          <el-select v-model="filterLandlordType" multiple placeholder="请选择">
+            <el-option label="一手房东" value="first_hand" />
+            <el-option label="二手房东" value="second_hand" />
+            <el-option label="中介" value="agent" />
+            <el-option label="其他" value="other" />
+          </el-select>
+        </el-form-item>
+
+        <el-form-item label="水费类型">
+          <el-select v-model="filterWaterType">
+            <el-option label="全部" value="all" />
+            <el-option label="民用水" value="civil" />
+            <el-option label="自定义" value="custom" />
+          </el-select>
+        </el-form-item>
+
+        <el-form-item label="电费类型">
+          <el-select v-model="filterElectricityType">
+            <el-option label="全部" value="all" />
+            <el-option label="民用电" value="civil" />
+            <el-option label="自定义" value="custom" />
+          </el-select>
+        </el-form-item>
+
+        <el-form-item label="房型">
+          <el-select v-model="filterRoomTypes" multiple placeholder="请选择">
+            <el-option
+              v-for="item in ROOM_TYPES"
+              :key="item.value"
+              :label="item.label"
+              :value="item.value"
+            />
+          </el-select>
+        </el-form-item>
+
+        <el-form-item label="租金范围">
+          <div style="display: flex; gap: 10px">
+            <el-input-number
+              v-model="filterRentMin"
+              :min="0"
+              placeholder="最低"
+              style="width: 100%"
+              :controls="false"
+            />
+            <span>-</span>
+            <el-input-number
+              v-model="filterRentMax"
+              :min="0"
+              placeholder="最高"
+              style="width: 100%"
+              :controls="false"
+            />
+          </div>
+        </el-form-item>
+
+        <el-form-item>
+          <el-tooltip content="（疑似二房东到处贴广告）" placement="top">
+            <el-checkbox
+              v-model="hideRepeatedPhones"
+              label="隐藏重复电话房东"
+            />
+          </el-tooltip>
+        </el-form-item>
+      </el-form>
+    </el-drawer>
+
+    <!-- 删除确认对话框 -->
+    <el-dialog v-model="deleteDialogVisible" title="删除确认" width="30%">
+      <span>确定要删除这个房东吗？此操作无法撤销。</span>
+      <div style="margin-top: 15px">
+        <el-checkbox
+          v-model="deleteWithImages"
+          label="同时删除对应的图片文件"
+        />
+      </div>
+      <template #footer>
+        <span class="dialog-footer">
+          <el-button @click="deleteDialogVisible = false">取消</el-button>
+          <el-button type="danger" @click="confirmDelete"> 删除 </el-button>
+        </span>
+      </template>
+    </el-dialog>
+    <!-- 设置对话框 -->
+    <el-dialog v-model="settingDialogVisible" title="系统设置" width="500px">
+      <el-form :model="amapForm" label-width="100px">
+        <el-form-item label="高德 Key">
+          <el-input
+            v-model="amapForm.key"
+            placeholder="请输入高德地图 Web 端 (JS API) Key"
+          />
+        </el-form-item>
+        <el-form-item label="安全密钥">
+          <el-input
+            v-model="amapForm.securityCode"
+            placeholder="请输入高德地图安全密钥 (Security Code)"
+            type="password"
+            show-password
+          />
+        </el-form-item>
+        <div
+          style="
+            margin-left: 100px;
+            font-size: 12px;
+            color: #909399;
+            line-height: 1.5;
+          "
+        >
+          <p>
+            请前往
+            <a
+              href="https://console.amap.com/dev/key/app"
+              target="_blank"
+              style="color: #409eff"
+              >高德开放平台</a
+            >
+            注册账号并创建 Web 端 (JS API) 应用，获取 Key 和 安全密钥。
+          </p>
+          <p>注意：修改设置后需要刷新页面才能生效。</p>
+        </div>
+      </el-form>
+      <template #footer>
+        <span class="dialog-footer">
+          <el-button @click="settingDialogVisible = false">取消</el-button>
+          <el-button type="primary" @click="handleSaveSettings">
+            保存
+          </el-button>
+        </span>
+      </template>
+    </el-dialog>
+
+    <!-- 使用说明 Tour -->
+    <el-tour
+      v-model="tourOpen"
+      :current="tourCurrent"
+      @change="tourCurrent = $event"
+    >
+      <el-tour-step
+        title="准备工作"
+        description="请先准备好一个文件夹，里面放入您扫楼时拍摄的照片。请确保照片包含 GPS 地理位置信息（手机拍照默认开启）。"
+      />
+      <el-tour-step
+        target="#btn-import-photos"
+        title="导入照片"
+        description="点击此按钮，选择您准备好的照片文件夹。然后点击【扫描文件夹】，系统会自动扫描其中的照片，并根据 GPS 信息识别位置。"
+      />
+      <el-tour-step
+        target="#btn-import-photos"
+        title="快速整理"
+        description="点击打开的弹窗里面有个【快速整理】，勾选后可以根据图片快速输入房东的联系方式，节省大量时间。"
+      />
+      <el-tour-step
+        target="#left-panel"
+        title="房东列表"
+        placement="right"
+        description="识别完成后，房东信息会出现在这里。系统会自动根据位置将照片分组为不同的房东。"
+      />
+      <el-tour-step
+        target="#right-panel"
+        title="地图模式"
+        placement="left"
+        description="您也可以在地图上查看房东的分布情况。点击地图上的标记可以快速定位到房东。"
+      />
+      <el-tour-step
+        target="#btn-export-excel"
+        title="导出Excel"
+        description="整理完成后，您可以将数据导出为 Excel 表格，方便后续跟进。"
+      />
+      <el-tour-step
+        target="#btn-backup"
+        title="导出备份"
+        description="定期导出备份文件，防止数据丢失。备份文件是一个 JSON 格式的文件，可以随时导入恢复数据。"
+      />
+      <el-tour-step
+        target="#btn-backup-import"
+        title="导入备份"
+        description="需先点击“批量导入照片中”的选择文件夹，选择你存放图片的文件夹（不选择的话，没法加载图片），然后选择之前导出的备份文件即可恢复数据。"
+      />
+      <el-tour-step
+        title="温馨提示"
+        description="全部数据保存在您的本地计算机上，系统不会上传任何信息。请定期备份重要数据。祝您使用愉快！"
+      />
+    </el-tour>
   </div>
 </template>
 
 <style scoped>
-*:not(.el-button) {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-}
-
 .app-container {
   width: 100vw;
   height: 100vh;
@@ -414,6 +719,7 @@ const showPhotoUpload = ref(false);
   font-size: 20px;
   color: #409eff;
   margin: 0;
+  white-space: nowrap;
 }
 
 .actions {

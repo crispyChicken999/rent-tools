@@ -18,7 +18,6 @@
           type="primary"
           size="large"
           :icon="Folder"
-          
           @click="selectFolder"
           :loading="scanning"
         >
@@ -30,7 +29,6 @@
           type="success"
           size="large"
           :icon="Refresh"
-          
           @click="scanFolder"
           :loading="scanning"
         >
@@ -42,7 +40,7 @@
           type="warning"
           size="large"
           :icon="Edit"
-          
+          :loading="scanning"
           @click="startQuickOrganize"
         >
           快速整理
@@ -52,7 +50,6 @@
           type="danger"
           size="large"
           :icon="Delete"
-          
           @click="handleClearData"
           :loading="scanning"
         >
@@ -156,7 +153,12 @@
                 </el-input>
               </div>
               <div class="input-tip">
-                Enter 保存 | Ctrl+Enter 添加号码 | A/D 切换
+                Enter 保存 | Ctrl+Enter 添加号码 | A/D或左右箭头 切换
+              </div>
+              <div>
+                <el-checkbox v-model="deleteWithImages">
+                  同时删除对应的图片文件（图片会移动到同目录下的 .trash 文件夹中）
+                </el-checkbox>
               </div>
             </div>
 
@@ -197,6 +199,8 @@
         <el-empty description="没有房东数据" />
       </div>
     </el-dialog>
+
+    <!-- 删除确认弹窗 -->
   </div>
 </template>
 
@@ -372,10 +376,12 @@ async function scanFolder() {
 const showQuickOrganize = ref(false);
 const organizeIndex = ref(0);
 const currentPhones = ref<string[]>([""]);
+const deleteWithImages = ref(true);
 const deleteConfirmCount = ref(0);
 const currentImageUrls = ref<string[]>([]);
 const isImageZoomed = ref(false);
 const phoneInputRefs = ref<any[]>([]);
+const containerRef = ref<HTMLElement | null>(null);
 let loadingImagesVersion = 0;
 
 const organizeLandlord = computed(() => {
@@ -555,8 +561,9 @@ const handleDeleteRequest = async () => {
   if (deleteConfirmCount.value >= 2) {
     if (organizeLandlord.value) {
       const idToDelete = organizeLandlord.value.id;
-      await propertyStore.removeLandlord(idToDelete);
+      await propertyStore.removeLandlord(idToDelete, deleteWithImages.value);
       ElMessage.success("已删除");
+      deleteConfirmCount.value = 0;
 
       if (propertyStore.landlords.length === 0) {
         closeQuickOrganize();
@@ -597,6 +604,11 @@ const handleOrganizeKeydown = (e: KeyboardEvent) => {
     toggleImageZoom();
   }
 };
+
+// Clean up unused code
+// const handleDeleteDialogKeydown = ...
+// watch(showDeleteDialog, ...
+// onUnmounted(() => ...
 
 function formatProgress(_percentage: number): string {
   return `${currentFile.value} / ${totalFiles.value}`;
@@ -684,7 +696,6 @@ function formatProgress(_percentage: number): string {
 
 .image-wrapper.is-zoomed {
   display: block;
-
 }
 .image-wrapper.is-zoomed .carousel-image {
   width: 100%;
