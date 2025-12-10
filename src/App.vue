@@ -82,6 +82,9 @@ const deleteWithImages = ref(true);
 const landlordToDelete = ref<any>(null);
 
 onMounted(async () => {
+  if(!localStorage.getItem('amap_key') || !localStorage.getItem('amap_security_code')) {
+    settingDialogVisible.value = true;
+  }
   await propertyStore.loadLandlords();
 });
 
