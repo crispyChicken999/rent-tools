@@ -388,7 +388,6 @@ function createMarkerContent(style: {
     scale,
     isFavorite,
     isSuspected,
-    isHighlighted,
   } = style;
   const size = 18 * scale;
 
