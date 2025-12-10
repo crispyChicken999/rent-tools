@@ -10,6 +10,7 @@
       fit="cover"
       preview-teleported
       hide-on-click-modal
+      lazy
     >
       <template #error>
         <div class="avatar-placeholder" :style="{ width: size + 'px', height: size + 'px', fontSize: size! * 0.5 + 'px' }">

@@ -13,6 +13,10 @@
         <span class="dot dark"></span> 未联系 (暗色)
       </div>
       <div class="legend-divider"></div>
+      <div class="legend-item">
+        <span class="dot square"></span> 疑似二房东 (方形)
+      </div>
+      <div class="legend-divider"></div>
       <div class="legend-tip">💡 右键地图创建房东</div>
     </div>
   </div>
@@ -34,6 +38,25 @@ const mapContainer = ref<HTMLDivElement>();
 let map: any = null;
 let markers: Map<string, any> = new Map();
 let currentInfoWinImage: string | null = null;
+let highlightedPhones = ref<Set<string>>(new Set()); // 当前高亮的手机号集合
+
+// 判断房东是否为疑似二房东（电话出现3次及以上）
+function isSuspectedSecondHand(landlord: Landlord): boolean {
+  if (!landlord.phoneNumbers || landlord.phoneNumbers.length === 0) return false;
+  
+  // 统计所有电话号码的出现次数
+  const phoneCounts = new Map<string, number>();
+  propertyStore.landlords.forEach((l) => {
+    if (l.phoneNumbers && l.phoneNumbers.length > 0) {
+      l.phoneNumbers.forEach((phone) => {
+        phoneCounts.set(phone, (phoneCounts.get(phone) || 0) + 1);
+      });
+    }
+  });
+  
+  // 只要有一个电话号码出现次数 >= 3，就认为是疑似二房东
+  return landlord.phoneNumbers.some((phone) => (phoneCounts.get(phone) || 0) >= 3);
+}
 
 onMounted(async () => {
   await initMap();
@@ -72,9 +95,10 @@ async function initMap() {
     map.addControl(new AMap.Scale());
     map.addControl(new AMap.ToolBar());
 
-    // 点击地图空白处，清除选中状态
+    // 点击地图空白处，清除选中状态和高亮
     map.on("click", () => {
       propertyStore.setFocusedLandlord(null);
+      clearHighlight();
     });
 
     // 创建右键菜单
@@ -147,6 +171,7 @@ async function renderMarkers() {
       marker.setContent(content);
       marker.setTitle(title);
       marker.setExtData({ landlordId: landlord.id });
+      marker.setOffset(new AMap.Pixel(-9 * style.scale, -9 * style.scale)); // 更新offset以保持居中
       // 确保 zIndex 正确，已联系的在上面
       marker.setzIndex(style.zIndex);
     } else {
@@ -155,18 +180,19 @@ async function renderMarkers() {
         position: position,
         title: title,
         content: content,
-        offset: new AMap.Pixel(-9, -9), // 中心对齐 (18px/2)
+        offset: new AMap.Pixel(-9 * style.scale, -9 * style.scale), // 根据缩放动态调整中心对齐
         extData: { landlordId: landlord.id },
         zIndex: style.zIndex,
       });
 
-      // 点击事件 - 获取最新数据
+      // 点击事件 - 获取最新数据并高亮相同手机号的marker
       marker.on("click", () => {
         const current = propertyStore.landlords.find(
           (l) => l.id === landlord.id
         );
         if (current) {
           propertyStore.setFocusedLandlord(current.id);
+          highlightMarkersWithSamePhone(current);
           showInfoWindow(marker, current);
         }
       });
@@ -228,6 +254,34 @@ function createMarkerContextMenu(landlordId: string) {
   return contextMenu;
 }
 
+// 高亮具有相同手机号的marker
+function highlightMarkersWithSamePhone(landlord: Landlord) {
+  if (!landlord.phoneNumbers || landlord.phoneNumbers.length === 0) {
+    clearHighlight();
+    return;
+  }
+  
+  // 设置高亮的手机号
+  highlightedPhones.value = new Set(landlord.phoneNumbers);
+  
+  // 重新渲染所有marker以应用高亮效果
+  renderMarkers();
+}
+
+// 清除高亮
+function clearHighlight() {
+  highlightedPhones.value = new Set();
+  renderMarkers();
+}
+
+// 判断房东是否应该被高亮
+function shouldHighlight(landlord: Landlord): boolean {
+  if (highlightedPhones.value.size === 0) return false;
+  if (!landlord.phoneNumbers || landlord.phoneNumbers.length === 0) return false;
+  
+  return landlord.phoneNumbers.some(phone => highlightedPhones.value.has(phone));
+}
+
 function getMarkerStyle(landlord: Landlord) {
   // 颜色定义
   const COLORS = {
@@ -243,16 +297,20 @@ function getMarkerStyle(landlord: Landlord) {
   // 根据联系状态调整样式
   const isContacted = landlord.contactStatus === ContactStatus.Contacted;
   const isFavorite = landlord.isFavorite;
+  const isSuspected = isSuspectedSecondHand(landlord);
+  const isHighlighted = shouldHighlight(landlord); // 是否被高亮
 
   // 样式配置
   return {
     color: baseColor,
     opacity: isContacted ? 1.0 : 0.6,
-    borderColor: isFavorite ? "#E6A23C" : "#FFFFFF", // 收藏显示金色边框
-    borderWidth: isFavorite ? "3px" : isContacted ? "2px" : "1px",
-    scale: isFavorite ? 1.4 : isContacted ? 1.2 : 1.0, // 收藏的最大
-    zIndex: isFavorite ? 200 : isContacted ? 100 : 10, // 收藏的层级最高
+    borderColor: isHighlighted ? "#FF4444" : (isFavorite ? "#E6A23C" : "#FFFFFF"), // 高亮时显示红色边框
+    borderWidth: isHighlighted ? "4px" : (isFavorite ? "3px" : isContacted ? "2px" : "1px"),
+    scale: isFavorite ? 1.4 : isContacted ? 1.2 : 1.0, // 高亮时不放大,保持原始大小
+    zIndex: isHighlighted ? 300 : (isFavorite ? 200 : isContacted ? 100 : 10),
     isFavorite,
+    isSuspected,
+    isHighlighted,
   };
 }
 
@@ -263,8 +321,10 @@ function createMarkerContent(style: {
   borderWidth: string;
   scale: number;
   isFavorite?: boolean;
+  isSuspected?: boolean;
+  isHighlighted?: boolean;
 }) {
-  const { color, opacity, borderColor, borderWidth, scale, isFavorite } = style;
+  const { color, opacity, borderColor, borderWidth, scale, isFavorite, isSuspected, isHighlighted } = style;
   const size = 18 * scale;
 
   // 如果是收藏，显示星星图标
@@ -286,7 +346,58 @@ function createMarkerContent(style: {
     `;
   }
 
+  // 如果是疑似二房东，使用方形标识
+  if (isSuspected) {
+    const animationStyle = isHighlighted ? `
+      animation: breathe 1.5s ease-in-out infinite;
+      box-shadow: 0 0 15px rgba(255, 68, 68, 0.8), 0 0 30px rgba(255, 100, 100, 0.5);
+    ` : '';
+    
+    return `
+      <style>
+        @keyframes breathe {
+          0%, 100% { 
+            box-shadow: 0 0 10px rgba(255, 68, 68, 0.6), 0 0 20px rgba(255, 100, 100, 0.4);
+            border-color: #FF4444;
+          }
+          50% { 
+            box-shadow: 0 0 25px rgba(255, 68, 68, 1), 0 0 40px rgba(255, 100, 100, 0.8);
+            border-color: #FF6666;
+          }
+        }
+      </style>
+      <div style="
+        width: ${size}px;
+        height: ${size}px;
+        background-color: ${color};
+        opacity: ${opacity};
+        border: ${borderWidth} solid ${borderColor};
+        border-radius: 3px;
+        cursor: pointer;
+        transition: all 0.3s;
+        ${animationStyle}
+      "></div>
+    `;
+  }
+
+  const animationStyle = isHighlighted ? `
+    animation: breathe 1.5s ease-in-out infinite;
+    box-shadow: 0 0 15px rgba(255, 68, 68, 0.8), 0 0 30px rgba(255, 100, 100, 0.5);
+  ` : '';
+
   return `
+    <style>
+      @keyframes breathe {
+        0%, 100% { 
+          box-shadow: 0 0 10px rgba(255, 68, 68, 0.6), 0 0 20px rgba(255, 100, 100, 0.4);
+          border-color: #FF4444;
+        }
+        50% { 
+          box-shadow: 0 0 25px rgba(255, 68, 68, 1), 0 0 40px rgba(255, 100, 100, 0.8);
+          border-color: #FF6666;
+        }
+      }
+    </style>
     <div style="
       width: ${size}px;
       height: ${size}px;
@@ -294,9 +405,9 @@ function createMarkerContent(style: {
       opacity: ${opacity};
       border: ${borderWidth} solid ${borderColor};
       border-radius: 50%;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.3);
       cursor: pointer;
       transition: all 0.3s;
+      ${animationStyle}
     "></div>
   `;
 }
@@ -598,6 +709,11 @@ defineExpose({
   margin-right: 6px;
   display: inline-block;
   border: 1px solid #eee;
+}
+
+.dot.square {
+  border-radius: 2px;
+  background: #909399;
 }
 
 .dot.green {

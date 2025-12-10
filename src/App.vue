@@ -30,6 +30,7 @@ import {
 
 const propertyStore = usePropertyStore();
 const mapViewRef = ref<InstanceType<typeof MapView> | null>(null);
+const virtualListRef = ref<any>(null); // 虚拟列表的引用
 const fileInput = ref<HTMLInputElement | null>(null);
 
 // Tour 状态
@@ -72,6 +73,9 @@ const filterWechat = ref("all"); // all, added, not_added
 const hideRepeatedPhones = ref(
   localStorage.getItem("hideRepeatedPhones") === "true"
 );
+const showRepeatedPhones = ref(
+  localStorage.getItem("showRepeatedPhones") === "true"
+);
 const filterLandlordType = ref<LandlordType[]>([]);
 const filterWaterType = ref("all"); // 'all', 'civil', 'custom'
 const filterElectricityType = ref("all"); // 'all', 'civil', 'custom'
@@ -101,6 +105,7 @@ watch(
     filterContact,
     filterWechat,
     hideRepeatedPhones,
+    showRepeatedPhones,
     filterLandlordType,
     filterWaterType,
     filterElectricityType,
@@ -120,9 +125,14 @@ watch(
     }
 
     filters.hideRepeatedPhones = hideRepeatedPhones.value;
+    filters.showRepeatedPhones = showRepeatedPhones.value;
     localStorage.setItem(
       "hideRepeatedPhones",
       String(hideRepeatedPhones.value)
+    );
+    localStorage.setItem(
+      "showRepeatedPhones",
+      String(showRepeatedPhones.value)
     );
 
     if (filterLandlordType.value.length > 0) {
@@ -170,12 +180,12 @@ const filteredLandlords = computed(() => propertyStore.filteredLandlords);
 watch(
   () => propertyStore.focusedLandlordId,
   (newId) => {
-    if (newId) {
+    if (newId && virtualListRef.value) {
       // 使用 setTimeout 确保 DOM 已更新
       setTimeout(() => {
-        const el = document.getElementById(`landlord-item-${newId}`);
-        if (el) {
-          el.scrollIntoView({ behavior: "instant", block: "center" });
+        const index = filteredLandlords.value.findIndex(l => l.id === newId);
+        if (index !== -1) {
+          virtualListRef.value.scrollToItem(index);
         }
       }, 100);
     }
@@ -400,10 +410,16 @@ const showPhotoUpload = ref(false);
             </el-input>
           </div>
 
-          <el-scrollbar height="calc(100vh - 130px)">
+          <RecycleScroller
+            ref="virtualListRef"
+            :items="filteredLandlords"
+            :item-size="132"
+            key-field="id"
+            v-slot="{ item: landlord }"
+            class="virtual-scroller"
+            style="height: calc(100vh - 130px);"
+          >
             <div
-              v-for="landlord in filteredLandlords"
-              :key="landlord.id"
               :id="'landlord-item-' + landlord.id"
               class="property-item"
               :class="{
@@ -522,11 +538,12 @@ const showPhotoUpload = ref(false);
                 </div>
               </div>
             </div>
-            <el-empty
-              v-if="filteredLandlords.length === 0"
-              description="暂无符合条件的数据"
-            />
-          </el-scrollbar>
+          </RecycleScroller>
+          <el-empty
+            v-if="filteredLandlords.length === 0"
+            description="暂无符合条件的数据"
+            style="height: calc(100vh - 130px); display: flex; align-items: center; justify-content: center;"
+          />
         </div>
       </div>
 
@@ -637,7 +654,16 @@ const showPhotoUpload = ref(false);
           <el-tooltip content="（疑似二房东到处贴广告）" placement="top">
             <el-checkbox
               v-model="hideRepeatedPhones"
-              label="隐藏重复电话房东"
+              label="隐藏重复电话房东（3次及以上）"
+            />
+          </el-tooltip>
+        </el-form-item>
+
+        <el-form-item>
+          <el-tooltip content="（只显示电话出现3次及以上的房东）" placement="top">
+            <el-checkbox
+              v-model="showRepeatedPhones"
+              label="只显示疑似二房东"
             />
           </el-tooltip>
         </el-form-item>
@@ -860,13 +886,14 @@ const showPhotoUpload = ref(false);
   display: flex;
   gap: 12px;
   padding: 12px;
-  margin-bottom: 12px;
-  margin-right: 12px;
+  margin: 6px 12px 6px 0;
   background: #f5f7fa;
   border-radius: 8px;
   cursor: pointer;
   transition: all 0.3s;
   border: 2px solid transparent;
+  height: 120px; /* 固定高度以适配虚拟列表 */
+  box-sizing: border-box;
 }
 
 .property-item:hover {
@@ -947,5 +974,35 @@ const showPhotoUpload = ref(false);
   border-radius: 8px;
   overflow: hidden;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* 虚拟列表滚动条美化 */
+.virtual-scroller :deep(.vue-recycle-scroller__item-wrapper) {
+  overflow-x: hidden !important;
+}
+
+.virtual-scroller :deep(.vue-recycle-scroller__slot) {
+  padding-right: 4px;
+}
+
+/* 自定义滚动条样式 */
+.virtual-scroller :deep(*::-webkit-scrollbar) {
+  width: 8px;
+  height: 8px;
+}
+
+.virtual-scroller :deep(*::-webkit-scrollbar-track) {
+  background: #f5f7fa;
+  border-radius: 4px;
+}
+
+.virtual-scroller :deep(*::-webkit-scrollbar-thumb) {
+  background: #c0c4cc;
+  border-radius: 4px;
+  transition: background 0.3s;
+}
+
+.virtual-scroller :deep(*::-webkit-scrollbar-thumb:hover) {
+  background: #909399;
 }
 </style>

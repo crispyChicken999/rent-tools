@@ -103,8 +103,27 @@ export const usePropertyStore = defineStore("property", () => {
       // 过滤掉包含重复电话号码的房东
       result = result.filter((l) => {
         if (!l.phoneNumbers || l.phoneNumbers.length === 0) return true; // 没有电话的不过滤
-        // 只要有一个电话号码出现次数 > 1，就认为是二房东，过滤掉
-        return !l.phoneNumbers.some((phone) => (phoneCounts.get(phone) || 0) > 1);
+        // 只要有一个电话号码出现次数 >= 3，就认为是二房东，过滤掉
+        return !l.phoneNumbers.some((phone) => (phoneCounts.get(phone) || 0) >= 3);
+      });
+    }
+
+    if (filters.value.showRepeatedPhones) {
+      // 统计所有电话号码的出现次数
+      const phoneCounts = new Map<string, number>();
+      landlords.value.forEach((l) => {
+        if (l.phoneNumbers && l.phoneNumbers.length > 0) {
+          l.phoneNumbers.forEach((phone) => {
+            phoneCounts.set(phone, (phoneCounts.get(phone) || 0) + 1);
+          });
+        }
+      });
+
+      // 只显示包含出现3次及以上电话号码的房东
+      result = result.filter((l) => {
+        if (!l.phoneNumbers || l.phoneNumbers.length === 0) return false; // 没有电话的不显示
+        // 只要有一个电话号码出现次数 >= 3，就显示
+        return l.phoneNumbers.some((phone) => (phoneCounts.get(phone) || 0) >= 3);
       });
     }
 
