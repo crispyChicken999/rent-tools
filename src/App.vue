@@ -672,7 +672,7 @@ const showPhotoUpload = ref(false);
         </el-form-item>
 
         <el-form-item>
-          <el-tooltip content="（疑似二房东到处贴广告）" placement="top">
+          <el-tooltip content="疑似二房东到处贴广告💩" placement="left">
             <el-checkbox
               v-model="hideRepeatedPhones"
               label="隐藏重复电话房东（3次及以上）"
@@ -682,8 +682,8 @@ const showPhotoUpload = ref(false);
 
         <el-form-item>
           <el-tooltip
-            content="（只显示电话出现3次及以上的房东）"
-            placement="top"
+            content="只显示电话出现3次及以上的房东💢"
+            placement="left"
           >
             <el-checkbox
               v-model="showRepeatedPhones"
