@@ -154,14 +154,14 @@
     <div class="filter-footer">
       <el-button @click="handleReset" class="footer-button">重置</el-button>
       <el-button type="primary" @click="handleApply" class="footer-button">
-        应用筛选
+        应用筛选 ({{ propertyStore.previewLandlordCount }}条)
       </el-button>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { reactive } from 'vue';
+import { reactive, watch } from 'vue';
 import { Search } from '@element-plus/icons-vue';
 import { ROOM_TYPES, LANDLORD_TYPES } from '@/types';
 import { LandlordType } from '@/types';
@@ -203,6 +203,15 @@ const filterForm = reactive<FilterFormData>({
   showRepeatedPhones: false,
 });
 
+// 监听表单变化，实时更新预览计数
+watch(
+  filterForm,
+  () => {
+    propertyStore.updateTempLandlordFilters({ ...filterForm });
+  },
+  { deep: true, immediate: true }
+);
+
 const handleApply = () => {
   propertyStore.applyLandlordFilters({ ...filterForm });
 };
@@ -222,7 +231,7 @@ const handleReset = () => {
   filterForm.phoneSearch = '';
   filterForm.hideRepeatedPhones = false;
   filterForm.showRepeatedPhones = false;
-  
+
   propertyStore.clearLandlordFilters();
 };
 </script>

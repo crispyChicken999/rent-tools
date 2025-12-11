@@ -143,7 +143,7 @@ const emit = defineEmits<{
 }>();
 </script>
 
-<style scoped>
+<style lang="scss" scoped>
 .toolbar {
   height: 60px;
   background: white;

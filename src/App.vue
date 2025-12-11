@@ -15,7 +15,6 @@ import { usePropertyStore } from "./stores/property";
 import { exportToExcel, exportToJson, importFromJson } from "./utils/export";
 import { getStoredAmapConfig, saveAmapConfig } from "./utils/geocode";
 
-
 const propertyStore = usePropertyStore();
 const mapViewRef = ref<InstanceType<typeof MapView> | null>(null);
 const fileInput = ref<HTMLInputElement | null>(null);
@@ -85,10 +84,10 @@ watch(
   (newMode, oldMode) => {
     // 只有在模式真正改变时才重置
     if (oldMode && newMode !== oldMode) {
-      if (newMode === 'landlord') {
+      if (newMode === "landlord") {
         // 切换到房东视图时，重置房东筛选
         propertyStore.clearLandlordFilters();
-      } else if (newMode === 'property') {
+      } else if (newMode === "property") {
         // 切换到房源视图时，重置房源筛选
         propertyStore.clearPropertyFilters();
       }
@@ -134,8 +133,6 @@ const handleFileChange = async (event: Event) => {
   }
 };
 
-
-
 // 房源视图相关事件处理
 const handlePropertyDetailView = (propertyId: string) => {
   // 打开房源详情页
@@ -180,35 +177,13 @@ const handleViewLandlordFromProperty = (landlordId: string) => {
 
   // 地图聚焦这个房东的marker
   if (mapViewRef.value) {
-    const landlord = propertyStore.landlords.find(l => l.id === landlordId);
+    const landlord = propertyStore.landlords.find((l) => l.id === landlordId);
     if (landlord) {
       setTimeout(() => {
         mapViewRef.value?.focusLandlord(landlord);
       }, 1000); // 等待模式切换完成
     }
   }
-};
-
-// 房源筛选相关处理
-const propertyFilterResultCount = ref(0);
-
-const handlePropertyFilterApply = (filters: any) => {
-  propertyStore.setPropertyFilters(filters);
-  showPropertyFilterDrawer.value = false;
-};
-
-const handlePropertyFilterReset = () => {
-  propertyStore.clearPropertyFilters();
-  propertyFilterResultCount.value = propertyStore.filteredProperties.length;
-  showPropertyFilterDrawer.value = false;
-};
-
-// 实时更新筛选结果数量
-const handlePropertyFilterUpdate = (filters: any) => {
-  // 临时应用筛选条件计算数量
-  const tempFilters = { ...filters };
-  propertyStore.setPropertyFilters(tempFilters);
-  propertyFilterResultCount.value = propertyStore.filteredProperties.length;
 };
 
 const showPhotoUpload = ref(false);
@@ -223,7 +198,10 @@ const showPhotoUpload = ref(false);
       @import-backup="handleImport"
       @backup="handleBackup"
       @tour="tourOpen = true"
-      @settings="initSettings(); settingDialogVisible = true"
+      @settings="
+        initSettings();
+        settingDialogVisible = true;
+      "
       @filter-landlord="showFilterDrawer = true"
       @filter-property="showPropertyFilterDrawer = true"
     />
@@ -277,12 +255,7 @@ const showPhotoUpload = ref(false);
       direction="rtl"
       size="400px"
     >
-      <PropertyFilter
-        :result-count="propertyFilterResultCount"
-        @apply="handlePropertyFilterApply"
-        @reset="handlePropertyFilterReset"
-        @update-count="handlePropertyFilterUpdate"
-      />
+      <PropertyFilter />
     </el-drawer>
 
     <!-- 照片上传对话框 -->
@@ -309,7 +282,8 @@ const showPhotoUpload = ref(false);
       v-model="showFilterDrawer"
       title="筛选房东"
       direction="rtl"
-      size="400px">
+      size="400px"
+    >
       <LandlordFilter />
     </el-drawer>
 

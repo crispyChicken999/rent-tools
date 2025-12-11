@@ -33,6 +33,10 @@ export const usePropertyStore = defineStore("property", () => {
   // ========== 房源视图相关状态 ==========
   const viewMode = ref<ViewMode>("landlord"); // 当前视图模式
   const propertyFilters = ref<PropertyFilterOptions>({}); // 房源筛选条件
+  
+  // 临时筛选状态（用于预览计数）
+  const tempLandlordFilters = ref<FilterOptions>({});
+  const tempPropertyFilters = ref<PropertyFilterOptions>({});
 
   // ========== 计算属性 ==========
   const filteredLandlords = computed(() => {
@@ -191,7 +195,6 @@ export const usePropertyStore = defineStore("property", () => {
 
     return result;
   });
-
   const perfectCount = computed(
     () => landlords.value.filter((l) => l.isPerfect).length
   );
@@ -351,6 +354,237 @@ export const usePropertyStore = defineStore("property", () => {
     }
 
     return result;
+  });
+
+  // 临时筛选预览计数（不影响实际筛选结果）
+  const previewLandlordCount = computed(() => {
+    let result = landlords.value;
+    const previewFilters = tempLandlordFilters.value;
+
+    if (previewFilters.wechatStatus && previewFilters.wechatStatus.length > 0) {
+      result = result.filter((l) =>
+        previewFilters.wechatStatus!.includes(l.wechatStatus)
+      );
+    }
+
+    if (previewFilters.contactStatus && previewFilters.contactStatus.length > 0) {
+      result = result.filter((l) =>
+        previewFilters.contactStatus!.includes(l.contactStatus)
+      );
+    }
+
+    if (previewFilters.phoneSearch && previewFilters.phoneSearch.trim()) {
+      const keyword = previewFilters.phoneSearch.trim();
+      result = result.filter((l) =>
+        l.phoneNumbers.some((phone) => phone.includes(keyword))
+      );
+    }
+
+    if (previewFilters.landlordType && previewFilters.landlordType.length > 0) {
+      result = result.filter((l) =>
+        previewFilters.landlordType!.includes(l.landlordType)
+      );
+    }
+
+    if (previewFilters.rentRange) {
+      const [min, max] = previewFilters.rentRange;
+      result = result.filter((l) =>
+        l.properties.some((p: any) => p.rent >= min && p.rent <= max)
+      );
+    }
+
+    if (previewFilters.roomTypes && previewFilters.roomTypes.length > 0) {
+      result = result.filter((l) =>
+        l.properties.some((p) => previewFilters.roomTypes!.includes(p.roomType))
+      );
+    }
+
+    if (previewFilters.waterType && previewFilters.waterType !== "all") {
+      result = result.filter((l) => {
+        if (previewFilters.waterType === "civil")
+          return l.commonFees.water.type === "civil";
+        if (previewFilters.waterType === "custom") {
+          if (l.commonFees.water.type === "civil") return false;
+          if (
+            previewFilters.waterPriceMax !== undefined &&
+            l.commonFees.water.price !== undefined
+          ) {
+            return l.commonFees.water.price <= previewFilters.waterPriceMax;
+          }
+          return true;
+        }
+        return true;
+      });
+    }
+
+    if (
+      previewFilters.electricityType &&
+      previewFilters.electricityType !== "all"
+    ) {
+      result = result.filter((l) => {
+        if (previewFilters.electricityType === "civil")
+          return l.commonFees.electricity.type === "civil";
+        if (previewFilters.electricityType === "custom") {
+          if (l.commonFees.electricity.type === "civil") return false;
+          if (
+            previewFilters.electricityPriceMax !== undefined &&
+            l.commonFees.electricity.price !== undefined
+          ) {
+            return (
+              l.commonFees.electricity.price <=
+              previewFilters.electricityPriceMax
+            );
+          }
+          return true;
+        }
+        return true;
+      });
+    }
+
+    if (previewFilters.isFavorite && previewFilters.isFavorite !== "all") {
+      result = result.filter((l) => {
+        if (previewFilters.isFavorite === "favorite")
+          return l.isFavorite === true;
+        if (previewFilters.isFavorite === "unfavorite") return !l.isFavorite;
+        return true;
+      });
+    }
+
+    if (previewFilters.hideRepeatedPhones) {
+      const phoneCounts = new Map<string, number>();
+      landlords.value.forEach((l) => {
+        if (l.phoneNumbers && l.phoneNumbers.length > 0) {
+          l.phoneNumbers.forEach((phone) => {
+            phoneCounts.set(phone, (phoneCounts.get(phone) || 0) + 1);
+          });
+        }
+      });
+      result = result.filter((l) => {
+        if (!l.phoneNumbers || l.phoneNumbers.length === 0) return true;
+        return !l.phoneNumbers.some(
+          (phone) => (phoneCounts.get(phone) || 0) >= 3
+        );
+      });
+    }
+
+    if (previewFilters.showRepeatedPhones) {
+      const phoneCounts = new Map<string, number>();
+      landlords.value.forEach((l) => {
+        if (l.phoneNumbers && l.phoneNumbers.length > 0) {
+          l.phoneNumbers.forEach((phone) => {
+            phoneCounts.set(phone, (phoneCounts.get(phone) || 0) + 1);
+          });
+        }
+      });
+      result = result.filter((l) => {
+        if (!l.phoneNumbers || l.phoneNumbers.length === 0) return false;
+        return l.phoneNumbers.some(
+          (phone) => (phoneCounts.get(phone) || 0) >= 3
+        );
+      });
+    }
+
+    return result.length;
+  });
+
+  const previewPropertyCount = computed(() => {
+    let result = flattenedProperties.value;
+    const previewFilters = tempPropertyFilters.value;
+
+    if (previewFilters.roomTypes?.length) {
+      result = result.filter((p) =>
+        previewFilters.roomTypes!.includes(p.roomType)
+      );
+    }
+
+    if (previewFilters.rentRange) {
+      const [min, max] = previewFilters.rentRange;
+      result = result.filter(
+        (p) => p.rent !== undefined && p.rent >= min && p.rent <= max
+      );
+    }
+
+    if (previewFilters.amenities?.length) {
+      result = result.filter((p) =>
+        previewFilters.amenities!.every((amenity) =>
+          p.amenities.includes(amenity)
+        )
+      );
+    }
+
+    if (previewFilters.available !== undefined) {
+      result = result.filter(
+        (p) => p.available === previewFilters.available
+      );
+    }
+
+    if (previewFilters.landlordType?.length) {
+      result = result.filter((p) =>
+        previewFilters.landlordType!.includes(p.landlordType)
+      );
+    }
+
+    if (previewFilters.depositMethod?.length) {
+      result = result.filter((p) =>
+        previewFilters.depositMethod!.includes(p.deposit)
+      );
+    }
+
+    if (
+      previewFilters.waterType &&
+      previewFilters.waterType !== "all"
+    ) {
+      result = result.filter((p) => {
+        if (previewFilters.waterType === "civil")
+          return p.water.type === "civil";
+        if (previewFilters.waterType === "custom") {
+          if (p.water.type === "civil") return false;
+          if (
+            previewFilters.waterPriceMax !== undefined &&
+            p.water.price !== undefined
+          ) {
+            return p.water.price <= previewFilters.waterPriceMax;
+          }
+          return true;
+        }
+        return true;
+      });
+    }
+
+    if (
+      previewFilters.electricityType &&
+      previewFilters.electricityType !== "all"
+    ) {
+      result = result.filter((p) => {
+        if (previewFilters.electricityType === "civil")
+          return p.electricity.type === "civil";
+        if (previewFilters.electricityType === "custom") {
+          if (p.electricity.type === "civil") return false;
+          if (
+            previewFilters.electricityPriceMax !== undefined &&
+            p.electricity.price !== undefined
+          ) {
+            return (
+              p.electricity.price <= previewFilters.electricityPriceMax
+            );
+          }
+          return true;
+        }
+        return true;
+      });
+    }
+
+    if (previewFilters.keyword) {
+      const keyword = previewFilters.keyword.toLowerCase();
+      result = result.filter(
+        (p) =>
+          p.address?.toLowerCase().includes(keyword) ||
+          p.description?.toLowerCase().includes(keyword) ||
+          p.landlordPhone.includes(keyword)
+      );
+    }
+
+    return result.length;
   });
 
   // 按 GPS 分组的房源（用于地图标记）
@@ -638,10 +872,71 @@ export const usePropertyStore = defineStore("property", () => {
     });
   }
 
-
   /** 清空筛选条件 */
   function clearLandlordFilters() {
     filters.value = {};
+    tempLandlordFilters.value = {};
+  }
+
+  /** 更新临时房东筛选（用于预览计数） */
+  function updateTempLandlordFilters(formData: any) {
+    const filterOptions: FilterOptions = {};
+
+    if (formData.contactStatus !== "all") {
+      filterOptions.contactStatus = [formData.contactStatus as ContactStatus];
+    }
+
+    if (formData.wechatStatus !== "all") {
+      filterOptions.wechatStatus = [formData.wechatStatus as WechatStatus];
+    }
+
+    if (formData.favoriteStatus !== "all") {
+      filterOptions.isFavorite = formData.favoriteStatus as any;
+    }
+
+    if (formData.landlordType && formData.landlordType.length > 0) {
+      filterOptions.landlordType = formData.landlordType;
+    }
+
+    if (formData.waterType !== "all") {
+      filterOptions.waterType = formData.waterType;
+      if (
+        formData.waterType === "custom" &&
+        formData.waterPriceMax !== undefined
+      ) {
+        filterOptions.waterPriceMax = formData.waterPriceMax;
+      }
+    }
+
+    if (formData.electricityType !== "all") {
+      filterOptions.electricityType = formData.electricityType;
+      if (
+        formData.electricityType === "custom" &&
+        formData.electricityPriceMax !== undefined
+      ) {
+        filterOptions.electricityPriceMax = formData.electricityPriceMax;
+      }
+    }
+
+    if (formData.roomTypes && formData.roomTypes.length > 0) {
+      filterOptions.roomTypes = formData.roomTypes;
+    }
+
+    if (formData.rentMin !== undefined || formData.rentMax !== undefined) {
+      filterOptions.rentRange = [
+        formData.rentMin || 0,
+        formData.rentMax || 999999,
+      ];
+    }
+
+    if (formData.phoneSearch) {
+      filterOptions.phoneSearch = formData.phoneSearch;
+    }
+
+    filterOptions.hideRepeatedPhones = formData.hideRepeatedPhones;
+    filterOptions.showRepeatedPhones = formData.showRepeatedPhones;
+
+    tempLandlordFilters.value = filterOptions;
   }
 
   /** 应用房东筛选表单（将表单数据转换为 FilterOptions） */
@@ -755,14 +1050,126 @@ export const usePropertyStore = defineStore("property", () => {
     }
   }
 
-  /** 设置房源筛选条件 */
-  function setPropertyFilters(newFilters: PropertyFilterOptions) {
-    propertyFilters.value = { ...newFilters };
+  /** 应用房源筛选表单 */
+  function applyPropertyFilters(formData: any) {
+    const filterOptions: PropertyFilterOptions = {};
+
+    if (formData.roomTypes && formData.roomTypes.length > 0) {
+      filterOptions.roomTypes = formData.roomTypes;
+    }
+
+    if (formData.rentMin !== undefined || formData.rentMax !== undefined) {
+      filterOptions.rentRange = [
+        formData.rentMin || 0,
+        formData.rentMax || Infinity,
+      ];
+    }
+
+    if (formData.amenities && formData.amenities.length > 0) {
+      filterOptions.amenities = formData.amenities;
+    }
+
+    if (formData.availableStatus !== "all") {
+      filterOptions.available = formData.availableStatus as boolean;
+    }
+
+    if (formData.landlordType && formData.landlordType.length > 0) {
+      filterOptions.landlordType = formData.landlordType;
+    }
+
+    if (formData.depositMethod && formData.depositMethod.length > 0) {
+      filterOptions.depositMethod = formData.depositMethod;
+    }
+
+    if (formData.waterType !== "all") {
+      filterOptions.waterType = formData.waterType;
+      if (
+        formData.waterType === "custom" &&
+        formData.waterPriceMax !== undefined
+      ) {
+        filterOptions.waterPriceMax = formData.waterPriceMax;
+      }
+    }
+
+    if (formData.electricityType !== "all") {
+      filterOptions.electricityType = formData.electricityType;
+      if (
+        formData.electricityType === "custom" &&
+        formData.electricityPriceMax !== undefined
+      ) {
+        filterOptions.electricityPriceMax = formData.electricityPriceMax;
+      }
+    }
+
+    if (formData.keyword && formData.keyword.trim()) {
+      filterOptions.keyword = formData.keyword.trim();
+    }
+
+    propertyFilters.value = filterOptions;
+  }
+
+  /** 更新临时房源筛选（用于预览计数） */
+  function updateTempPropertyFilters(formData: any) {
+    const filterOptions: PropertyFilterOptions = {};
+
+    if (formData.roomTypes && formData.roomTypes.length > 0) {
+      filterOptions.roomTypes = formData.roomTypes;
+    }
+
+    if (formData.rentMin !== undefined || formData.rentMax !== undefined) {
+      filterOptions.rentRange = [
+        formData.rentMin || 0,
+        formData.rentMax || Infinity,
+      ];
+    }
+
+    if (formData.amenities && formData.amenities.length > 0) {
+      filterOptions.amenities = formData.amenities;
+    }
+
+    if (formData.availableStatus !== "all") {
+      filterOptions.available = formData.availableStatus as boolean;
+    }
+
+    if (formData.landlordType && formData.landlordType.length > 0) {
+      filterOptions.landlordType = formData.landlordType;
+    }
+
+    if (formData.depositMethod && formData.depositMethod.length > 0) {
+      filterOptions.depositMethod = formData.depositMethod;
+    }
+
+    if (formData.waterType !== "all") {
+      filterOptions.waterType = formData.waterType;
+      if (
+        formData.waterType === "custom" &&
+        formData.waterPriceMax !== undefined
+      ) {
+        filterOptions.waterPriceMax = formData.waterPriceMax;
+      }
+    }
+
+    if (formData.electricityType !== "all") {
+      filterOptions.electricityType = formData.electricityType;
+      if (
+        formData.electricityType === "custom" &&
+        formData.electricityPriceMax !== undefined
+      ) {
+        filterOptions.electricityPriceMax = formData.electricityPriceMax;
+      }
+    }
+
+    if (formData.keyword && formData.keyword.trim()) {
+      filterOptions.keyword = formData.keyword.trim();
+    }
+
+    tempPropertyFilters.value = filterOptions;
   }
 
   /** 清空房源筛选条件 */
   function clearPropertyFilters() {
     propertyFilters.value = {};
+    tempPropertyFilters.value = {};
   }
 
   /** 切换视图模式 */
@@ -787,11 +1194,13 @@ export const usePropertyStore = defineStore("property", () => {
     perfectCount,
     imperfectCount,
     contactedCount,
+    previewLandlordCount,
 
     // 房源视图计算属性
     flattenedProperties,
     filteredProperties,
     groupedPropertiesByGps,
+    previewPropertyCount,
 
     // 方法
     loadLandlords,
@@ -805,6 +1214,7 @@ export const usePropertyStore = defineStore("property", () => {
     removeProperty,
     clearLandlordFilters,
     applyLandlordFilters,
+    updateTempLandlordFilters,
     selectLandlord,
     setFocusedLandlord,
     clearAllData,
@@ -812,7 +1222,8 @@ export const usePropertyStore = defineStore("property", () => {
     toggleFavorite,
 
     // 房源视图方法
-    setPropertyFilters,
+    applyPropertyFilters,
+    updateTempPropertyFilters,
     clearPropertyFilters,
     setViewMode,
   };

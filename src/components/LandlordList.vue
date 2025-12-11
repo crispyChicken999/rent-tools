@@ -9,8 +9,7 @@
       :items="filteredLandlords"
       :min-item-size="80"
       key-field="id"
-      class="virtual-scroller"
-      style="height: calc(100vh - 130px)"
+      class="virtual-scroller scroller-height"
     >
       <template v-slot="{ item: landlord, index, active }">
         <DynamicScrollerItem
@@ -47,16 +46,12 @@
             </div>
 
             <div class="property-info">
-              <div
-                style="display: flex; flex-direction: column; gap: 4px"
-              >
+              <div class="info-content">
                 <div class="info-row">
-                  <span class="nickname" v-if="landlord.wechatNickname">{{
-                    landlord.wechatNickname
-                  }}</span>
-                  <div
-                    style="display: flex; align-items: center; gap: 8px"
-                  >
+                  <div class="name-phone">
+                    <span class="nickname" v-if="landlord.wechatNickname">{{
+                      landlord.wechatNickname
+                    }}</span>
                     <span
                       class="phone"
                       :class="{ secondary: landlord.wechatNickname }"
@@ -71,14 +66,7 @@
               </div>
 
               <div class="stats">
-                <div
-                  style="
-                    display: flex;
-                    align-items: center;
-                    gap: 2px;
-                    flex-wrap: wrap;
-                  "
-                >
+                <div class="tags-row">
                   <el-tag
                     size="small"
                     :type="getLandlordTypeTagType(landlord.landlordType)"
@@ -106,18 +94,17 @@
                     type="success"
                     v-if="landlord.wechatStatus === 'added'"
                     effect="plain"
-                    >已加WX</el-tag
+                    >已加微信</el-tag
                   >
-                  <span style="margin-left: 4px"
+                  <span class="property-count"
                     >{{ landlord.properties?.length || 0 }} 个房源</span
                   >
                 </div>
-                <div style="display: flex; gap: 2px">
+                <div class="action-buttons">
                   <el-button
                     type="primary"
                     link
                     size="small"
-                    style="margin-left: 0px"
                     @click.stop="handleViewDetail(landlord)"
                   >
                     详情
@@ -125,7 +112,6 @@
                   <el-button
                     :type="landlord.isFavorite ? 'warning' : 'info'"
                     link
-                    style="margin-left: 0px"
                     size="small"
                     :icon="landlord.isFavorite ? StarFilled : Star"
                     @click.stop="handleToggleFavorite(landlord.id)"
@@ -140,7 +126,6 @@
                         type="danger"
                         link
                         size="small"
-                        style="margin-left: 0px"
                         :icon="Delete"
                         @click.stop
                       />
@@ -153,22 +138,17 @@
         </DynamicScrollerItem>
       </template>
     </DynamicScroller>
-    
+
     <el-empty
       v-if="filteredLandlords.length === 0"
       description="暂无符合条件的数据"
-      style="
-        height: calc(100vh - 130px);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-      "
+      class="empty-state"
     />
 
     <!-- 删除确认对话框 -->
     <el-dialog v-model="deleteDialogVisible" title="删除确认" width="450px">
       <span>确定要删除这个房东吗？此操作无法撤销。</span>
-      <div style="margin-top: 15px">
+      <div class="delete-options">
         <el-checkbox
           v-model="deleteWithImages"
           label="同时删除对应的图片文件（图片会移动到 .trash 文件夹内）"
@@ -185,15 +165,15 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue';
-import { DynamicScroller, DynamicScrollerItem } from 'vue-virtual-scroller';
-import 'vue-virtual-scroller/dist/vue-virtual-scroller.css';
-import { Delete, Star, StarFilled } from '@element-plus/icons-vue';
-import { ElMessage } from 'element-plus';
-import LandlordAvatar from './LandlordAvatar.vue';
-import { usePropertyStore } from '@/stores/property';
-import { LandlordType } from '@/types';
-import type { Landlord } from '@/types';
+import { computed, ref, watch } from "vue";
+import { DynamicScroller, DynamicScrollerItem } from "vue-virtual-scroller";
+import "vue-virtual-scroller/dist/vue-virtual-scroller.css";
+import { Delete, Star, StarFilled } from "@element-plus/icons-vue";
+import { ElMessage } from "element-plus";
+import LandlordAvatar from "./LandlordAvatar.vue";
+import { usePropertyStore } from "@/stores/property";
+import { LandlordType } from "@/types";
+import type { Landlord } from "@/types";
 
 const propertyStore = usePropertyStore();
 const virtualListRef = ref<any>(null);
@@ -235,7 +215,7 @@ defineExpose({
   virtualListRef,
   deleteDialogVisible,
   deleteWithImages,
-  landlordToDelete
+  landlordToDelete,
 });
 
 const getPhoneDisplay = (phones: string[]) => {
@@ -330,23 +310,30 @@ const confirmDelete = async () => {
   flex: 1;
 }
 
+.scroller-height {
+  height: calc(100vh - 130px);
+}
+
 .scroller-item {
-  padding: 8px 16px;
+  padding: 12px 12px 0 12px;
 }
 
 .property-item {
-  background: white;
-  border-radius: 8px;
-  padding: 12px;
   display: flex;
   gap: 12px;
+  padding: 12px;
+  background: #f5f7fa;
+  border-radius: 8px;
   cursor: pointer;
   transition: all 0.3s;
   border: 2px solid transparent;
+  min-height: 80px;
+  box-sizing: border-box;
 
   &:hover {
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-    transform: translateY(-2px);
+    background: #e6f7ff;
+    border: 2px solid #409eff70;
+    box-shadow: 0 2px 8px #0000001a;
   }
 
   &.active {
@@ -374,10 +361,16 @@ const confirmDelete = async () => {
   gap: 4px;
 }
 
+.name-phone {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
 .nickname {
-  font-weight: 600;
-  font-size: 15px;
+  font-weight: 700;
   color: #303133;
+  font-size: 14px;
 }
 
 .phone {
@@ -385,17 +378,15 @@ const confirmDelete = async () => {
   font-size: 14px;
 
   &.secondary {
-    font-size: 13px;
+    font-size: 12px;
     color: #909399;
+    font-weight: 400;
   }
 }
 
 .address {
-  font-size: 13px;
-  color: #909399;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  font-size: 12px;
+  color: #606266;
 }
 
 .stats {
@@ -404,5 +395,36 @@ const confirmDelete = async () => {
   align-items: center;
   font-size: 13px;
   color: #606266;
+}
+
+.empty-state {
+  height: calc(100vh - 130px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.delete-options {
+  margin-top: 15px;
+}
+
+.tags-row {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+
+  .property-count {
+    font-size: 12px;
+    color: #909399;
+  }
+}
+
+.action-buttons {
+  display: flex;
+  align-items: center;
+
+  .el-button {
+    margin: 0;
+  }
 }
 </style>

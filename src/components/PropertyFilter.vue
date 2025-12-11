@@ -70,7 +70,6 @@
         <el-form-item label="租赁状态">
           <el-radio-group
             v-model="filterForm.availableStatus"
-            @change="updateResultCount"
           >
             <el-radio label="all">全部</el-radio>
             <el-radio :value="true">可租</el-radio>
@@ -120,7 +119,6 @@
         <el-form-item label="水费类型">
           <el-radio-group
             v-model="filterForm.waterType"
-            @change="updateResultCount"
           >
             <el-radio-button label="all">全部</el-radio-button>
             <el-radio-button label="civil">民用水</el-radio-button>
@@ -133,7 +131,6 @@
             :step="0.1"
             placeholder="最大水费"
             style="width: 100%; margin-top: 8px"
-            @change="updateResultCount"
           >
             <template #prefix> 不超过 </template>
             <template #suffix> 元/吨 </template>
@@ -144,7 +141,6 @@
         <el-form-item label="电费类型">
           <el-radio-group
             v-model="filterForm.electricityType"
-            @change="updateResultCount"
           >
             <el-radio-button label="all">全部</el-radio-button>
             <el-radio-button label="civil">民用电</el-radio-button>
@@ -157,7 +153,6 @@
             :step="0.1"
             placeholder="最大电费"
             style="width: 100%; margin-top: 8px"
-            @change="updateResultCount"
           >
             <template #prefix> 不超过 </template>
             <template #suffix> 元/度 </template>
@@ -183,14 +178,14 @@
     <div class="filter-footer">
       <el-button @click="handleReset" class="footer-button">重置</el-button>
       <el-button type="primary" @click="handleApply" class="footer-button">
-        应用筛选 ({{ currentResultCount }}条)
+        应用筛选 ({{ propertyStore.previewPropertyCount }}条)
       </el-button>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { reactive, ref, watch } from "vue";
+import { reactive, watch } from "vue";
 import { Search } from "@element-plus/icons-vue";
 import {
   ROOM_TYPES,
@@ -198,18 +193,10 @@ import {
   LANDLORD_TYPES,
   DEPOSIT_METHODS,
 } from "@/types";
-import type { PropertyFilterOptions } from "@/types";
 import { LandlordType } from "@/types";
+import { usePropertyStore } from "@/stores/property";
 
-const props = defineProps<{
-  resultCount: number;
-}>();
-
-const emit = defineEmits<{
-  apply: [filters: PropertyFilterOptions];
-  reset: [];
-  updateCount: [filters: PropertyFilterOptions];
-}>();
+const propertyStore = usePropertyStore();
 
 interface FilterFormData {
   roomTypes: string[];
@@ -241,92 +228,17 @@ const filterForm = reactive<FilterFormData>({
   keyword: "",
 });
 
-const currentResultCount = ref(props.resultCount);
-
-// 构建筛选条件
-const buildFilters = (): PropertyFilterOptions => {
-  const filters: PropertyFilterOptions = {};
-
-  if (filterForm.roomTypes.length > 0) {
-    filters.roomTypes = filterForm.roomTypes;
-  }
-
-  if (filterForm.rentMin !== undefined || filterForm.rentMax !== undefined) {
-    filters.rentRange = [
-      filterForm.rentMin || 0,
-      filterForm.rentMax || Infinity,
-    ];
-  }
-
-  if (filterForm.amenities.length > 0) {
-    filters.amenities = filterForm.amenities;
-  }
-
-  if (filterForm.availableStatus !== "all") {
-    filters.available = filterForm.availableStatus as boolean;
-  }
-
-  if (filterForm.landlordType.length > 0) {
-    filters.landlordType = filterForm.landlordType;
-  }
-
-  if (filterForm.depositMethod.length > 0) {
-    filters.depositMethod = filterForm.depositMethod;
-  }
-
-  if (filterForm.waterType !== "all") {
-    filters.waterType = filterForm.waterType;
-    if (
-      filterForm.waterType === "custom" &&
-      filterForm.waterPriceMax !== undefined
-    ) {
-      filters.waterPriceMax = filterForm.waterPriceMax;
-    }
-  }
-
-  if (filterForm.electricityType !== "all") {
-    filters.electricityType = filterForm.electricityType;
-    if (
-      filterForm.electricityType === "custom" &&
-      filterForm.electricityPriceMax !== undefined
-    ) {
-      filters.electricityPriceMax = filterForm.electricityPriceMax;
-    }
-  }
-
-  if (filterForm.keyword.trim()) {
-    filters.keyword = filterForm.keyword.trim();
-  }
-
-  return filters;
-};
-
-// 实时更新结果数
-const updateResultCount = () => {
-  const filters = buildFilters();
-  emit("updateCount", filters);
-};
-
-// 监听筛选表单变化，实时更新数量
+// 监听表单变化，实时更新预览计数
 watch(
   filterForm,
   () => {
-    updateResultCount();
+    propertyStore.updateTempPropertyFilters({ ...filterForm });
   },
-  { deep: true }
-);
-
-// 监听props变化更新当前数量
-watch(
-  () => props.resultCount,
-  (newCount) => {
-    currentResultCount.value = newCount;
-  }
+  { deep: true, immediate: true }
 );
 
 const handleApply = () => {
-  const filters = buildFilters();
-  emit("apply", filters);
+  propertyStore.applyPropertyFilters({ ...filterForm });
 };
 
 const handleReset = () => {
@@ -343,7 +255,7 @@ const handleReset = () => {
   filterForm.electricityPriceMax = undefined;
   filterForm.keyword = "";
 
-  emit("reset");
+  propertyStore.clearPropertyFilters();
 };
 </script>
 

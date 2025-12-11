@@ -1,5 +1,11 @@
 <template>
   <div class="property-list">
+    <!-- 统计信息 -->
+    <div class="list-header">
+      <h3>房源列表（{{ filteredProperties.length }}）</h3>
+      <span v-if="averageRent > 0">平均租金: ¥{{ averageRent }}/月</span>
+    </div>
+
     <!-- 房源列表 -->
     <div v-if="filteredProperties.length === 0" class="empty-state">
       <el-empty description="暂无房源数据">
@@ -8,6 +14,7 @@
         </el-button>
       </el-empty>
     </div>
+
     <DynamicScroller
       v-else
       :items="filteredProperties"
@@ -37,12 +44,6 @@
         </DynamicScrollerItem>
       </template>
     </DynamicScroller>
-
-    <!-- 统计信息 -->
-    <div class="list-footer">
-      <span>共 {{ filteredProperties.length }} 套房源</span>
-      <span v-if="averageRent > 0">平均租金: ¥{{ averageRent }}/月</span>
-    </div>
   </div>
 </template>
 
@@ -131,21 +132,21 @@ const handleBackToLandlord = () => {
   min-height: 400px;
 }
 
-.list-footer {
+.list-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 12px 16px;
   background: white;
-  border-top: 1px solid #ebeef5;
   font-size: 14px;
-  color: #606266;
   flex-shrink: 0;
+  padding: 16px;
+  border-bottom: 1px solid #e4e7ed;
 
-  span {
-    &:not(:last-child) {
-      margin-right: 24px;
-    }
+  h3 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+    color: #303133;
   }
 }
 </style>

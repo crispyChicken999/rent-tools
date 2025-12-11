@@ -101,37 +101,9 @@ export async function deleteLandlord(id: string): Promise<void> {
 /** 根据电话号码查找房东 */
 export async function findLandlordsByPhone(phone: string): Promise<Landlord[]> {
   const allLandlords = await getAllLandlords()
-  return allLandlords.filter(landlord => 
+  return allLandlords.filter(landlord =>
     landlord.phoneNumbers.includes(phone)
   )
-}
-
-/** 根据状态筛选房东 */
-export async function filterLandlords(
-  filters: {
-    wechatStatus?: string[]
-    contactStatus?: string[]
-    landlordType?: string[]
-    isPerfect?: boolean
-  }
-): Promise<Landlord[]> {
-  const allLandlords = await getAllLandlords()
-  
-  return allLandlords.filter(landlord => {
-    if (filters.wechatStatus && !filters.wechatStatus.includes(landlord.wechatStatus)) {
-      return false
-    }
-    if (filters.contactStatus && !filters.contactStatus.includes(landlord.contactStatus)) {
-      return false
-    }
-    if (filters.landlordType && !filters.landlordType.includes(landlord.landlordType)) {
-      return false
-    }
-    if (filters.isPerfect !== undefined && landlord.isPerfect !== filters.isPerfect) {
-      return false
-    }
-    return true
-  })
 }
 
 // ========== 文件系统句柄操作 ==========
