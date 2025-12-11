@@ -287,6 +287,64 @@ export interface FilterOptions {
   isFavorite?: 'all' | 'favorite' | 'unfavorite'; // 收藏状态筛选
 }
 
+/** 房源视图筛选条件 */
+export interface PropertyFilterOptions {
+  // 房源维度
+  roomTypes?: string[]; // 房型：单间、一房一厅等
+  rentRange?: [number, number]; // 租金区间：[1000, 2000]
+  amenities?: string[]; // 配套设施：空调、洗衣机等
+  floor?: string; // 楼层：低楼层(<3)、中楼层(3-7)、高楼层(>7)
+  available?: boolean; // 是否可租
+
+  // 房东维度（关联筛选）
+  landlordType?: LandlordType[]; // 房东类型
+  depositMethod?: string[]; // 押金方式
+  waterType?: string; // 水费类型
+  electricityType?: string; // 电费类型
+
+  // 搜索
+  keyword?: string; // 关键词搜索（地址、备注）
+}
+
+/** 房源视图项（扁平化的房源数据） */
+export interface PropertyViewItem {
+  // 房源信息
+  propertyId: string;
+  roomType: string;
+  rent?: number;
+  floor?: string;
+  amenities: string[];
+  available?: boolean;
+  description?: string;
+  videos: Video[];
+
+  // 从房东继承的信息
+  landlordId: string;
+  landlordPhone: string;
+  landlordType: LandlordType;
+  address?: string;
+  gps?: GPS;
+
+  // 公共费用（从房东继承）
+  water: {
+    type: string;
+    price?: number;
+    unit?: string;
+  };
+  electricity: {
+    type: string;
+    price?: number;
+    unit?: string;
+  };
+  deposit: string;
+
+  // 照片（使用房东主图）
+  photo?: Photo;
+}
+
+/** 视图模式 */
+export type ViewMode = 'landlord' | 'property';
+
 /** 地图标记样式配置 */
 export interface MarkerStyle {
   color: string; // 颜色

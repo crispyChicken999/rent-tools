@@ -17,6 +17,9 @@ import PhotoUpload from "./components/PhotoUpload.vue";
 import MapView from "./components/MapView.vue";
 import PropertyDetail from "./components/PropertyDetail.vue";
 import LandlordAvatar from "./components/LandlordAvatar.vue";
+import PropertyList from "./components/PropertyList.vue";
+import PropertyDetailPage from "./components/PropertyDetailPage.vue";
+import PropertyFilter from "./components/PropertyFilter.vue";
 import { usePropertyStore } from "./stores/property";
 import { exportToExcel, exportToJson, importFromJson } from "./utils/export";
 import { getStoredAmapConfig, saveAmapConfig } from "./utils/geocode";
@@ -90,6 +93,14 @@ const deleteDialogVisible = ref(false);
 const deleteWithImages = ref(true);
 const landlordToDelete = ref<any>(null);
 
+// 房源详情页状态
+const propertyDetailVisible = ref(false);
+const currentPropertyId = ref("");
+const currentLandlordId = ref("");
+
+// 房源筛选抽屉状态
+const showPropertyFilterDrawer = ref(false);
+
 onMounted(async () => {
   if (
     !localStorage.getItem("amap_key") ||
@@ -98,6 +109,11 @@ onMounted(async () => {
     settingDialogVisible.value = true;
   }
   await propertyStore.loadLandlords();
+
+  // 监听地图房源标记点击事件
+  window.addEventListener("open-property-detail", ((e: CustomEvent) => {
+    handlePropertyDetailView(e.detail.propertyId);
+  }) as EventListener);
 });
 
 // 监听筛选条件变化，同步到 Store
@@ -292,6 +308,60 @@ const confirmDelete = async () => {
   }
 };
 
+// 房源视图相关事件处理
+const handlePropertyDetailView = (propertyId: string) => {
+  // 打开房源详情页
+  const property = propertyStore.flattenedProperties.find(
+    (p) => p.propertyId === propertyId
+  );
+  if (property) {
+    currentPropertyId.value = propertyId;
+    currentLandlordId.value = property.landlordId;
+    propertyDetailVisible.value = true;
+  } else {
+    ElMessage.error("房源不存在");
+  }
+};
+
+const handlePropertyDetailSaved = () => {
+  // 房源详情保存后，刷新列表
+  propertyStore.loadLandlords();
+};
+
+const handleGoToLandlordFromDetail = (landlordId: string) => {
+  // 从详情页跳转到房东视图
+  propertyDetailVisible.value = false;
+  propertyStore.setViewMode("landlord");
+  propertyStore.setFocusedLandlord(landlordId);
+  propertyStore.selectLandlord(
+    propertyStore.landlords.find((l) => l.id === landlordId) || null
+  );
+};
+
+const handlePropertyLocate = (gps: { lng: number; lat: number }) => {
+  // 地图定位到指定位置
+  if (mapViewRef.value) {
+    mapViewRef.value.locateToPosition(gps);
+  }
+};
+
+const handleViewLandlordFromProperty = (landlordId: string) => {
+  // 切换到房东视图并定位到该房东
+  propertyStore.setViewMode("landlord");
+  propertyStore.setFocusedLandlord(landlordId);
+};
+
+// 房源筛选相关处理
+const handlePropertyFilterApply = (filters: any) => {
+  propertyStore.setPropertyFilters(filters);
+  showPropertyFilterDrawer.value = false;
+};
+
+const handlePropertyFilterReset = () => {
+  propertyStore.clearPropertyFilters();
+  showPropertyFilterDrawer.value = false;
+};
+
 const showPhotoUpload = ref(false);
 </script>
 
@@ -303,6 +373,16 @@ const showPhotoUpload = ref(false);
         <h1>📍 租房信息管理系统</h1>
       </div>
       <div class="actions">
+        <!-- 视图切换按钮 -->
+        <el-radio-group
+          v-model="propertyStore.viewMode"
+          size="default"
+          style="margin-right: 12px"
+        >
+          <el-radio-button label="landlord">房东视图</el-radio-button>
+          <el-radio-button label="property">房源视图</el-radio-button>
+        </el-radio-group>
+
         <el-button
           id="btn-import-photos"
           type="primary"
@@ -380,13 +460,26 @@ const showPhotoUpload = ref(false);
 
         <el-tooltip content="筛选房东" placement="bottom">
           <el-button
+            v-if="propertyStore.viewMode === 'landlord'"
             id="btn-filter"
             :icon="Filter"
             @click="showFilterDrawer = true"
             type="primary"
             plain
             circle
-            title="筛选"
+          />
+        </el-tooltip>
+
+        <!-- 房源视图筛选按钮 -->
+        <el-tooltip content="筛选房源" placement="bottom">
+          <el-button
+            v-if="propertyStore.viewMode === 'property'"
+            :icon="Filter"
+            @click="showPropertyFilterDrawer = true"
+            id="btn-filter"
+            type="primary"
+            plain
+            circle
           />
         </el-tooltip>
 
@@ -401,7 +494,7 @@ const showPhotoUpload = ref(false);
       <!-- 左侧：列表 -->
       <div class="left-panel" id="left-panel">
         <!-- 房东列表 -->
-        <div class="property-list">
+        <div v-if="propertyStore.viewMode === 'landlord'" class="property-list">
           <div class="list-header">
             <h3>房东列表 ({{ filteredLandlords.length }})</h3>
             <el-input
@@ -578,16 +671,51 @@ const showPhotoUpload = ref(false);
             "
           />
         </div>
+
+        <!-- 房源列表 -->
+        <PropertyList
+          v-else-if="propertyStore.viewMode === 'property'"
+          @view-detail="handlePropertyDetailView"
+          @locate="handlePropertyLocate"
+          @view-landlord="handleViewLandlordFromProperty"
+        />
       </div>
 
       <!-- 右侧：地图 -->
       <div class="right-panel" id="right-panel">
-        <MapView ref="mapViewRef" />
+        <MapView
+          ref="mapViewRef"
+          :view-mode="propertyStore.viewMode"
+          :properties="propertyStore.filteredProperties"
+        />
       </div>
     </div>
 
     <!-- 详情抽屉 -->
     <PropertyDetail />
+
+    <!-- 房源详情页 -->
+    <PropertyDetailPage
+      v-model="propertyDetailVisible"
+      :property-id="currentPropertyId"
+      :landlord-id="currentLandlordId"
+      @saved="handlePropertyDetailSaved"
+      @go-to-landlord="handleGoToLandlordFromDetail"
+    />
+
+    <!-- 房源筛选抽屉 -->
+    <el-drawer
+      v-model="showPropertyFilterDrawer"
+      title="筛选房源"
+      direction="rtl"
+      size="400px"
+    >
+      <PropertyFilter
+        :result-count="propertyStore.filteredProperties.length"
+        @apply="handlePropertyFilterApply"
+        @reset="handlePropertyFilterReset"
+      />
+    </el-drawer>
 
     <!-- 照片上传对话框 -->
     <el-dialog

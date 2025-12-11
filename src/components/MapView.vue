@@ -35,14 +35,24 @@ import { CopyDocument } from "@element-plus/icons-vue";
 import { loadAMap } from "@/utils/geocode";
 import { usePropertyStore } from "@/stores/property";
 import { LandlordType, ContactStatus } from "@/types";
-import type { Landlord } from "@/types";
+import type { Landlord, PropertyViewItem, ViewMode } from "@/types";
 import { getValidDirectoryHandle, getFileByPath } from "@/utils/fileSystem";
+
+// 接收 props
+const props = withDefaults(defineProps<{
+  viewMode?: ViewMode;
+  properties?: PropertyViewItem[];
+}>(), {
+  viewMode: 'landlord',
+  properties: () => []
+});
 
 const propertyStore = usePropertyStore();
 const mapContainer = ref<HTMLDivElement>();
 
 let map: any = null;
 let markers: Map<string, any> = new Map();
+let propertyMarkers: Map<string, any> = new Map(); // 房源标记
 let currentInfoWinImage: string | null = null;
 let highlightedPhones = ref<Set<string>>(new Set()); // 当前高亮的手机号集合
 
@@ -84,7 +94,36 @@ onUnmounted(() => {
 watch(
   () => propertyStore.filteredLandlords,
   () => {
-    renderMarkers();
+    if (props.viewMode === 'landlord') {
+      renderMarkers();
+    }
+  },
+  { deep: true }
+);
+
+// 监听视图模式变化
+watch(
+  () => props.viewMode,
+  (newMode) => {
+    if (!map) return;
+    
+    if (newMode === 'landlord') {
+      clearPropertyMarkers();
+      renderMarkers();
+    } else if (newMode === 'property') {
+      clearLandlordMarkers();
+      renderPropertyMarkers();
+    }
+  }
+);
+
+// 监听房源数据变化
+watch(
+  () => props.properties,
+  () => {
+    if (props.viewMode === 'property') {
+      renderPropertyMarkers();
+    }
   },
   { deep: true }
 );
@@ -702,8 +741,210 @@ const focusLandlord = (landlord: Landlord) => {
   }
 };
 
+// ========== 房源视图相关函数 ==========
+
+// 清空房东标记
+function clearLandlordMarkers() {
+  markers.forEach((marker) => {
+    map.remove(marker);
+  });
+  markers.clear();
+}
+
+// 清空房源标记
+function clearPropertyMarkers() {
+  propertyMarkers.forEach((marker) => {
+    map.remove(marker);
+  });
+  propertyMarkers.clear();
+}
+
+// 渲染房源标记（数字徽章）
+async function renderPropertyMarkers() {
+  if (!map) return;
+
+  const AMap = await loadAMap();
+  
+  // 按 GPS 分组房源
+  const groupedProperties = propertyStore.groupedPropertiesByGps;
+
+  // 清空现有标记
+  clearPropertyMarkers();
+
+  if (groupedProperties.length === 0) return;
+
+  groupedProperties.forEach(({ gps, properties, count }) => {
+    // 创建数字徽章标记
+    const color = getPropertiesStatusColor(properties);
+    const content = createPropertyBadge(count, color);
+    const position = [gps.lng, gps.lat];
+
+    const marker = new AMap.Marker({
+      position: position,
+      content: content,
+      offset: new AMap.Pixel(-20, -20),
+      extData: { type: 'property', properties, gps },
+      zIndex: 100
+    });
+
+    // 点击标记显示 InfoWindow
+    marker.on('click', () => {
+      showPropertyInfoWindow(marker, properties);
+    });
+
+    map.add(marker);
+    propertyMarkers.set(`${gps.lng},${gps.lat}`, marker);
+  });
+
+  // 自动适配地图视野
+  if (propertyMarkers.size > 0) {
+    map.setFitView();
+  }
+}
+
+// 创建房源数字徽章
+function createPropertyBadge(count: number, color: string) {
+  return `
+    <div class="property-badge" style="
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      background: ${color};
+      color: white;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      font-weight: bold;
+      border: 2px solid white;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+      cursor: pointer;
+      transition: all 0.3s;
+    " onmouseenter="this.style.transform='scale(1.2)'" onmouseleave="this.style.transform='scale(1)'">
+      ${count}
+    </div>
+  `;
+}
+
+// 获取房源状态颜色
+function getPropertiesStatusColor(properties: PropertyViewItem[]): string {
+  const availableCount = properties.filter(p => p.available).length;
+  if (availableCount === properties.length) return '#67c23a'; // 全部可租 - 绿色
+  if (availableCount === 0) return '#909399'; // 全部已租 - 灰色
+  return '#409eff'; // 部分可租 - 蓝色
+}
+
+// 显示房源 InfoWindow
+function showPropertyInfoWindow(marker: any, properties: PropertyViewItem[]) {
+  const AMap = (window as any).AMap;
+  const infoWindow = new AMap.InfoWindow({
+    isCustom: true,
+    content: createPropertyInfoWindowContent(properties),
+    offset: new AMap.Pixel(0, -30)
+  });
+  infoWindow.open(map, marker.getPosition());
+}
+
+// 创建房源 InfoWindow 内容
+function createPropertyInfoWindowContent(properties: PropertyViewItem[]): HTMLElement {
+  const container = document.createElement('div');
+  container.className = 'property-info-window';
+  container.style.cssText = `
+    background: white;
+    border-radius: 8px;
+    padding: 16px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.3);
+    min-width: 300px;
+    max-width: 400px;
+  `;
+
+  const title = document.createElement('h4');
+  title.style.cssText = 'margin: 0 0 12px 0; color: #303133;';
+  title.textContent = `${properties[0].address || '未知地址'}（共${properties.length}套房源）`;
+  container.appendChild(title);
+
+  const grid = document.createElement('div');
+  grid.style.cssText = `
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: 12px;
+    max-height: 300px;
+    overflow-y: auto;
+  `;
+
+  properties.forEach(property => {
+    const item = document.createElement('div');
+    item.style.cssText = `
+      border: 1px solid #ebeef5;
+      border-radius: 4px;
+      padding: 8px;
+      cursor: pointer;
+      transition: all 0.3s;
+    `;
+    item.onmouseenter = () => {
+      item.style.borderColor = '#409eff';
+      item.style.boxShadow = '0 2px 8px rgba(64, 158, 255, 0.3)';
+    };
+    item.onmouseleave = () => {
+      item.style.borderColor = '#ebeef5';
+      item.style.boxShadow = 'none';
+    };
+    item.onclick = () => {
+      // 触发打开房源详情事件
+      propertyStore.setViewMode('property');
+      // 需要通过 emit 通知父组件打开详情页
+      window.dispatchEvent(new CustomEvent('open-property-detail', { 
+        detail: { propertyId: property.propertyId } 
+      }));
+    };
+
+    const content = `
+      <div style="font-size: 14px; font-weight: 600; color: #303133; margin-bottom: 4px;">
+        ${property.roomType}
+      </div>
+      <div style="font-size: 12px; color: #f56c6c;">
+        ¥${property.rent || '--'}/月
+      </div>
+      <div style="font-size: 12px; color: #909399; margin-top: 4px;">
+        ${property.available ? '✓ 可租' : '× 已租'}
+      </div>
+    `;
+    item.innerHTML = content;
+    grid.appendChild(item);
+  });
+
+  container.appendChild(grid);
+
+  const footer = document.createElement('div');
+  footer.style.cssText = 'margin-top: 12px; padding-top: 12px; border-top: 1px solid #ebeef5; font-size: 12px; color: #909399;';
+  footer.innerHTML = `📞 房东: ${properties[0].landlordPhone}`;
+  container.appendChild(footer);
+
+  return container;
+}
+
+// 定位到指定位置
+function locateToPosition(gps: { lng: number; lat: number }) {
+  if (!map) return;
+  
+  map.setZoomAndCenter(16, [gps.lng, gps.lat]);
+
+  // 如果是房源视图，找到对应的标记并打开 InfoWindow
+  if (props.viewMode === 'property') {
+    const key = `${gps.lng},${gps.lat}`;
+    const marker = propertyMarkers.get(key);
+    if (marker) {
+      const extData = marker.getExtData();
+      if (extData && extData.properties) {
+        showPropertyInfoWindow(marker, extData.properties);
+      }
+    }
+  }
+}
+
 defineExpose({
   focusLandlord,
+  locateToPosition,
 });
 </script>
 

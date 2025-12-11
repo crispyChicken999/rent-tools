@@ -1,6 +1,6 @@
 import { defineStore } from "pinia";
 import { ref, computed, toRaw } from "vue";
-import type { Landlord, Property, FilterOptions, GPS } from "@/types";
+import type { Landlord, Property, FilterOptions, GPS, PropertyFilterOptions, PropertyViewItem, ViewMode } from "@/types";
 import { LandlordType, WechatStatus, ContactStatus } from "@/types";
 import {
   getAllLandlords,
@@ -21,6 +21,10 @@ export const usePropertyStore = defineStore("property", () => {
   const focusedLandlordId = ref<string | null>(null);
   const filters = ref<FilterOptions>({});
   const loading = ref(false);
+
+  // ========== 房源视图相关状态 ==========
+  const viewMode = ref<ViewMode>('landlord'); // 当前视图模式
+  const propertyFilters = ref<PropertyFilterOptions>({}); // 房源筛选条件
 
   // ========== 计算属性 ==========
   const filteredLandlords = computed(() => {
@@ -156,6 +160,143 @@ export const usePropertyStore = defineStore("property", () => {
       landlords.value.filter((l) => l.contactStatus === ContactStatus.Contacted)
         .length
   );
+
+  // ========== 房源视图计算属性 ==========
+  
+  // 扁平化房源列表（从房东列表中提取所有房源）
+  const flattenedProperties = computed(() => {
+    const items: PropertyViewItem[] = [];
+    landlords.value.forEach(landlord => {
+      landlord.properties.forEach(property => {
+        items.push({
+          // 房源信息
+          propertyId: property.id,
+          roomType: property.roomType,
+          rent: property.rent,
+          floor: property.floor,
+          amenities: property.amenities,
+          available: property.available,
+          description: property.description,
+          videos: property.videos,
+          
+          // 从房东继承的信息
+          landlordId: landlord.id,
+          landlordPhone: landlord.phoneNumbers[0] || '',
+          landlordType: landlord.landlordType,
+          address: landlord.address,
+          gps: landlord.gps,
+          
+          // 公共费用（从房东继承）
+          water: landlord.commonFees.water,
+          electricity: landlord.commonFees.electricity,
+          deposit: landlord.deposit,
+          
+          // 照片（使用房东主图）
+          photo: landlord.photos[0],
+        });
+      });
+    });
+    return items;
+  });
+
+  // 筛选后的房源列表
+  const filteredProperties = computed(() => {
+    let result = flattenedProperties.value;
+    
+    // 应用房型筛选
+    if (propertyFilters.value.roomTypes?.length) {
+      result = result.filter(p => 
+        propertyFilters.value.roomTypes!.includes(p.roomType)
+      );
+    }
+    
+    // 应用租金区间筛选
+    if (propertyFilters.value.rentRange) {
+      const [min, max] = propertyFilters.value.rentRange;
+      result = result.filter(p => 
+        p.rent !== undefined && p.rent >= min && p.rent <= max
+      );
+    }
+    
+    // 应用配套设施筛选
+    if (propertyFilters.value.amenities?.length) {
+      result = result.filter(p => 
+        propertyFilters.value.amenities!.every(amenity => 
+          p.amenities.includes(amenity)
+        )
+      );
+    }
+    
+    // 应用是否可租筛选
+    if (propertyFilters.value.available !== undefined) {
+      result = result.filter(p => p.available === propertyFilters.value.available);
+    }
+    
+    // 应用房东类型筛选
+    if (propertyFilters.value.landlordType?.length) {
+      result = result.filter(p => 
+        propertyFilters.value.landlordType!.includes(p.landlordType)
+      );
+    }
+    
+    // 应用押金方式筛选
+    if (propertyFilters.value.depositMethod?.length) {
+      result = result.filter(p => 
+        propertyFilters.value.depositMethod!.includes(p.deposit)
+      );
+    }
+    
+    // 应用水费类型筛选
+    if (propertyFilters.value.waterType && propertyFilters.value.waterType !== 'all') {
+      result = result.filter(p => {
+        if (propertyFilters.value.waterType === 'civil') return p.water.type === 'civil';
+        if (propertyFilters.value.waterType === 'custom') return p.water.type !== 'civil';
+        return true;
+      });
+    }
+    
+    // 应用电费类型筛选
+    if (propertyFilters.value.electricityType && propertyFilters.value.electricityType !== 'all') {
+      result = result.filter(p => {
+        if (propertyFilters.value.electricityType === 'civil') return p.electricity.type === 'civil';
+        if (propertyFilters.value.electricityType === 'custom') return p.electricity.type !== 'civil';
+        return true;
+      });
+    }
+    
+    // 应用关键词搜索
+    if (propertyFilters.value.keyword) {
+      const keyword = propertyFilters.value.keyword.toLowerCase();
+      result = result.filter(p => 
+        p.address?.toLowerCase().includes(keyword) ||
+        p.description?.toLowerCase().includes(keyword) ||
+        p.landlordPhone.includes(keyword)
+      );
+    }
+    
+    return result;
+  });
+
+  // 按 GPS 分组的房源（用于地图标记）
+  const groupedPropertiesByGps = computed(() => {
+    const groups = new Map<string, PropertyViewItem[]>();
+    
+    filteredProperties.value.forEach(property => {
+      if (!property.gps) return;
+      
+      const key = `${property.gps.lng.toFixed(6)},${property.gps.lat.toFixed(6)}`;
+      if (!groups.has(key)) {
+        groups.set(key, []);
+      }
+      groups.get(key)!.push(property);
+    });
+    
+    return Array.from(groups.entries()).map(([, properties]) => ({
+      gps: properties[0].gps!,
+      properties,
+      count: properties.length
+    }));
+  });
 
   // ========== 操作方法 ==========
 
@@ -380,11 +521,18 @@ export const usePropertyStore = defineStore("property", () => {
       throw new Error("房东不存在");
     }
 
-    const updatedProperties = landlord.properties.map((p) =>
-      p.id === propertyId
-        ? { ...p, ...updates, updatedAt: new Date().toISOString() }
-        : p
-    );
+    const updatedProperties = landlord.properties.map((p) => {
+      if (p.id === propertyId) {
+        // 深度序列化更新数据，确保数组是纯数据
+        const serializedUpdates = JSON.parse(JSON.stringify(updates));
+        return { 
+          ...p, 
+          ...serializedUpdates, 
+          updatedAt: new Date().toISOString() 
+        };
+      }
+      return p;
+    });
 
     await updateLandlordData(landlordId, {
       properties: updatedProperties,
@@ -466,6 +614,21 @@ export const usePropertyStore = defineStore("property", () => {
     }
   }
 
+  /** 设置房源筛选条件 */
+  function setPropertyFilters(newFilters: PropertyFilterOptions) {
+    propertyFilters.value = { ...newFilters };
+  }
+
+  /** 清空房源筛选条件 */
+  function clearPropertyFilters() {
+    propertyFilters.value = {};
+  }
+
+  /** 切换视图模式 */
+  function setViewMode(mode: ViewMode) {
+    viewMode.value = mode;
+  }
+
   return {
     // 状态
     landlords,
@@ -474,11 +637,20 @@ export const usePropertyStore = defineStore("property", () => {
     filters,
     loading,
 
+    // 房源视图状态
+    viewMode,
+    propertyFilters,
+
     // 计算属性
     filteredLandlords,
     perfectCount,
     imperfectCount,
     contactedCount,
+
+    // 房源视图计算属性
+    flattenedProperties,
+    filteredProperties,
+    groupedPropertiesByGps,
 
     // 方法
     loadLandlords,
@@ -497,5 +669,10 @@ export const usePropertyStore = defineStore("property", () => {
     clearAllData,
     restoreBackup,
     toggleFavorite,
+
+    // 房源视图方法
+    setPropertyFilters,
+    clearPropertyFilters,
+    setViewMode,
   };
 });
