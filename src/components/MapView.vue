@@ -55,6 +55,7 @@ let markers: Map<string, any> = new Map();
 let propertyMarkers: Map<string, any> = new Map(); // 房源标记
 let currentInfoWinImage: string | null = null;
 let highlightedPhones = ref<Set<string>>(new Set()); // 当前高亮的手机号集合
+let currentInfoWindow: any = null; // 当前打开的 InfoWindow
 
 // 判断房东是否为疑似二房东（电话出现3次及以上）
 function isSuspectedSecondHand(landlord: Landlord): boolean {
@@ -106,6 +107,12 @@ watch(
   () => props.viewMode,
   (newMode) => {
     if (!map) return;
+    
+    // 关闭当前打开的 InfoWindow
+    if (currentInfoWindow) {
+      currentInfoWindow.close();
+      currentInfoWindow = null;
+    }
     
     if (newMode === 'landlord') {
       clearPropertyMarkers();
@@ -159,6 +166,11 @@ async function initMap() {
         const position = contextMenu.getPosition();
         if (position) {
           try {
+            // 如果当前不是房东视图，切换到房东视图
+            if (props.viewMode !== 'landlord') {
+              propertyStore.setViewMode('landlord');
+              await new Promise(resolve => setTimeout(resolve, 100));
+            }
             await createLandlordAtLocation({
               lng: position.lng,
               lat: position.lat,
@@ -646,18 +658,28 @@ async function showInfoWindow(marker: any, landlord: Landlord) {
   // 渲染
   render(vnode, container);
 
+  // 关闭之前的 InfoWindow
+  if (currentInfoWindow) {
+    currentInfoWindow.close();
+  }
+
   const infoWindow = new AMap.InfoWindow({
+    isCustom: false, // 使用默认样式，包含关闭按钮和小箭头
     content: container,
-    offset: new AMap.Pixel(0, -30),
+    offset: new AMap.Pixel(0, -35),
     closeWhenClickMap: true,
   });
 
   // 监听关闭，清理 Vue 实例
   infoWindow.on("close", () => {
     render(null, container);
+    if (currentInfoWindow === infoWindow) {
+      currentInfoWindow = null;
+    }
   });
 
   infoWindow.open(map, marker.getPosition());
+  currentInfoWindow = infoWindow;
 }
 
 async function createLandlordAtLocation(gps: { lng: number; lat: number }) {
@@ -837,12 +859,27 @@ function getPropertiesStatusColor(properties: PropertyViewItem[]): string {
 // 显示房源 InfoWindow
 function showPropertyInfoWindow(marker: any, properties: PropertyViewItem[]) {
   const AMap = (window as any).AMap;
+  
+  // 关闭之前的 InfoWindow
+  if (currentInfoWindow) {
+    currentInfoWindow.close();
+  }
+  
   const infoWindow = new AMap.InfoWindow({
-    isCustom: true,
+    isCustom: false, // 使用默认样式，包含关闭按钮和小箭头
     content: createPropertyInfoWindowContent(properties),
-    offset: new AMap.Pixel(0, -30)
+    offset: new AMap.Pixel(0, -35),
+    closeWhenClickMap: true,
   });
+  
+  infoWindow.on("close", () => {
+    if (currentInfoWindow === infoWindow) {
+      currentInfoWindow = null;
+    }
+  });
+  
   infoWindow.open(map, marker.getPosition());
+  currentInfoWindow = infoWindow;
 }
 
 // 创建房源 InfoWindow 内容
@@ -852,8 +889,7 @@ function createPropertyInfoWindowContent(properties: PropertyViewItem[]): HTMLEl
   container.style.cssText = `
     background: white;
     border-radius: 8px;
-    padding: 16px;
-    box-shadow: 0 2px 12px rgba(0,0,0,0.3);
+    padding: 12px;
     min-width: 300px;
     max-width: 400px;
   `;
@@ -916,8 +952,43 @@ function createPropertyInfoWindowContent(properties: PropertyViewItem[]): HTMLEl
   container.appendChild(grid);
 
   const footer = document.createElement('div');
-  footer.style.cssText = 'margin-top: 12px; padding-top: 12px; border-top: 1px solid #ebeef5; font-size: 12px; color: #909399;';
-  footer.innerHTML = `📞 房东: ${properties[0].landlordPhone}`;
+  footer.style.cssText = 'margin-top: 12px; padding-top: 12px; border-top: 1px solid #ebeef5; font-size: 12px; color: #909399; display: flex; align-items: center; gap: 8px;';
+  
+  const phoneText = document.createElement('span');
+  phoneText.textContent = `📞 房东: ${properties[0].landlordPhone}`;
+  footer.appendChild(phoneText);
+  
+  const copyBtn = document.createElement('button');
+  copyBtn.textContent = '复制';
+  copyBtn.style.cssText = `
+    padding: 2px 8px;
+    background: #409eff;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+    transition: all 0.3s;
+  `;
+  copyBtn.onmouseenter = () => {
+    copyBtn.style.background = '#66b1ff';
+  };
+  copyBtn.onmouseleave = () => {
+    copyBtn.style.background = '#409eff';
+  };
+  copyBtn.onclick = async () => {
+    try {
+      await navigator.clipboard.writeText(properties[0].landlordPhone);
+      copyBtn.textContent = '已复制';
+      setTimeout(() => {
+        copyBtn.textContent = '复制';
+      }, 2000);
+    } catch (err) {
+      console.error('复制失败:', err);
+    }
+  };
+  footer.appendChild(copyBtn);
+  
   container.appendChild(footer);
 
   return container;

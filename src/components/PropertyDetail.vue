@@ -45,6 +45,24 @@
                       </el-button>
                     </div>
                   </div>
+                  <!-- 图片丢失的情况 -->
+                  <div v-else-if="editForm.photos.length > 0 && currentPhotoIndex < editForm.photos.length" class="missing-photo">
+                    <div class="missing-photo-content">
+                      <el-icon :size="64" color="#f56c6c"><Picture /></el-icon>
+                      <div class="missing-photo-text">
+                        <div>图片已丢失</div>
+                        <div class="missing-photo-filename">{{ editForm.photos[currentPhotoIndex]?.fileName }}</div>
+                      </div>
+                      <el-button
+                        type="danger"
+                        size="small"
+                        :icon="Delete"
+                        @click="deletePhoto(currentPhotoIndex)"
+                      >
+                        删除此图片
+                      </el-button>
+                    </div>
+                  </div>
                   <div
                     v-else
                     class="no-photo-placeholder"
@@ -1704,6 +1722,38 @@ const previewImage = (url: string) => {
   color: #606266;
   font-size: 15px;
   font-weight: 500;
+}
+
+.missing-photo {
+  height: 280px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #fff8f8;
+  border: 2px dashed #f56c6c;
+  border-radius: 8px;
+}
+
+.missing-photo-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  padding: 24px;
+}
+
+.missing-photo-text {
+  text-align: center;
+  color: #f56c6c;
+  font-size: 15px;
+  font-weight: 500;
+}
+
+.missing-photo-filename {
+  margin-top: 8px;
+  font-size: 12px;
+  color: #909399;
+  word-break: break-all;
 }
 
 .placeholder-hint {

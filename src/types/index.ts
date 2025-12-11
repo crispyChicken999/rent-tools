@@ -283,6 +283,8 @@ export interface FilterOptions {
   showRepeatedPhones?: boolean; // 只显示重复电话（二房东）
   waterType?: string; // 水费类型
   electricityType?: string; // 电费类型
+  waterPriceMax?: number; // 最大水费（自定义时使用）
+  electricityPriceMax?: number; // 最大电费（自定义时使用）
   phoneSearch?: string; // 电话号码搜索关键词
   isFavorite?: 'all' | 'favorite' | 'unfavorite'; // 收藏状态筛选
 }
@@ -301,6 +303,8 @@ export interface PropertyFilterOptions {
   depositMethod?: string[]; // 押金方式
   waterType?: string; // 水费类型
   electricityType?: string; // 电费类型
+  waterPriceMax?: number; // 最大水费（自定义时使用）
+  electricityPriceMax?: number; // 最大电费（自定义时使用）
 
   // 搜索
   keyword?: string; // 关键词搜索（地址、备注）

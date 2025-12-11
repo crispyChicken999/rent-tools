@@ -47,12 +47,23 @@
               class="thumbnail-item"
               :class="{ active: index === currentVideoIndex }"
               @click="currentVideoIndex = index">
-              <div class="thumbnail-number">{{ index + 1 }}</div>
-              <div class="thumbnail-video">视频 {{ index + 1 }}</div>
+              <div v-if="videoThumbnails[index]" class="thumbnail-image">
+                <img :src="videoThumbnails[index]" alt="视频缩略图" />
+              </div>
+              <div v-else class="thumbnail-placeholder">
+                <div class="thumbnail-number">{{ index + 1 }}</div>
+                <div class="thumbnail-video">视频 {{ index + 1 }}</div>
+              </div>
             </div>
           </div>
         </div>
-        <el-empty v-else description="暂无视频" />
+        <div v-else class="no-video-section">
+          <el-empty description="暂无视频">
+            <el-button type="primary" @click="handleGoToLandlord">
+              去房东详情编辑
+            </el-button>
+          </el-empty>
+        </div>
       </div>
 
       <!-- 右侧：表单编辑 -->
@@ -95,7 +106,9 @@
               <el-input
                 v-model="formData.floor"
                 placeholder="如：3楼"
-                style="width: 200px" />
+                style="width: 200px">
+                <template #append>楼</template>
+              </el-input>
             </el-form-item>
 
             <el-form-item label="是否可租" prop="available">
@@ -236,14 +249,22 @@
 
     <template #footer>
       <div class="dialog-footer">
-        <el-button @click="handleCancel">取消</el-button>
-        <el-button
-          type="primary"
-          :disabled="!hasChanges"
-          :loading="saving"
-          @click="handleSave">
-          保存修改
-        </el-button>
+        <div class="footer-left">
+          <el-button @click="handleGoToLandlord">
+            <el-icon><EditPen /></el-icon>
+            编辑房源信息
+          </el-button>
+        </div>
+        <div class="footer-right">
+          <el-button @click="handleCancel">取消</el-button>
+          <el-button
+            type="primary"
+            :disabled="!hasChanges"
+            :loading="saving"
+            @click="handleSave">
+            保存修改
+          </el-button>
+        </div>
       </div>
     </template>
   </el-dialog>
@@ -292,6 +313,7 @@ const formRef = ref<FormInstance>();
 // const videoPlayerRef = ref<HTMLVideoElement>();
 const currentVideoIndex = ref(0);
 const saving = ref(false);
+const videoThumbnails = ref<{ [key: number]: string }>({}); // 视频缩略图映射
 
 // 获取房东信息
 const landlordInfo = computed(() => {
@@ -443,9 +465,33 @@ const getVideoUrl = async (fileName: string) => {
   }
 };
 
-// 视频加载完成
-const handleVideoLoaded = () => {
-  console.log('视频加载完成');
+// 视频加载完成，生成缩略图
+const handleVideoLoaded = (event: Event) => {
+  const video = event.target as HTMLVideoElement;
+  generateVideoThumbnail(video, currentVideoIndex.value);
+};
+
+// 生成视频缩略图
+const generateVideoThumbnail = (video: HTMLVideoElement, index: number) => {
+  try {
+    // 设置视频到第一帧
+    video.currentTime = 1; // 第1秒
+    
+    video.addEventListener('seeked', () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        const thumbnail = canvas.toDataURL('image/jpeg', 0.7);
+        videoThumbnails.value[index] = thumbnail;
+      }
+    }, { once: true });
+  } catch (error) {
+    console.error('生成视频缩略图失败:', error);
+  }
 };
 
 // 切换到上一个视频
@@ -745,8 +791,50 @@ watch(() => currentProperty.value, () => {
 
 .dialog-footer {
   display: flex;
-  justify-content: flex-end;
+  justify-content: space-between;
+  align-items: center;
   gap: 12px;
+}
+
+.footer-left {
+  display: flex;
+  gap: 8px;
+}
+
+.footer-right {
+  display: flex;
+  gap: 12px;
+}
+
+.no-video-section {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  background: #fafafa;
+}
+
+.thumbnail-image {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+}
+
+.thumbnail-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: #f5f5f5;
+  color: #909399;
 }
 
 // 响应式适配

@@ -11,7 +11,6 @@ import {
   QuestionFilled,
   Download,
   Document,
-  Search,
 } from "@element-plus/icons-vue";
 import PhotoUpload from "./components/PhotoUpload.vue";
 import MapView from "./components/MapView.vue";
@@ -20,6 +19,7 @@ import LandlordAvatar from "./components/LandlordAvatar.vue";
 import PropertyList from "./components/PropertyList.vue";
 import PropertyDetailPage from "./components/PropertyDetailPage.vue";
 import PropertyFilter from "./components/PropertyFilter.vue";
+import LandlordFilter from "./components/LandlordFilter.vue";
 import { usePropertyStore } from "./stores/property";
 import { exportToExcel, exportToJson, importFromJson } from "./utils/export";
 import { getStoredAmapConfig, saveAmapConfig } from "./utils/geocode";
@@ -28,7 +28,6 @@ import {
   ContactStatus,
   WechatStatus,
   type FilterOptions,
-  ROOM_TYPES,
 } from "./types";
 
 const propertyStore = usePropertyStore();
@@ -71,22 +70,6 @@ const handleSaveSettings = () => {
 
 // 筛选状态
 const showFilterDrawer = ref(false);
-const filterContact = ref("all"); // all, contacted, uncontacted
-const filterWechat = ref("all"); // all, added, not_added
-const hideRepeatedPhones = ref(
-  localStorage.getItem("hideRepeatedPhones") === "true"
-);
-const showRepeatedPhones = ref(
-  localStorage.getItem("showRepeatedPhones") === "true"
-);
-const filterLandlordType = ref<LandlordType[]>([]);
-const filterWaterType = ref("all"); // 'all', 'civil', 'custom'
-const filterElectricityType = ref("all"); // 'all', 'civil', 'custom'
-const filterRoomTypes = ref<string[]>([]);
-const filterRentMin = ref<number | undefined>(undefined);
-const filterRentMax = ref<number | undefined>(undefined);
-const phoneSearchKeyword = ref("");
-const filterFavorite = ref("all"); // 'all', 'favorite', 'unfavorite'
 
 // 删除确认状态
 const deleteDialogVisible = ref(false);
@@ -116,87 +99,91 @@ onMounted(async () => {
   }) as EventListener);
 });
 
-// 监听筛选条件变化，同步到 Store
-watch(
-  [
-    filterContact,
-    filterWechat,
-    hideRepeatedPhones,
-    showRepeatedPhones,
-    filterLandlordType,
-    filterWaterType,
-    filterElectricityType,
-    filterRoomTypes,
-    filterRentMin,
-    filterRentMax,
-    filterFavorite,
-  ],
-  () => {
-    const filters: FilterOptions = {};
+// 房东筛选处理
+const handleLandlordFilterApply = (filters: any) => {
+  const filterOptions: FilterOptions = {};
 
-    if (filterContact.value !== "all") {
-      filters.contactStatus = [filterContact.value as ContactStatus];
+  if (filters.contactStatus !== "all") {
+    filterOptions.contactStatus = [filters.contactStatus as ContactStatus];
+  }
+
+  if (filters.wechatStatus !== "all") {
+    filterOptions.wechatStatus = [filters.wechatStatus as WechatStatus];
+  }
+
+  if (filters.favoriteStatus !== "all") {
+    filterOptions.isFavorite = filters.favoriteStatus as any;
+  }
+
+  if (filters.landlordType.length > 0) {
+    filterOptions.landlordType = filters.landlordType;
+  }
+
+  if (filters.waterType !== "all") {
+    filterOptions.waterType = filters.waterType;
+    if (filters.waterType === 'custom' && filters.waterPriceMax !== undefined) {
+      filterOptions.waterPriceMax = filters.waterPriceMax;
     }
+  }
 
-    if (filterWechat.value !== "all") {
-      filters.wechatStatus = [filterWechat.value as WechatStatus];
+  if (filters.electricityType !== "all") {
+    filterOptions.electricityType = filters.electricityType;
+    if (filters.electricityType === 'custom' && filters.electricityPriceMax !== undefined) {
+      filterOptions.electricityPriceMax = filters.electricityPriceMax;
     }
+  }
 
-    filters.hideRepeatedPhones = hideRepeatedPhones.value;
-    filters.showRepeatedPhones = showRepeatedPhones.value;
-    localStorage.setItem(
-      "hideRepeatedPhones",
-      String(hideRepeatedPhones.value)
-    );
-    localStorage.setItem(
-      "showRepeatedPhones",
-      String(showRepeatedPhones.value)
-    );
+  if (filters.roomTypes.length > 0) {
+    filterOptions.roomTypes = filters.roomTypes;
+  }
 
-    if (filterLandlordType.value.length > 0) {
-      filters.landlordType = filterLandlordType.value;
-    }
+  if (filters.rentMin !== undefined || filters.rentMax !== undefined) {
+    filterOptions.rentRange = [
+      filters.rentMin || 0,
+      filters.rentMax || 999999,
+    ];
+  }
 
-    if (filterWaterType.value !== "all") {
-      filters.waterType = filterWaterType.value;
-    }
+  if (filters.phoneSearch) {
+    filterOptions.phoneSearch = filters.phoneSearch;
+  }
 
-    if (filterElectricityType.value !== "all") {
-      filters.electricityType = filterElectricityType.value;
-    }
+  filterOptions.hideRepeatedPhones = filters.hideRepeatedPhones;
+  filterOptions.showRepeatedPhones = filters.showRepeatedPhones;
+  
+  localStorage.setItem("hideRepeatedPhones", String(filters.hideRepeatedPhones));
+  localStorage.setItem("showRepeatedPhones", String(filters.showRepeatedPhones));
 
-    if (filterFavorite.value !== "all") {
-      filters.isFavorite = filterFavorite.value as any;
-    }
+  propertyStore.setFilters(filterOptions);
+  showFilterDrawer.value = false;
+};
 
-    if (filterRoomTypes.value.length > 0) {
-      filters.roomTypes = filterRoomTypes.value;
-    }
-
-    if (
-      (filterRentMin.value !== undefined && filterRentMin.value !== null) ||
-      (filterRentMax.value !== undefined && filterRentMax.value !== null)
-    ) {
-      filters.rentRange = [
-        filterRentMin.value || 0,
-        filterRentMax.value || 999999,
-      ];
-    } else {
-      filters.rentRange = undefined;
-    }
-
-    propertyStore.setFilters(filters);
-  },
-  { immediate: true }
-);
-
-// 监听电话号码搜索输入框变化，实时同步到 propertyStore.filters.phoneSearch
-watch(phoneSearchKeyword, (val) => {
-  propertyStore.filters.phoneSearch = val;
-});
+const handleLandlordFilterReset = () => {
+  propertyStore.setFilters({});
+  localStorage.setItem("hideRepeatedPhones", "false");
+  localStorage.setItem("showRepeatedPhones", "false");
+  showFilterDrawer.value = false;
+};
 
 // 过滤后的房东列表直接用 Store 的计算属性
 const filteredLandlords = computed(() => propertyStore.filteredLandlords);
+
+// 监听视图模式切换，重置筛选
+watch(
+  () => propertyStore.viewMode,
+  (newMode, oldMode) => {
+    // 只有在模式真正改变时才重置
+    if (oldMode && newMode !== oldMode) {
+      if (newMode === 'landlord') {
+        // 切换到房东视图时，重置房东筛选
+        propertyStore.setFilters({});
+      } else if (newMode === 'property') {
+        // 切换到房源视图时，重置房源筛选
+        propertyStore.clearPropertyFilters();
+      }
+    }
+  }
+);
 
 // 监听当前聚焦的房东，自动滚动到列表位置
 watch(
@@ -350,13 +337,20 @@ const handleViewLandlordFromProperty = (landlordId: string) => {
   propertyStore.setViewMode("landlord");
   propertyStore.setFocusedLandlord(landlordId);
 
-  // 地图自动打开这个房东的详情
+  // 地图聚焦这个房东的marker
   if (mapViewRef.value) {
-    
+    const landlord = propertyStore.landlords.find(l => l.id === landlordId);
+    if (landlord) {
+      setTimeout(() => {
+        mapViewRef.value?.focusLandlord(landlord);
+      }, 1000); // 等待模式切换完成
+    }
   }
 };
 
 // 房源筛选相关处理
+const propertyFilterResultCount = ref(0);
+
 const handlePropertyFilterApply = (filters: any) => {
   propertyStore.setPropertyFilters(filters);
   showPropertyFilterDrawer.value = false;
@@ -364,7 +358,16 @@ const handlePropertyFilterApply = (filters: any) => {
 
 const handlePropertyFilterReset = () => {
   propertyStore.clearPropertyFilters();
+  propertyFilterResultCount.value = propertyStore.filteredProperties.length;
   showPropertyFilterDrawer.value = false;
+};
+
+// 实时更新筛选结果数量
+const handlePropertyFilterUpdate = (filters: any) => {
+  // 临时应用筛选条件计算数量
+  const tempFilters = { ...filters };
+  propertyStore.setPropertyFilters(tempFilters);
+  propertyFilterResultCount.value = propertyStore.filteredProperties.length;
 };
 
 const showPhotoUpload = ref(false);
@@ -502,16 +505,6 @@ const showPhotoUpload = ref(false);
         <div v-if="propertyStore.viewMode === 'landlord'" class="landlord-list">
           <div class="list-header">
             <h3>房东列表 ({{ filteredLandlords.length }})</h3>
-            <el-input
-              v-model="phoneSearchKeyword"
-              placeholder="搜索电话号码..."
-              clearable
-              style="margin-top: 8px; max-width: 200px"
-            >
-              <template #prefix>
-                <el-icon><Search /></el-icon>
-              </template>
-            </el-input>
           </div>
 
           <DynamicScroller
@@ -716,9 +709,10 @@ const showPhotoUpload = ref(false);
       size="400px"
     >
       <PropertyFilter
-        :result-count="propertyStore.filteredProperties.length"
+        :result-count="propertyFilterResultCount"
         @apply="handlePropertyFilterApply"
         @reset="handlePropertyFilterReset"
+        @update-count="handlePropertyFilterUpdate"
       />
     </el-drawer>
 
@@ -741,110 +735,16 @@ const showPhotoUpload = ref(false);
       @change="handleFileChange"
     />
 
-    <!-- 筛选抽屉 -->
-    <el-drawer v-model="showFilterDrawer" title="筛选条件" size="300px">
-      <el-form label-position="top">
-        <el-form-item label="联系状态">
-          <el-select v-model="filterContact">
-            <el-option label="全部" value="all" />
-            <el-option label="已联系" value="contacted" />
-            <el-option label="未联系" value="uncontacted" />
-          </el-select>
-        </el-form-item>
-
-        <el-form-item label="微信状态">
-          <el-select v-model="filterWechat">
-            <el-option label="全部" value="all" />
-            <el-option label="已加" value="added" />
-            <el-option label="未加" value="not_added" />
-          </el-select>
-        </el-form-item>
-
-        <el-form-item label="收藏状态">
-          <el-select v-model="filterFavorite">
-            <el-option label="全部" value="all" />
-            <el-option label="已收藏" value="favorite" />
-            <el-option label="未收藏" value="unfavorite" />
-          </el-select>
-        </el-form-item>
-
-        <el-form-item label="房东类型">
-          <el-select v-model="filterLandlordType" multiple placeholder="请选择">
-            <el-option label="一手房东" value="first_hand" />
-            <el-option label="二手房东" value="second_hand" />
-            <el-option label="中介" value="agent" />
-            <el-option label="其他" value="other" />
-          </el-select>
-        </el-form-item>
-
-        <el-form-item label="水费类型">
-          <el-select v-model="filterWaterType">
-            <el-option label="全部" value="all" />
-            <el-option label="民用水" value="civil" />
-            <el-option label="自定义" value="custom" />
-          </el-select>
-        </el-form-item>
-
-        <el-form-item label="电费类型">
-          <el-select v-model="filterElectricityType">
-            <el-option label="全部" value="all" />
-            <el-option label="民用电" value="civil" />
-            <el-option label="自定义" value="custom" />
-          </el-select>
-        </el-form-item>
-
-        <el-form-item label="房型">
-          <el-select v-model="filterRoomTypes" multiple placeholder="请选择">
-            <el-option
-              v-for="item in ROOM_TYPES"
-              :key="item.value"
-              :label="item.label"
-              :value="item.value"
-            />
-          </el-select>
-        </el-form-item>
-
-        <el-form-item label="租金范围">
-          <div style="display: flex; gap: 10px">
-            <el-input-number
-              v-model="filterRentMin"
-              :min="0"
-              placeholder="最低"
-              style="width: 100%"
-              :controls="false"
-            />
-            <span>-</span>
-            <el-input-number
-              v-model="filterRentMax"
-              :min="0"
-              placeholder="最高"
-              style="width: 100%"
-              :controls="false"
-            />
-          </div>
-        </el-form-item>
-
-        <el-form-item>
-          <el-tooltip content="疑似二房东到处贴广告💩" placement="left">
-            <el-checkbox
-              v-model="hideRepeatedPhones"
-              label="隐藏重复电话房东（3次及以上）"
-            />
-          </el-tooltip>
-        </el-form-item>
-
-        <el-form-item>
-          <el-tooltip
-            content="只显示电话出现3次及以上的房东💢"
-            placement="left"
-          >
-            <el-checkbox
-              v-model="showRepeatedPhones"
-              label="只显示疑似二房东"
-            />
-          </el-tooltip>
-        </el-form-item>
-      </el-form>
+    <!-- 房东筛选抽屉 -->
+    <el-drawer 
+      v-model="showFilterDrawer" 
+      title="筛选房东" 
+      direction="rtl"
+      size="400px">
+      <LandlordFilter
+        @apply="handleLandlordFilterApply"
+        @reset="handleLandlordFilterReset"
+      />
     </el-drawer>
 
     <!-- 删除确认对话框 -->

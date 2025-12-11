@@ -80,7 +80,14 @@ export const usePropertyStore = defineStore("property", () => {
     if (filters.value.waterType && filters.value.waterType !== 'all') {
       result = result.filter((l) => {
         if (filters.value.waterType === 'civil') return l.commonFees.water.type === 'civil';
-        if (filters.value.waterType === 'custom') return l.commonFees.water.type !== 'civil';
+        if (filters.value.waterType === 'custom') {
+          // 自定义水费且价格筛选
+          if (l.commonFees.water.type === 'civil') return false;
+          if (filters.value.waterPriceMax !== undefined && l.commonFees.water.price !== undefined) {
+            return l.commonFees.water.price <= filters.value.waterPriceMax;
+          }
+          return true;
+        }
         return true;
       });
     }
@@ -88,7 +95,14 @@ export const usePropertyStore = defineStore("property", () => {
     if (filters.value.electricityType && filters.value.electricityType !== 'all') {
       result = result.filter((l) => {
         if (filters.value.electricityType === 'civil') return l.commonFees.electricity.type === 'civil';
-        if (filters.value.electricityType === 'custom') return l.commonFees.electricity.type !== 'civil';
+        if (filters.value.electricityType === 'custom') {
+          // 自定义电费且价格筛选
+          if (l.commonFees.electricity.type === 'civil') return false;
+          if (filters.value.electricityPriceMax !== undefined && l.commonFees.electricity.price !== undefined) {
+            return l.commonFees.electricity.price <= filters.value.electricityPriceMax;
+          }
+          return true;
+        }
         return true;
       });
     }
@@ -250,7 +264,14 @@ export const usePropertyStore = defineStore("property", () => {
     if (propertyFilters.value.waterType && propertyFilters.value.waterType !== 'all') {
       result = result.filter(p => {
         if (propertyFilters.value.waterType === 'civil') return p.water.type === 'civil';
-        if (propertyFilters.value.waterType === 'custom') return p.water.type !== 'civil';
+        if (propertyFilters.value.waterType === 'custom') {
+          // 自定义水费且价格筛选
+          if (p.water.type === 'civil') return false;
+          if (propertyFilters.value.waterPriceMax !== undefined && p.water.price !== undefined) {
+            return p.water.price <= propertyFilters.value.waterPriceMax;
+          }
+          return true;
+        }
         return true;
       });
     }
@@ -259,7 +280,14 @@ export const usePropertyStore = defineStore("property", () => {
     if (propertyFilters.value.electricityType && propertyFilters.value.electricityType !== 'all') {
       result = result.filter(p => {
         if (propertyFilters.value.electricityType === 'civil') return p.electricity.type === 'civil';
-        if (propertyFilters.value.electricityType === 'custom') return p.electricity.type !== 'civil';
+        if (propertyFilters.value.electricityType === 'custom') {
+          // 自定义电费且价格筛选
+          if (p.electricity.type === 'civil') return false;
+          if (propertyFilters.value.electricityPriceMax !== undefined && p.electricity.price !== undefined) {
+            return p.electricity.price <= propertyFilters.value.electricityPriceMax;
+          }
+          return true;
+        }
         return true;
       });
     }
