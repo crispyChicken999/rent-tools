@@ -284,6 +284,7 @@ export interface FilterOptions {
   waterType?: string; // 水费类型
   electricityType?: string; // 电费类型
   phoneSearch?: string; // 电话号码搜索关键词
+  isFavorite?: 'all' | 'favorite' | 'unfavorite'; // 收藏状态筛选
 }
 
 /** 地图标记样式配置 */

@@ -83,6 +83,7 @@ const filterRoomTypes = ref<string[]>([]);
 const filterRentMin = ref<number | undefined>(undefined);
 const filterRentMax = ref<number | undefined>(undefined);
 const phoneSearchKeyword = ref("");
+const filterFavorite = ref("all"); // 'all', 'favorite', 'unfavorite'
 
 // 删除确认状态
 const deleteDialogVisible = ref(false);
@@ -112,6 +113,7 @@ watch(
     filterRoomTypes,
     filterRentMin,
     filterRentMax,
+    filterFavorite,
   ],
   () => {
     const filters: FilterOptions = {};
@@ -145,6 +147,10 @@ watch(
 
     if (filterElectricityType.value !== "all") {
       filters.electricityType = filterElectricityType.value;
+    }
+
+    if (filterFavorite.value !== "all") {
+      filters.isFavorite = filterFavorite.value as any;
     }
 
     if (filterRoomTypes.value.length > 0) {
@@ -612,6 +618,14 @@ const showPhotoUpload = ref(false);
             <el-option label="全部" value="all" />
             <el-option label="已加" value="added" />
             <el-option label="未加" value="not_added" />
+          </el-select>
+        </el-form-item>
+
+        <el-form-item label="收藏状态">
+          <el-select v-model="filterFavorite">
+            <el-option label="全部" value="all" />
+            <el-option label="已收藏" value="favorite" />
+            <el-option label="未收藏" value="unfavorite" />
           </el-select>
         </el-form-item>
 

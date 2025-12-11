@@ -564,7 +564,26 @@ async function showInfoWindow(marker: any, landlord: Landlord) {
     ]),
 
     // 按钮
-    h("div", { style: { marginTop: "10px", textAlign: "center" } }, [
+    h("div", { style: { marginTop: "10px", display: "flex", gap: "8px", justifyContent: "center" } }, [
+      h(
+        ElButton,
+        {
+          type: landlord.isFavorite ? "warning" : "default",
+          size: "small",
+          onClick: async () => {
+            await propertyStore.toggleFavorite(landlord.id);
+            // 重新渲染 InfoWindow 以更新按钮状态
+            const updatedLandlord = propertyStore.landlords.find(
+              (l) => l.id === landlord.id
+            );
+            if (updatedLandlord) {
+              await showInfoWindow(marker, updatedLandlord);
+            }
+            ElMessage.success(landlord.isFavorite ? "已取消收藏" : "已收藏");
+          },
+        },
+        () => landlord.isFavorite ? "⭐ 取消收藏" : "☆ 收藏"
+      ),
       h(
         ElButton,
         {

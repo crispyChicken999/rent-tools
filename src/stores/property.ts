@@ -89,6 +89,14 @@ export const usePropertyStore = defineStore("property", () => {
       });
     }
 
+    if (filters.value.isFavorite && filters.value.isFavorite !== 'all') {
+      result = result.filter((l) => {
+        if (filters.value.isFavorite === 'favorite') return l.isFavorite === true;
+        if (filters.value.isFavorite === 'unfavorite') return !l.isFavorite;
+        return true;
+      });
+    }
+
     if (filters.value.hideRepeatedPhones) {
       // 统计所有电话号码的出现次数
       const phoneCounts = new Map<string, number>();

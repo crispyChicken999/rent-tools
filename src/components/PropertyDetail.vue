@@ -24,6 +24,7 @@
                       :preview-src-list="allPhotoUrls"
                       :initial-index="currentPhotoIndex"
                       fit="contain"
+                      hide-on-click-modal
                       class="main-image"
                     >
                       <template #error>
@@ -175,6 +176,7 @@
                         :src="avatarUrl"
                         class="avatar"
                         :preview-src-list="[avatarUrl]"
+                        hide-on-click-modal
                         :preview-teleported="true"
                         fit="cover"
                         @click.stop
@@ -541,6 +543,16 @@
       <!-- 底部操作栏 -->
       <div class="action-buttons">
         <el-button
+          :type="editForm.isFavorite ? 'warning' : 'default'"
+          @click="toggleFavorite"
+          size="large"
+        >
+          <el-icon
+            ><component :is="editForm.isFavorite ? StarFilled : Star"
+          /></el-icon>
+          {{ editForm.isFavorite ? "已收藏" : "收藏" }}
+        </el-button>
+        <el-button
           type="primary"
           @click="saveChanges"
           :loading="saving"
@@ -595,41 +607,73 @@
           </span>
         </div>
 
-        <div class="file-list">
-          <div
-            v-for="file in fileList"
-            :key="file.name"
-            class="file-item"
-            @click="handleFileSelect(file)"
-          >
-            <div class="file-preview">
-              <el-image
-                v-if="file.type === 'image'"
-                :src="file.url"
-                fit="cover"
-                lazy
-                class="preview-image"
-              />
-              <video
-                v-else
-                :src="file.url"
-                class="preview-image"
-                style="object-fit: cover"
-                muted
-                preload="metadata"
-                @mouseenter="(e) => (e.target as HTMLVideoElement).play()"
-                @mouseleave="(e) => (e.target as HTMLVideoElement).pause()"
-              ></video>
-            </div>
-            <span class="file-name" :title="file.name">{{ file.name }}</span>
-          </div>
-          <el-empty
-            v-if="fileList.length === 0"
-            description="文件夹中没有找到相关文件，可拖拽上传"
-          />
+        <div v-if="fileList.length === 0" class="file-list">
+          <el-empty description="文件夹中没有找到相关文件，可拖拽上传" />
         </div>
+        <RecycleScroller
+          v-else
+          class="file-list-scroller"
+          :items="fileListRows"
+          :item-size="140"
+          key-field="id"
+          v-slot="{ item: row }"
+        >
+          <div class="file-row">
+            <div
+              v-for="file in row.items"
+              :key="file.name"
+              class="file-item"
+              @click="handleFileSelect(file)"
+            >
+              <div class="file-preview">
+                <el-image
+                  v-if="file.type === 'image'"
+                  :src="file.url"
+                  fit="cover"
+                  lazy
+                  class="preview-image"
+                >
+                  <template #error>
+                    <div class="image-error-small">
+                      <el-icon><Picture /></el-icon>
+                    </div>
+                  </template>
+                </el-image>
+                <el-icon
+                  v-if="file.type === 'image'"
+                  class="preview-eye-icon"
+                  @click.stop="previewImage(file.url)"
+                >
+                  <View />
+                </el-icon>
+                <video
+                  v-else
+                  :src="file.url"
+                  class="preview-image"
+                  style="object-fit: cover"
+                  muted
+                  preload="metadata"
+                  @mouseenter="(e) => (e.target as HTMLVideoElement).play()"
+                  @mouseleave="(e) => (e.target as HTMLVideoElement).pause()"
+                ></video>
+              </div>
+              <span class="file-name" :title="file.name">{{ file.name }}</span>
+            </div>
+          </div>
+        </RecycleScroller>
       </div>
     </el-dialog>
+
+    <!-- 隐藏的图片预览器 -->
+    <el-image
+      ref="hiddenImagePreview"
+      v-show="false"
+      :src="previewImageUrl"
+      :preview-src-list="[previewImageUrl]"
+      :initial-index="0"
+      hide-on-click-modal
+      :preview-teleported="true"
+    />
 
     <!-- 删除确认对话框 -->
     <el-dialog
@@ -664,6 +708,8 @@ import {
   toRaw,
   reactive,
 } from "vue";
+import { RecycleScroller } from "vue-virtual-scroller";
+import "vue-virtual-scroller/dist/vue-virtual-scroller.css";
 import { ElMessage, ElMessageBox } from "element-plus";
 import {
   Plus,
@@ -674,6 +720,8 @@ import {
   Refresh,
   CopyDocument,
   View,
+  Star,
+  StarFilled,
 } from "@element-plus/icons-vue";
 import { usePropertyStore } from "@/stores/property";
 import {
@@ -720,6 +768,20 @@ const fileDialogVisible = ref(false);
 const fileDialogMode = ref<"avatar" | "video" | "photo">("avatar");
 const fileList = ref<FileItem[]>([]);
 const currentRoomIndex = ref(-1);
+const previewImageUrl = ref("");
+const hiddenImagePreview = ref<any>(null);
+
+// 将文件列表按照每行4个分组
+const fileListRows = computed(() => {
+  const rows: Array<{ id: number; items: FileItem[] }> = [];
+  for (let i = 0; i < fileList.value.length; i += 4) {
+    rows.push({
+      id: i / 4,
+      items: fileList.value.slice(i, i + 4),
+    });
+  }
+  return rows;
+});
 const videoUrls = reactive(new Map<string, string>()); // 缓存视频 URL
 const isDragging = ref(false);
 const refreshingAddress = ref(false);
@@ -1496,6 +1558,26 @@ const copyToClipboard = async (text: string) => {
     ElMessage.error("复制失败");
   }
 };
+
+const toggleFavorite = async () => {
+  try {
+    await propertyStore.toggleFavorite(editForm.value.id);
+    editForm.value.isFavorite = !editForm.value.isFavorite;
+    ElMessage.success(editForm.value.isFavorite ? "已收藏" : "已取消收藏");
+  } catch (err) {
+    ElMessage.error("操作失败");
+  }
+};
+
+const previewImage = (url: string) => {
+  previewImageUrl.value = url;
+  // 等待 DOM 更新后触发预览
+  setTimeout(() => {
+    if (hiddenImagePreview.value && typeof hiddenImagePreview.value.showPreview === 'function') {
+      hiddenImagePreview.value.showPreview();
+    }
+  }, 100);
+};
 </script>
 <style>
 .el-drawer__header {
@@ -1860,9 +1942,21 @@ const copyToClipboard = async (text: string) => {
   max-height: 400px;
   overflow-y: auto;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+  grid-template-columns: repeat(4, 1fr);
   gap: 10px;
   padding: 10px;
+}
+
+.file-list-scroller {
+  height: 400px;
+  padding: 10px;
+}
+
+.file-row {
+  display: grid;
+  grid-template-columns: repeat(4, 100px);
+  gap: 10px;
+  margin-bottom: 10px;
 }
 
 .file-item {
@@ -1880,10 +1974,10 @@ const copyToClipboard = async (text: string) => {
 .file-item:hover {
   background-color: #f5f7fa;
   border-color: #409eff;
-  transform: translateY(-2px);
 }
 
 .file-preview {
+  position: relative;
   width: 100%;
   height: 80px;
   background: #f0f2f5;
@@ -1892,6 +1986,38 @@ const copyToClipboard = async (text: string) => {
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+.preview-eye-icon {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  font-size: 20px;
+  color: white;
+  background: rgba(0, 0, 0, 0.5);
+  padding: 4px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 700;
+  opacity: 0;
+  transition: opacity 0.3s;
+  z-index: 10;
+}
+
+.file-item:hover .preview-eye-icon {
+  opacity: 1;
+}
+
+.preview-eye-icon:hover {
+  background: rgba(0, 0, 0, 0.7);
+}
+
+.image-error-small {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: #909399;
 }
 
 .preview-image {

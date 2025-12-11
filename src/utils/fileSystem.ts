@@ -277,7 +277,7 @@ export async function scanSubdirectory(
     const subDir = await dirHandle.getDirectoryHandle(subDirName, {
       create: false,
     });
-    const files: string[] = [];
+    const filesWithTime: Array<{ name: string; lastModified: number }> = [];
 
     const imageExtensions = /\.(jpg|jpeg|png|gif|bmp|webp)$/i;
     const videoExtensions = /\.(mp4|mov|avi|mkv|wmv|flv)$/i;
@@ -293,11 +293,25 @@ export async function scanSubdirectory(
           isMatch = true;
 
         if (isMatch) {
-          files.push(name);
+          try {
+            const fileHandle = entry as FileSystemFileHandle;
+            const file = await fileHandle.getFile();
+            filesWithTime.push({
+              name: name,
+              lastModified: file.lastModified,
+            });
+          } catch (e) {
+            // 如果获取文件信息失败，仍然添加但使用0作为时间
+            filesWithTime.push({ name: name, lastModified: 0 });
+          }
         }
       }
     }
-    return files;
+    
+    // 按上传时间倒序排列（最新的在前面）
+    filesWithTime.sort((a, b) => b.lastModified - a.lastModified);
+    
+    return filesWithTime.map(f => f.name);
   } catch (e) {
     // 目录可能不存在
     return [];
