@@ -67,7 +67,7 @@
         </span>
         <span class="fee-item">
           <el-icon><Money /></el-icon>
-          {{ data.deposit }}
+          {{ data.deposit || "未设置押金" }}
         </span>
       </div>
 
@@ -181,9 +181,9 @@ const handleMouseLeave = (event: Event) => {
 
 const formatWater = (water: { type: string; price?: number }) => {
   if (water.type === "civil") return "3元/吨（民用水）";
-  if (water.type === "5.0") return "5元/吨（民用水）";
+  if (water.type === "5.0") return "5元/吨";
   if (water.price) return `${water.price}元/吨`;
-  return water.type;
+  return '未设置'
 };
 
 const formatElectricity = (electricity: { type: string; price?: number }) => {
@@ -192,7 +192,7 @@ const formatElectricity = (electricity: { type: string; price?: number }) => {
   if (electricity.type === "1.0") return "1元/度";
   if (electricity.type === "1.5") return "1.5元/度";
   if (electricity.price) return `${electricity.price}元/度`;
-  return electricity.type;
+  return '未设置'
 };
 
 const getLandlordTypeLabel = (type: LandlordType) => {

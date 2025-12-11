@@ -859,13 +859,13 @@ watch(
       // 确保 commonFees 存在
       if (!data.commonFees) {
         data.commonFees = {
-          electricity: { type: "civil" },
-          water: { type: "civil" },
+          electricity: { type: "unset" },
+          water: { type: "unset" },
         };
       }
       if (!data.commonFees.electricity)
-        data.commonFees.electricity = { type: "civil" };
-      if (!data.commonFees.water) data.commonFees.water = { type: "civil" };
+        data.commonFees.electricity = { type: "unset" };
+      if (!data.commonFees.water) data.commonFees.water = { type: "unset" };
 
       editForm.value = data;
       activeTab.value = "basic";

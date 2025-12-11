@@ -95,6 +95,8 @@ export const usePropertyStore = defineStore("property", () => {
       result = result.filter((l) => {
         if (filters.value.waterType === "civil")
           return l.commonFees.water.type === "civil";
+        if (filters.value.waterType === "5.0")
+          return l.commonFees.water.type === "5.0";
         if (filters.value.waterType === "custom") {
           // 自定义水费且价格筛选
           const maxPrice = filters.value.waterPriceMax;
@@ -309,6 +311,8 @@ export const usePropertyStore = defineStore("property", () => {
       result = result.filter((p) => {
         if (propertyFilters.value.waterType === "civil")
           return p.water.type === "civil";
+        if (propertyFilters.value.waterType === "5.0")
+          return p.water.type === "5.0";
         if (propertyFilters.value.waterType === "custom") {
           // 自定义水费且价格筛选
           const maxPrice = propertyFilters.value.waterPriceMax;
@@ -338,11 +342,11 @@ export const usePropertyStore = defineStore("property", () => {
         if (propertyFilters.value.electricityType === "civil")
           return p.electricity.type === "civil";
         if (propertyFilters.value.electricityType === "1.5")
-          return p.electricity.price === 1.5;
+          return p.electricity.type === "1.5";
         if (propertyFilters.value.electricityType === "1.0")
-          return p.electricity.price === 1.0;
+          return p.electricity.type === "1.0";
         if (propertyFilters.value.electricityType === "0.88")
-          return p.electricity.price === 0.88;
+          return p.electricity.type === "0.88";
         if (propertyFilters.value.electricityType === "custom") {
           // 自定义电费且价格筛选
           const maxPrice = propertyFilters.value.electricityPriceMax;
@@ -427,6 +431,8 @@ export const usePropertyStore = defineStore("property", () => {
       result = result.filter((l) => {
         if (previewFilters.waterType === "civil")
           return l.commonFees.water.type === "civil";
+        if (previewFilters.waterType === "5.0")
+          return l.commonFees.water.type === "5.0";
         if (previewFilters.waterType === "custom") {
           const maxPrice = previewFilters.waterPriceMax;
           if (maxPrice === undefined) return true;
@@ -440,7 +446,7 @@ export const usePropertyStore = defineStore("property", () => {
           if (l.commonFees.water.price !== undefined) {
             return l.commonFees.water.price <= maxPrice;
           }
-          return true;
+          return false;
         }
         return true;
       });
@@ -453,6 +459,12 @@ export const usePropertyStore = defineStore("property", () => {
       result = result.filter((l) => {
         if (previewFilters.electricityType === "civil")
           return l.commonFees.electricity.type === "civil";
+        if (previewFilters.electricityType === "1.5")
+          return l.commonFees.electricity.type === "1.5";
+        if (previewFilters.electricityType === "1.0")
+          return l.commonFees.electricity.type === "1.0";
+        if (previewFilters.electricityType === "0.88")
+          return l.commonFees.electricity.type === "0.88";
         if (previewFilters.electricityType === "custom") {
           const maxPrice = previewFilters.electricityPriceMax;
           if (maxPrice === undefined) return true;
@@ -466,7 +478,7 @@ export const usePropertyStore = defineStore("property", () => {
           if (l.commonFees.electricity.price !== undefined) {
             return l.commonFees.electricity.price <= maxPrice;
           }
-          return true;
+          return false;
         }
         return true;
       });
@@ -590,11 +602,11 @@ export const usePropertyStore = defineStore("property", () => {
         if (previewFilters.electricityType === "civil")
           return p.electricity.type === "civil";
         if (previewFilters.electricityType === "1.5")
-          return p.electricity.price === 1.5;
+          return p.electricity.type === "1.5";
         if (previewFilters.electricityType === "1.0")
-          return p.electricity.price === 1.0;
+          return p.electricity.type === "1.0";
         if (previewFilters.electricityType === "0.88")
-          return p.electricity.price === 0.88;
+          return p.electricity.type === "0.88";
         if (previewFilters.electricityType === "custom") {
           const maxPrice = previewFilters.electricityPriceMax;
           if (maxPrice === undefined) return true;
@@ -704,8 +716,8 @@ export const usePropertyStore = defineStore("property", () => {
       captureTime: data.captureTime,
       deposit: "",
       commonFees: {
-        electricity: { type: "civil" },
-        water: { type: "civil" },
+        electricity: { type: "unset" },
+        water: { type: "unset" },
       },
       properties: [],
       isPerfect: false,

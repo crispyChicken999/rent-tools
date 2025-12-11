@@ -68,9 +68,7 @@
 
         <!-- 是否可租 -->
         <el-form-item label="租赁状态">
-          <el-radio-group
-            v-model="filterForm.availableStatus"
-          >
+          <el-radio-group v-model="filterForm.availableStatus">
             <el-radio label="all">全部</el-radio>
             <el-radio :value="true">可租</el-radio>
             <el-radio :value="false">已租出</el-radio>
@@ -117,12 +115,11 @@
 
         <!-- 水费类型 -->
         <el-form-item label="水费类型">
-          <el-radio-group
-            v-model="filterForm.waterType"
-          >
-            <el-radio-button label="all">全部</el-radio-button>
-            <el-radio-button label="civil">3元/吨（民用水）</el-radio-button>
-            <el-radio-button label="custom">自定义</el-radio-button>
+          <el-radio-group v-model="filterForm.waterType">
+            <el-radio label="all">全部</el-radio>
+            <el-radio label="civil">3元/吨（民用水）</el-radio>
+            <el-radio label="5.0">5元/吨</el-radio>
+            <el-radio label="custom">自定义</el-radio>
           </el-radio-group>
           <el-input-number
             v-if="filterForm.waterType === 'custom'"
@@ -139,9 +136,7 @@
 
         <!-- 电费类型 -->
         <el-form-item label="电费类型">
-          <el-radio-group
-            v-model="filterForm.electricityType"
-          >
+          <el-radio-group v-model="filterForm.electricityType">
             <el-radio label="all">全部</el-radio>
             <el-radio label="civil">0.6元/度（民用电）</el-radio>
             <el-radio label="1.5">1.5元/度</el-radio>

@@ -56,9 +56,10 @@
         <!-- 水费类型 -->
         <el-form-item label="水费类型">
           <el-radio-group v-model="filterForm.waterType">
-            <el-radio-button label="all">全部</el-radio-button>
-            <el-radio-button label="civil">3元/吨（民用水）</el-radio-button>
-            <el-radio-button label="custom">自定义</el-radio-button>
+            <el-radio label="all">全部</el-radio>
+            <el-radio label="civil">3元/吨（民用水）</el-radio>
+            <el-radio label="5.0">5元/吨</el-radio>
+            <el-radio label="custom">自定义</el-radio>
           </el-radio-group>
           <el-input-number
             v-if="filterForm.waterType === 'custom'"
@@ -67,7 +68,10 @@
             :step="0.1"
             placeholder="最大水费"
             style="width: 100%; margin-top: 8px"
-          />
+          >
+            <template #prefix> 不超过 </template>
+            <template #suffix> 元/吨 </template>
+          </el-input-number>
         </el-form-item>
 
         <!-- 电费类型 -->
@@ -87,7 +91,10 @@
             :step="0.1"
             placeholder="最大电费"
             style="width: 100%; margin-top: 8px"
-          />
+          >
+            <template #prefix> 不超过 </template>
+            <template #suffix> 元/度 </template>
+          </el-input-number>
         </el-form-item>
 
         <!-- 房型 -->
