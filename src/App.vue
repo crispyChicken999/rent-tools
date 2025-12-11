@@ -445,118 +445,124 @@ const showPhotoUpload = ref(false);
                   }"
                   @click="handleLandlordClick(landlord)"
                 >
-              <div class="landlord-icon">
-                <LandlordAvatar
-                  :avatar="landlord.avatar"
-                  :photo="
-                    landlord.photos && landlord.photos.length > 0
-                      ? landlord.photos[0].fileName
-                      : undefined
-                  "
-                  :nickname="landlord.wechatNickname"
-                  :size="40"
-                />
-              </div>
-
-              <div class="property-info">
-                <div style="display: flex; flex-direction: column; gap: 4px">
-                  <div class="info-row">
-                    <span class="nickname" v-if="landlord.wechatNickname">{{
-                      landlord.wechatNickname
-                    }}</span>
-                    <div style="display: flex; align-items: center; gap: 8px">
-                      <span
-                        class="phone"
-                        :class="{ secondary: landlord.wechatNickname }"
-                        >{{ getPhoneDisplay(landlord.phoneNumbers) }}</span
-                      >
-                    </div>
-                  </div>
-
-                  <div class="address">
-                    {{ landlord.address || "未知地址" }}
-                  </div>
-                </div>
-
-                <div class="stats">
-                  <div
-                    style="
-                      display: flex;
-                      align-items: center;
-                      gap: 2px;
-                      flex-wrap: wrap;
-                    "
-                  >
-                    <el-tag
-                      size="small"
-                      :type="getLandlordTypeTagType(landlord.landlordType)"
-                      effect="plain"
-                    >
-                      {{ getLandlordTypeLabel(landlord.landlordType) }}
-                    </el-tag>
-                    <el-tag
-                      size="small"
-                      :type="
-                        landlord.contactStatus === 'contacted'
-                          ? 'primary'
-                          : 'info'
+                  <div class="landlord-icon">
+                    <LandlordAvatar
+                      :avatar="landlord.avatar"
+                      :photo="
+                        landlord.photos && landlord.photos.length > 0
+                          ? landlord.photos[0].fileName
+                          : undefined
                       "
-                      effect="plain"
-                    >
-                      {{
-                        landlord.contactStatus === "contacted"
-                          ? "已联系"
-                          : "未联系"
-                      }}
-                    </el-tag>
-                    <el-tag
-                      size="small"
-                      type="success"
-                      v-if="landlord.wechatStatus === 'added'"
-                      effect="plain"
-                      >已加WX</el-tag
-                    >
-                    <span style="margin-left: 4px"
-                      >{{ landlord.properties?.length || 0 }} 个房源</span
-                    >
-                  </div>
-                  <div style="display: flex; gap: 2px">
-                    <el-button
-                      type="primary"
-                      link
-                      size="small"
-                      style="margin-left: 0px"
-                      @click.stop="propertyStore.selectLandlord(landlord)"
-                    >
-                      详情
-                    </el-button>
-                    <el-button
-                      :type="landlord.isFavorite ? 'warning' : 'info'"
-                      link
-                      style="margin-left: 0px"
-                      size="small"
-                      :icon="landlord.isFavorite ? StarFilled : Star"
-                      @click.stop="propertyStore.toggleFavorite(landlord.id)"
+                      :nickname="landlord.wechatNickname"
+                      :size="40"
                     />
-                    <el-popconfirm
-                      title="确定删除此房东？"
-                      @confirm="handleDeleteLandlord(landlord)"
-                      @click.stop
+                  </div>
+
+                  <div class="property-info">
+                    <div
+                      style="display: flex; flex-direction: column; gap: 4px"
                     >
-                      <template #reference>
+                      <div class="info-row">
+                        <span class="nickname" v-if="landlord.wechatNickname">{{
+                          landlord.wechatNickname
+                        }}</span>
+                        <div
+                          style="display: flex; align-items: center; gap: 8px"
+                        >
+                          <span
+                            class="phone"
+                            :class="{ secondary: landlord.wechatNickname }"
+                            >{{ getPhoneDisplay(landlord.phoneNumbers) }}</span
+                          >
+                        </div>
+                      </div>
+
+                      <div class="address">
+                        {{ landlord.address || "未知地址" }}
+                      </div>
+                    </div>
+
+                    <div class="stats">
+                      <div
+                        style="
+                          display: flex;
+                          align-items: center;
+                          gap: 2px;
+                          flex-wrap: wrap;
+                        "
+                      >
+                        <el-tag
+                          size="small"
+                          :type="getLandlordTypeTagType(landlord.landlordType)"
+                          effect="plain"
+                        >
+                          {{ getLandlordTypeLabel(landlord.landlordType) }}
+                        </el-tag>
+                        <el-tag
+                          size="small"
+                          :type="
+                            landlord.contactStatus === 'contacted'
+                              ? 'primary'
+                              : 'info'
+                          "
+                          effect="plain"
+                        >
+                          {{
+                            landlord.contactStatus === "contacted"
+                              ? "已联系"
+                              : "未联系"
+                          }}
+                        </el-tag>
+                        <el-tag
+                          size="small"
+                          type="success"
+                          v-if="landlord.wechatStatus === 'added'"
+                          effect="plain"
+                          >已加WX</el-tag
+                        >
+                        <span style="margin-left: 4px"
+                          >{{ landlord.properties?.length || 0 }} 个房源</span
+                        >
+                      </div>
+                      <div style="display: flex; gap: 2px">
                         <el-button
-                          type="danger"
+                          type="primary"
                           link
                           size="small"
                           style="margin-left: 0px"
-                          :icon="Delete"
-                          @click.stop
+                          @click.stop="propertyStore.selectLandlord(landlord)"
+                        >
+                          详情
+                        </el-button>
+                        <el-button
+                          :type="landlord.isFavorite ? 'warning' : 'info'"
+                          link
+                          style="margin-left: 0px"
+                          size="small"
+                          :icon="landlord.isFavorite ? StarFilled : Star"
+                          @click.stop="
+                            propertyStore.toggleFavorite(landlord.id)
+                          "
                         />
-                      </template>
-                    </el-popconfirm>
+                        <el-popconfirm
+                          title="确定删除此房东？"
+                          @confirm="handleDeleteLandlord(landlord)"
+                          @click.stop
+                        >
+                          <template #reference>
+                            <el-button
+                              type="danger"
+                              link
+                              size="small"
+                              style="margin-left: 0px"
+                              :icon="Delete"
+                              @click.stop
+                            />
+                          </template>
+                        </el-popconfirm>
+                      </div>
+                    </div>
                   </div>
-                </div>
-              </div>
                 </div>
               </DynamicScrollerItem>
             </template>

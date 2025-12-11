@@ -1573,7 +1573,10 @@ const previewImage = (url: string) => {
   previewImageUrl.value = url;
   // 等待 DOM 更新后触发预览
   setTimeout(() => {
-    if (hiddenImagePreview.value && typeof hiddenImagePreview.value.showPreview === 'function') {
+    if (
+      hiddenImagePreview.value &&
+      typeof hiddenImagePreview.value.showPreview === "function"
+    ) {
       hiddenImagePreview.value.showPreview();
     }
   }, 100);

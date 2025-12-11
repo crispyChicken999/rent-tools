@@ -307,11 +307,11 @@ export async function scanSubdirectory(
         }
       }
     }
-    
+
     // 按上传时间倒序排列（最新的在前面）
     filesWithTime.sort((a, b) => b.lastModified - a.lastModified);
-    
-    return filesWithTime.map(f => f.name);
+
+    return filesWithTime.map((f) => f.name);
   } catch (e) {
     // 目录可能不存在
     return [];
