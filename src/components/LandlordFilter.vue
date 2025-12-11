@@ -1,7 +1,12 @@
 <template>
   <div class="landlord-filter">
     <el-scrollbar class="filter-scrollbar">
-      <el-form :model="filterForm" label-position="top" size="default" class="filter-form">
+      <el-form
+        :model="filterForm"
+        label-position="top"
+        size="default"
+        class="filter-form"
+      >
         <!-- 联系状态 -->
         <el-form-item label="联系状态">
           <el-radio-group v-model="filterForm.contactStatus">
@@ -31,18 +36,20 @@
 
         <!-- 房东类型 -->
         <el-form-item label="房东类型">
-          <el-select 
-            v-model="filterForm.landlordType" 
-            multiple 
+          <el-select
+            v-model="filterForm.landlordType"
+            multiple
             collapse-tags
             collapse-tags-tooltip
             placeholder="请选择房东类型"
-            style="width: 100%">
-            <el-option 
-              v-for="type in LANDLORD_TYPES" 
-              :key="type.value" 
+            style="width: 100%"
+          >
+            <el-option
+              v-for="type in LANDLORD_TYPES"
+              :key="type.value"
               :label="type.label"
-              :value="type.value" />
+              :value="type.value"
+            />
           </el-select>
         </el-form-item>
 
@@ -50,7 +57,7 @@
         <el-form-item label="水费类型">
           <el-radio-group v-model="filterForm.waterType">
             <el-radio-button label="all">全部</el-radio-button>
-            <el-radio-button label="civil">民用水</el-radio-button>
+            <el-radio-button label="civil">3元/吨（民用水）</el-radio-button>
             <el-radio-button label="custom">自定义</el-radio-button>
           </el-radio-group>
           <el-input-number
@@ -59,15 +66,19 @@
             :min="0"
             :step="0.1"
             placeholder="最大水费"
-            style="width: 100%; margin-top: 8px" />
+            style="width: 100%; margin-top: 8px"
+          />
         </el-form-item>
 
         <!-- 电费类型 -->
         <el-form-item label="电费类型">
           <el-radio-group v-model="filterForm.electricityType">
-            <el-radio-button label="all">全部</el-radio-button>
-            <el-radio-button label="civil">民用电</el-radio-button>
-            <el-radio-button label="custom">自定义</el-radio-button>
+            <el-radio label="all">全部</el-radio>
+            <el-radio label="civil">0.6元/度（民用电）</el-radio>
+            <el-radio label="1.5">1.5元/度</el-radio>
+            <el-radio label="1.0">1.0元/度</el-radio>
+            <el-radio label="0.88">0.88元/度</el-radio>
+            <el-radio label="custom">自定义</el-radio>
           </el-radio-group>
           <el-input-number
             v-if="filterForm.electricityType === 'custom'"
@@ -75,23 +86,26 @@
             :min="0"
             :step="0.1"
             placeholder="最大电费"
-            style="width: 100%; margin-top: 8px" />
+            style="width: 100%; margin-top: 8px"
+          />
         </el-form-item>
 
         <!-- 房型 -->
         <el-form-item label="房型">
-          <el-select 
-            v-model="filterForm.roomTypes" 
-            multiple 
+          <el-select
+            v-model="filterForm.roomTypes"
+            multiple
             collapse-tags
             collapse-tags-tooltip
             placeholder="请选择房型"
-            style="width: 100%">
-            <el-option 
-              v-for="type in ROOM_TYPES" 
-              :key="type.value" 
+            style="width: 100%"
+          >
+            <el-option
+              v-for="type in ROOM_TYPES"
+              :key="type.value"
               :label="type.label"
-              :value="type.value" />
+              :value="type.value"
+            />
           </el-select>
         </el-form-item>
 
@@ -103,14 +117,16 @@
               :min="0"
               :step="100"
               placeholder="最低"
-              controls-position="right" />
+              controls-position="right"
+            />
             <span class="separator">-</span>
             <el-input-number
               v-model="filterForm.rentMax"
               :min="0"
               :step="100"
               placeholder="最高"
-              controls-position="right" />
+              controls-position="right"
+            />
           </div>
         </el-form-item>
 
@@ -119,7 +135,8 @@
           <el-input
             v-model="filterForm.phoneSearch"
             placeholder="输入电话号码"
-            clearable>
+            clearable
+          >
             <template #prefix>
               <el-icon><Search /></el-icon>
             </template>
@@ -161,11 +178,11 @@
 </template>
 
 <script setup lang="ts">
-import { reactive, watch } from 'vue';
-import { Search } from '@element-plus/icons-vue';
-import { ROOM_TYPES, LANDLORD_TYPES } from '@/types';
-import { LandlordType } from '@/types';
-import { usePropertyStore } from '@/stores/property';
+import { reactive, watch } from "vue";
+import { Search } from "@element-plus/icons-vue";
+import { ROOM_TYPES, LANDLORD_TYPES } from "@/types";
+import { LandlordType } from "@/types";
+import { usePropertyStore } from "@/stores/property";
 
 const propertyStore = usePropertyStore();
 
@@ -187,18 +204,18 @@ interface FilterFormData {
 }
 
 const filterForm = reactive<FilterFormData>({
-  contactStatus: 'all',
-  wechatStatus: 'all',
-  favoriteStatus: 'all',
+  contactStatus: "all",
+  wechatStatus: "all",
+  favoriteStatus: "all",
   landlordType: [],
-  waterType: 'all',
-  electricityType: 'all',
+  waterType: "all",
+  electricityType: "all",
   waterPriceMax: undefined,
   electricityPriceMax: undefined,
   roomTypes: [],
   rentMin: undefined,
   rentMax: undefined,
-  phoneSearch: '',
+  phoneSearch: "",
   hideRepeatedPhones: false,
   showRepeatedPhones: false,
 });
@@ -217,18 +234,18 @@ const handleApply = () => {
 };
 
 const handleReset = () => {
-  filterForm.contactStatus = 'all';
-  filterForm.wechatStatus = 'all';
-  filterForm.favoriteStatus = 'all';
+  filterForm.contactStatus = "all";
+  filterForm.wechatStatus = "all";
+  filterForm.favoriteStatus = "all";
   filterForm.landlordType = [];
-  filterForm.waterType = 'all';
-  filterForm.electricityType = 'all';
+  filterForm.waterType = "all";
+  filterForm.electricityType = "all";
   filterForm.waterPriceMax = undefined;
   filterForm.electricityPriceMax = undefined;
   filterForm.roomTypes = [];
   filterForm.rentMin = undefined;
   filterForm.rentMax = undefined;
-  filterForm.phoneSearch = '';
+  filterForm.phoneSearch = "";
   filterForm.hideRepeatedPhones = false;
   filterForm.showRepeatedPhones = false;
 

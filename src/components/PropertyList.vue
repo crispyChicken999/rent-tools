@@ -30,6 +30,11 @@
             item.roomType,
             item.rent,
             item.amenities?.length,
+            item.water,
+            item.electricity,
+            item.deposit,
+            item.floor,
+            item.available,
           ]"
           :data-index="index"
           class="property-item"

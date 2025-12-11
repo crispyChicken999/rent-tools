@@ -121,7 +121,7 @@
             v-model="filterForm.waterType"
           >
             <el-radio-button label="all">全部</el-radio-button>
-            <el-radio-button label="civil">民用水</el-radio-button>
+            <el-radio-button label="civil">3元/吨（民用水）</el-radio-button>
             <el-radio-button label="custom">自定义</el-radio-button>
           </el-radio-group>
           <el-input-number
@@ -142,9 +142,12 @@
           <el-radio-group
             v-model="filterForm.electricityType"
           >
-            <el-radio-button label="all">全部</el-radio-button>
-            <el-radio-button label="civil">民用电</el-radio-button>
-            <el-radio-button label="custom">自定义</el-radio-button>
+            <el-radio label="all">全部</el-radio>
+            <el-radio label="civil">0.6元/度（民用电）</el-radio>
+            <el-radio label="1.5">1.5元/度</el-radio>
+            <el-radio label="1.0">1.0元/度</el-radio>
+            <el-radio label="0.88">0.88元/度</el-radio>
+            <el-radio label="custom">自定义</el-radio>
           </el-radio-group>
           <el-input-number
             v-if="filterForm.electricityType === 'custom'"

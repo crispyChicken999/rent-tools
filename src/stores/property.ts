@@ -33,7 +33,7 @@ export const usePropertyStore = defineStore("property", () => {
   // ========== 房源视图相关状态 ==========
   const viewMode = ref<ViewMode>("landlord"); // 当前视图模式
   const propertyFilters = ref<PropertyFilterOptions>({}); // 房源筛选条件
-  
+
   // 临时筛选状态（用于预览计数）
   const tempLandlordFilters = ref<FilterOptions>({});
   const tempPropertyFilters = ref<PropertyFilterOptions>({});
@@ -97,12 +97,17 @@ export const usePropertyStore = defineStore("property", () => {
           return l.commonFees.water.type === "civil";
         if (filters.value.waterType === "custom") {
           // 自定义水费且价格筛选
-          if (l.commonFees.water.type === "civil") return false;
-          if (
-            filters.value.waterPriceMax !== undefined &&
-            l.commonFees.water.price !== undefined
-          ) {
-            return l.commonFees.water.price <= filters.value.waterPriceMax;
+          const maxPrice = filters.value.waterPriceMax;
+          if (maxPrice === undefined) return true;
+
+          // 民用水费是 3 元/吨，也要包含在筛选范围内
+          if (l.commonFees.water.type === "civil") {
+            return 3 <= maxPrice;
+          }
+
+          // 自定义价格判断
+          if (l.commonFees.water.price !== undefined) {
+            return l.commonFees.water.price <= maxPrice;
           }
           return true;
         }
@@ -119,15 +124,17 @@ export const usePropertyStore = defineStore("property", () => {
           return l.commonFees.electricity.type === "civil";
         if (filters.value.electricityType === "custom") {
           // 自定义电费且价格筛选
-          if (l.commonFees.electricity.type === "civil") return false;
-          if (
-            filters.value.electricityPriceMax !== undefined &&
-            l.commonFees.electricity.price !== undefined
-          ) {
-            return (
-              l.commonFees.electricity.price <=
-              filters.value.electricityPriceMax
-            );
+          const maxPrice = filters.value.electricityPriceMax;
+          if (maxPrice === undefined) return true;
+
+          // 民用电费是 0.6 元/度，也要包含在筛选范围内
+          if (l.commonFees.electricity.type === "civil") {
+            return 0.6 <= maxPrice;
+          }
+
+          // 自定义价格判断
+          if (l.commonFees.electricity.price !== undefined) {
+            return l.commonFees.electricity.price <= maxPrice;
           }
           return true;
         }
@@ -304,12 +311,17 @@ export const usePropertyStore = defineStore("property", () => {
           return p.water.type === "civil";
         if (propertyFilters.value.waterType === "custom") {
           // 自定义水费且价格筛选
-          if (p.water.type === "civil") return false;
-          if (
-            propertyFilters.value.waterPriceMax !== undefined &&
-            p.water.price !== undefined
-          ) {
-            return p.water.price <= propertyFilters.value.waterPriceMax;
+          const maxPrice = propertyFilters.value.waterPriceMax;
+          if (maxPrice === undefined) return true;
+
+          // 民用水费是 3 元/吨，也要包含在筛选范围内
+          if (p.water.type === "civil") {
+            return 3 <= maxPrice;
+          }
+
+          // 自定义价格判断
+          if (p.water.price !== undefined) {
+            return p.water.price <= maxPrice;
           }
           return true;
         }
@@ -325,16 +337,25 @@ export const usePropertyStore = defineStore("property", () => {
       result = result.filter((p) => {
         if (propertyFilters.value.electricityType === "civil")
           return p.electricity.type === "civil";
+        if (propertyFilters.value.electricityType === "1.5")
+          return p.electricity.price === 1.5;
+        if (propertyFilters.value.electricityType === "1.0")
+          return p.electricity.price === 1.0;
+        if (propertyFilters.value.electricityType === "0.88")
+          return p.electricity.price === 0.88;
         if (propertyFilters.value.electricityType === "custom") {
           // 自定义电费且价格筛选
-          if (p.electricity.type === "civil") return false;
-          if (
-            propertyFilters.value.electricityPriceMax !== undefined &&
-            p.electricity.price !== undefined
-          ) {
-            return (
-              p.electricity.price <= propertyFilters.value.electricityPriceMax
-            );
+          const maxPrice = propertyFilters.value.electricityPriceMax;
+          if (maxPrice === undefined) return true;
+
+          // 民用电费是 0.6 元/度，也要包含在筛选范围内
+          if (p.electricity.type === "civil") {
+            return 0.6 <= maxPrice;
+          }
+
+          // 固定价格选项也要判断是否小于等于最大值
+          if (p.electricity.price !== undefined) {
+            return p.electricity.price <= maxPrice;
           }
           return true;
         }
@@ -367,7 +388,10 @@ export const usePropertyStore = defineStore("property", () => {
       );
     }
 
-    if (previewFilters.contactStatus && previewFilters.contactStatus.length > 0) {
+    if (
+      previewFilters.contactStatus &&
+      previewFilters.contactStatus.length > 0
+    ) {
       result = result.filter((l) =>
         previewFilters.contactStatus!.includes(l.contactStatus)
       );
@@ -404,12 +428,17 @@ export const usePropertyStore = defineStore("property", () => {
         if (previewFilters.waterType === "civil")
           return l.commonFees.water.type === "civil";
         if (previewFilters.waterType === "custom") {
-          if (l.commonFees.water.type === "civil") return false;
-          if (
-            previewFilters.waterPriceMax !== undefined &&
-            l.commonFees.water.price !== undefined
-          ) {
-            return l.commonFees.water.price <= previewFilters.waterPriceMax;
+          const maxPrice = previewFilters.waterPriceMax;
+          if (maxPrice === undefined) return true;
+
+          // 民用水费是 3 元/吨，也要包含在筛选范围内
+          if (l.commonFees.water.type === "civil") {
+            return 3 <= maxPrice;
+          }
+
+          // 自定义价格判断
+          if (l.commonFees.water.price !== undefined) {
+            return l.commonFees.water.price <= maxPrice;
           }
           return true;
         }
@@ -425,15 +454,17 @@ export const usePropertyStore = defineStore("property", () => {
         if (previewFilters.electricityType === "civil")
           return l.commonFees.electricity.type === "civil";
         if (previewFilters.electricityType === "custom") {
-          if (l.commonFees.electricity.type === "civil") return false;
-          if (
-            previewFilters.electricityPriceMax !== undefined &&
-            l.commonFees.electricity.price !== undefined
-          ) {
-            return (
-              l.commonFees.electricity.price <=
-              previewFilters.electricityPriceMax
-            );
+          const maxPrice = previewFilters.electricityPriceMax;
+          if (maxPrice === undefined) return true;
+
+          // 民用电费是 0.6 元/度，也要包含在筛选范围内
+          if (l.commonFees.electricity.type === "civil") {
+            return 0.6 <= maxPrice;
+          }
+
+          // 自定义价格判断
+          if (l.commonFees.electricity.price !== undefined) {
+            return l.commonFees.electricity.price <= maxPrice;
           }
           return true;
         }
@@ -513,9 +544,7 @@ export const usePropertyStore = defineStore("property", () => {
     }
 
     if (previewFilters.available !== undefined) {
-      result = result.filter(
-        (p) => p.available === previewFilters.available
-      );
+      result = result.filter((p) => p.available === previewFilters.available);
     }
 
     if (previewFilters.landlordType?.length) {
@@ -530,20 +559,22 @@ export const usePropertyStore = defineStore("property", () => {
       );
     }
 
-    if (
-      previewFilters.waterType &&
-      previewFilters.waterType !== "all"
-    ) {
+    if (previewFilters.waterType && previewFilters.waterType !== "all") {
       result = result.filter((p) => {
         if (previewFilters.waterType === "civil")
           return p.water.type === "civil";
         if (previewFilters.waterType === "custom") {
-          if (p.water.type === "civil") return false;
-          if (
-            previewFilters.waterPriceMax !== undefined &&
-            p.water.price !== undefined
-          ) {
-            return p.water.price <= previewFilters.waterPriceMax;
+          const maxPrice = previewFilters.waterPriceMax;
+          if (maxPrice === undefined) return true;
+
+          // 民用水费是 3 元/吨，也要包含在筛选范围内
+          if (p.water.type === "civil") {
+            return 3 <= maxPrice;
+          }
+
+          // 自定义价格判断
+          if (p.water.price !== undefined) {
+            return p.water.price <= maxPrice;
           }
           return true;
         }
@@ -558,15 +589,24 @@ export const usePropertyStore = defineStore("property", () => {
       result = result.filter((p) => {
         if (previewFilters.electricityType === "civil")
           return p.electricity.type === "civil";
+        if (previewFilters.electricityType === "1.5")
+          return p.electricity.price === 1.5;
+        if (previewFilters.electricityType === "1.0")
+          return p.electricity.price === 1.0;
+        if (previewFilters.electricityType === "0.88")
+          return p.electricity.price === 0.88;
         if (previewFilters.electricityType === "custom") {
-          if (p.electricity.type === "civil") return false;
-          if (
-            previewFilters.electricityPriceMax !== undefined &&
-            p.electricity.price !== undefined
-          ) {
-            return (
-              p.electricity.price <= previewFilters.electricityPriceMax
-            );
+          const maxPrice = previewFilters.electricityPriceMax;
+          if (maxPrice === undefined) return true;
+
+          // 民用电费是 0.6 元/度，也要包含在筛选范围内
+          if (p.electricity.type === "civil") {
+            return 0.6 <= maxPrice;
+          }
+
+          // 固定价格选项也要判断是否小于等于最大值
+          if (p.electricity.price !== undefined) {
+            return p.electricity.price <= maxPrice;
           }
           return true;
         }

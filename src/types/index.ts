@@ -223,7 +223,7 @@ export const CONTACT_STATUS_TYPES = [
 
 // 电费类型选项
 export const ELECTRICITY_TYPES = [
-  { value: "civil", label: "民用电" },
+  { value: "civil", label: "0.6元/度（民用电）" },
   { value: "0.88", label: "0.88元/度" },
   { value: "1.0", label: "1.0元/度" },
   { value: "1.5", label: "1.5元/度" },
@@ -232,7 +232,7 @@ export const ELECTRICITY_TYPES = [
 
 // 水费类型选项
 export const WATER_TYPES = [
-  { value: "civil", label: "民用水" },
+  { value: "civil", label: "3元/吨（民用水）" },
   { value: "5.0", label: "5元/吨" },
   { value: "custom", label: "自定义" },
 ];

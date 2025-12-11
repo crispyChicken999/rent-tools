@@ -180,13 +180,17 @@ const handleMouseLeave = (event: Event) => {
 };
 
 const formatWater = (water: { type: string; price?: number }) => {
-  if (water.type === "civil") return "民用水";
+  if (water.type === "civil") return "3元/吨（民用水）";
+  if (water.type === "5.0") return "5元/吨（民用水）";
   if (water.price) return `${water.price}元/吨`;
   return water.type;
 };
 
 const formatElectricity = (electricity: { type: string; price?: number }) => {
-  if (electricity.type === "civil") return "民用电";
+  if (electricity.type === "civil") return "0.6元/度（民用电）";
+  if (electricity.type === "0.88") return "0.8元/度";
+  if (electricity.type === "1.0") return "1元/度";
+  if (electricity.type === "1.5") return "1.5元/度";
   if (electricity.price) return `${electricity.price}元/度`;
   return electricity.type;
 };
