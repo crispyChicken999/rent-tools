@@ -165,6 +165,9 @@ import { reactive } from 'vue';
 import { Search } from '@element-plus/icons-vue';
 import { ROOM_TYPES, LANDLORD_TYPES } from '@/types';
 import { LandlordType } from '@/types';
+import { usePropertyStore } from '@/stores/property';
+
+const propertyStore = usePropertyStore();
 
 interface FilterFormData {
   contactStatus: string;
@@ -200,13 +203,8 @@ const filterForm = reactive<FilterFormData>({
   showRepeatedPhones: false,
 });
 
-const emit = defineEmits<{
-  apply: [filters: FilterFormData];
-  reset: [];
-}>();
-
 const handleApply = () => {
-  emit('apply', { ...filterForm });
+  propertyStore.applyLandlordFilters({ ...filterForm });
 };
 
 const handleReset = () => {
@@ -225,7 +223,7 @@ const handleReset = () => {
   filterForm.hideRepeatedPhones = false;
   filterForm.showRepeatedPhones = false;
   
-  emit('reset');
+  propertyStore.clearLandlordFilters();
 };
 </script>
 

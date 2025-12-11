@@ -1,38 +1,23 @@
 <script setup lang="ts">
-import { onMounted, ref, computed, watch } from "vue";
+import { onMounted, ref, watch } from "vue";
 import { ElMessage, ElMessageBox } from "element-plus";
-import {
-  Delete,
-  Upload,
-  Star,
-  StarFilled,
-  Filter,
-  Setting,
-  QuestionFilled,
-  Download,
-  Document,
-} from "@element-plus/icons-vue";
+
 import PhotoUpload from "./components/PhotoUpload.vue";
 import MapView from "./components/MapView.vue";
 import PropertyDetail from "./components/PropertyDetail.vue";
-import LandlordAvatar from "./components/LandlordAvatar.vue";
 import PropertyList from "./components/PropertyList.vue";
+import LandlordList from "./components/LandlordList.vue";
 import PropertyDetailPage from "./components/PropertyDetailPage.vue";
 import PropertyFilter from "./components/PropertyFilter.vue";
 import LandlordFilter from "./components/LandlordFilter.vue";
+import Toolbar from "./components/Toolbar.vue";
 import { usePropertyStore } from "./stores/property";
 import { exportToExcel, exportToJson, importFromJson } from "./utils/export";
 import { getStoredAmapConfig, saveAmapConfig } from "./utils/geocode";
-import {
-  LandlordType,
-  ContactStatus,
-  WechatStatus,
-  type FilterOptions,
-} from "./types";
+
 
 const propertyStore = usePropertyStore();
 const mapViewRef = ref<InstanceType<typeof MapView> | null>(null);
-const virtualListRef = ref<any>(null); // 虚拟列表的引用
 const fileInput = ref<HTMLInputElement | null>(null);
 
 // Tour 状态
@@ -71,11 +56,6 @@ const handleSaveSettings = () => {
 // 筛选状态
 const showFilterDrawer = ref(false);
 
-// 删除确认状态
-const deleteDialogVisible = ref(false);
-const deleteWithImages = ref(true);
-const landlordToDelete = ref<any>(null);
-
 // 房源详情页状态
 const propertyDetailVisible = ref(false);
 const currentPropertyId = ref("");
@@ -99,75 +79,6 @@ onMounted(async () => {
   }) as EventListener);
 });
 
-// 房东筛选处理
-const handleLandlordFilterApply = (filters: any) => {
-  const filterOptions: FilterOptions = {};
-
-  if (filters.contactStatus !== "all") {
-    filterOptions.contactStatus = [filters.contactStatus as ContactStatus];
-  }
-
-  if (filters.wechatStatus !== "all") {
-    filterOptions.wechatStatus = [filters.wechatStatus as WechatStatus];
-  }
-
-  if (filters.favoriteStatus !== "all") {
-    filterOptions.isFavorite = filters.favoriteStatus as any;
-  }
-
-  if (filters.landlordType.length > 0) {
-    filterOptions.landlordType = filters.landlordType;
-  }
-
-  if (filters.waterType !== "all") {
-    filterOptions.waterType = filters.waterType;
-    if (filters.waterType === 'custom' && filters.waterPriceMax !== undefined) {
-      filterOptions.waterPriceMax = filters.waterPriceMax;
-    }
-  }
-
-  if (filters.electricityType !== "all") {
-    filterOptions.electricityType = filters.electricityType;
-    if (filters.electricityType === 'custom' && filters.electricityPriceMax !== undefined) {
-      filterOptions.electricityPriceMax = filters.electricityPriceMax;
-    }
-  }
-
-  if (filters.roomTypes.length > 0) {
-    filterOptions.roomTypes = filters.roomTypes;
-  }
-
-  if (filters.rentMin !== undefined || filters.rentMax !== undefined) {
-    filterOptions.rentRange = [
-      filters.rentMin || 0,
-      filters.rentMax || 999999,
-    ];
-  }
-
-  if (filters.phoneSearch) {
-    filterOptions.phoneSearch = filters.phoneSearch;
-  }
-
-  filterOptions.hideRepeatedPhones = filters.hideRepeatedPhones;
-  filterOptions.showRepeatedPhones = filters.showRepeatedPhones;
-  
-  localStorage.setItem("hideRepeatedPhones", String(filters.hideRepeatedPhones));
-  localStorage.setItem("showRepeatedPhones", String(filters.showRepeatedPhones));
-
-  propertyStore.setFilters(filterOptions);
-  showFilterDrawer.value = false;
-};
-
-const handleLandlordFilterReset = () => {
-  propertyStore.setFilters({});
-  localStorage.setItem("hideRepeatedPhones", "false");
-  localStorage.setItem("showRepeatedPhones", "false");
-  showFilterDrawer.value = false;
-};
-
-// 过滤后的房东列表直接用 Store 的计算属性
-const filteredLandlords = computed(() => propertyStore.filteredLandlords);
-
 // 监听视图模式切换，重置筛选
 watch(
   () => propertyStore.viewMode,
@@ -176,27 +87,11 @@ watch(
     if (oldMode && newMode !== oldMode) {
       if (newMode === 'landlord') {
         // 切换到房东视图时，重置房东筛选
-        propertyStore.setFilters({});
+        propertyStore.clearLandlordFilters();
       } else if (newMode === 'property') {
         // 切换到房源视图时，重置房源筛选
         propertyStore.clearPropertyFilters();
       }
-    }
-  }
-);
-
-// 监听当前聚焦的房东，自动滚动到列表位置
-watch(
-  () => propertyStore.focusedLandlordId,
-  (newId) => {
-    if (newId && virtualListRef.value) {
-      // 使用 setTimeout 确保 DOM 已更新
-      setTimeout(() => {
-        const index = filteredLandlords.value.findIndex((l) => l.id === newId);
-        if (index !== -1) {
-          virtualListRef.value.scrollToItem(index);
-        }
-      }, 100);
     }
   }
 );
@@ -217,7 +112,7 @@ const handleBackup = () => {
 };
 
 // 导入备份
-const handleImport = async (_event: Event) => {
+const handleImport = () => {
   fileInput.value?.click();
 };
 
@@ -239,61 +134,7 @@ const handleFileChange = async (event: Event) => {
   }
 };
 
-const getPhoneDisplay = (phones: string[]) => {
-  if (!phones || phones.length === 0 || !phones[0]) return "未填写电话";
-  if (phones.length === 1) return phones[0];
-  return `${phones[0]} (+${phones.length - 1})`;
-};
 
-const getLandlordTypeLabel = (type: LandlordType) => {
-  const map: Record<LandlordType, string> = {
-    [LandlordType.FirstHand]: "一手",
-    [LandlordType.SecondHand]: "二手",
-    [LandlordType.Agent]: "中介",
-    [LandlordType.Other]: "其他",
-  };
-  return map[type] || "未知";
-};
-
-const getLandlordTypeTagType = (type: LandlordType) => {
-  const map: Record<LandlordType, string> = {
-    [LandlordType.FirstHand]: "success",
-    [LandlordType.SecondHand]: "warning",
-    [LandlordType.Agent]: "danger",
-    [LandlordType.Other]: "info",
-  };
-  return map[type] || "info";
-};
-
-const handleLandlordClick = (landlord: any) => {
-  propertyStore.setFocusedLandlord(landlord.id);
-  if (mapViewRef.value) {
-    mapViewRef.value.focusLandlord(landlord);
-  }
-};
-
-const handleDeleteLandlord = (landlord: any) => {
-  landlordToDelete.value = landlord;
-  deleteWithImages.value = true; // 默认勾选
-  deleteDialogVisible.value = true;
-};
-
-const confirmDelete = async () => {
-  if (!landlordToDelete.value) return;
-
-  try {
-    await propertyStore.removeLandlord(
-      landlordToDelete.value.id,
-      deleteWithImages.value
-    );
-    ElMessage.success("删除成功");
-  } catch (error) {
-    ElMessage.error("删除失败");
-  } finally {
-    deleteDialogVisible.value = false;
-    landlordToDelete.value = null;
-  }
-};
 
 // 房源视图相关事件处理
 const handlePropertyDetailView = (propertyId: string) => {
@@ -376,299 +217,27 @@ const showPhotoUpload = ref(false);
 <template>
   <div class="app-container">
     <!-- 顶部工具栏 -->
-    <div class="toolbar">
-      <div class="logo">
-        <h1>📍 租房信息管理系统</h1>
-      </div>
-      <div class="actions">
-        <!-- 视图切换按钮 -->
-        <el-radio-group
-          v-model="propertyStore.viewMode"
-          size="default"
-          style="margin-right: 12px"
-        >
-          <el-radio-button label="landlord">房东视图</el-radio-button>
-          <el-radio-button label="property">房源视图</el-radio-button>
-        </el-radio-group>
-
-        <el-button
-          id="btn-import-photos"
-          type="primary"
-          @click="showPhotoUpload = true"
-          :icon="Upload"
-        >
-          批量导入照片
-        </el-button>
-
-        <el-tooltip content="导出Excel" placement="bottom">
-          <el-button
-            id="btn-export-excel"
-            :icon="Document"
-            circle
-            @click="handleExport"
-            type="success"
-            plain
-            :disabled="propertyStore.landlords.length === 0"
-          />
-        </el-tooltip>
-
-        <el-tooltip placement="bottom">
-          <template #content>
-            <p><b>导入备份</b></p>
-            <p>需选择存放照片的文件夹（不然图片加载不出来）</p>
-            <p>点击「批量导入图片」-「选择照片文件夹」</p>
-            <p>然后选择之前导出的备份文件</p>
-          </template>
-          <el-button
-            id="btn-backup-import"
-            :icon="Upload"
-            circle
-            type="primary"
-            plain
-            @click="handleImport"
-          />
-        </el-tooltip>
-
-        <el-tooltip content="导出备份（JSON文件）" placement="bottom">
-          <el-button
-            id="btn-backup"
-            :icon="Download"
-            circle
-            plain
-            type="warning"
-            @click="handleBackup"
-            :disabled="propertyStore.landlords.length === 0"
-          />
-        </el-tooltip>
-
-        <el-tooltip content="使用说明" placement="bottom">
-          <el-button
-            id="btn-tour"
-            :icon="QuestionFilled"
-            circle
-            plain
-            type="info"
-            @click="tourOpen = true"
-          />
-        </el-tooltip>
-
-        <el-tooltip content="设置" placement="bottom">
-          <el-button
-            id="btn-settings"
-            :icon="Setting"
-            circle
-            plain
-            type="info"
-            @click="
-              initSettings();
-              settingDialogVisible = true;
-            "
-          />
-        </el-tooltip>
-
-        <el-tooltip content="筛选房东" placement="bottom">
-          <el-button
-            v-if="propertyStore.viewMode === 'landlord'"
-            id="btn-filter"
-            :icon="Filter"
-            @click="showFilterDrawer = true"
-            type="primary"
-            plain
-            circle
-          />
-        </el-tooltip>
-
-        <!-- 房源视图筛选按钮 -->
-        <el-tooltip content="筛选房源" placement="bottom">
-          <el-button
-            v-if="propertyStore.viewMode === 'property'"
-            :icon="Filter"
-            @click="showPropertyFilterDrawer = true"
-            id="btn-filter"
-            type="primary"
-            plain
-            circle
-          />
-        </el-tooltip>
-
-        <el-tag type="info" style="margin-left: 12px">
-          共 {{ propertyStore.landlords.length }} 个房东
-        </el-tag>
-      </div>
-    </div>
+    <Toolbar
+      @import-photos="showPhotoUpload = true"
+      @export="handleExport"
+      @import-backup="handleImport"
+      @backup="handleBackup"
+      @tour="tourOpen = true"
+      @settings="initSettings(); settingDialogVisible = true"
+      @filter-landlord="showFilterDrawer = true"
+      @filter-property="showPropertyFilterDrawer = true"
+    />
 
     <!-- 主内容区 -->
     <div class="main-content">
       <!-- 左侧：列表 -->
       <div class="left-panel" id="left-panel">
         <!-- 房东列表 -->
-        <div v-if="propertyStore.viewMode === 'landlord'" class="landlord-list">
-          <div class="list-header">
-            <h3>房东列表 ({{ filteredLandlords.length }})</h3>
-          </div>
-
-          <DynamicScroller
-            ref="virtualListRef"
-            :items="filteredLandlords"
-            :min-item-size="80"
-            key-field="id"
-            class="virtual-scroller"
-            style="height: calc(100vh - 130px)"
-          >
-            <template v-slot="{ item: landlord, index, active }">
-              <DynamicScrollerItem
-                :item="landlord"
-                :active="active"
-                :size-dependencies="[
-                  landlord.wechatNickname,
-                  landlord.phoneNumbers,
-                  landlord.address,
-                  landlord.properties?.length,
-                ]"
-                :data-index="index"
-                class="scroller-item"
-              >
-                <div
-                  :id="'landlord-item-' + landlord.id"
-                  class="property-item"
-                  :class="{
-                    active: propertyStore.focusedLandlordId === landlord.id,
-                  }"
-                  @click="handleLandlordClick(landlord)"
-                >
-                  <div class="landlord-icon">
-                    <LandlordAvatar
-                      :avatar="landlord.avatar"
-                      :photo="
-                        landlord.photos && landlord.photos.length > 0
-                          ? landlord.photos[0].fileName
-                          : undefined
-                      "
-                      :nickname="landlord.wechatNickname"
-                      :size="40"
-                    />
-                  </div>
-
-                  <div class="property-info">
-                    <div
-                      style="display: flex; flex-direction: column; gap: 4px"
-                    >
-                      <div class="info-row">
-                        <span class="nickname" v-if="landlord.wechatNickname">{{
-                          landlord.wechatNickname
-                        }}</span>
-                        <div
-                          style="display: flex; align-items: center; gap: 8px"
-                        >
-                          <span
-                            class="phone"
-                            :class="{ secondary: landlord.wechatNickname }"
-                            >{{ getPhoneDisplay(landlord.phoneNumbers) }}</span
-                          >
-                        </div>
-                      </div>
-
-                      <div class="address">
-                        {{ landlord.address || "未知地址" }}
-                      </div>
-                    </div>
-
-                    <div class="stats">
-                      <div
-                        style="
-                          display: flex;
-                          align-items: center;
-                          gap: 2px;
-                          flex-wrap: wrap;
-                        "
-                      >
-                        <el-tag
-                          size="small"
-                          :type="getLandlordTypeTagType(landlord.landlordType)"
-                          effect="plain"
-                        >
-                          {{ getLandlordTypeLabel(landlord.landlordType) }}
-                        </el-tag>
-                        <el-tag
-                          size="small"
-                          :type="
-                            landlord.contactStatus === 'contacted'
-                              ? 'primary'
-                              : 'info'
-                          "
-                          effect="plain"
-                        >
-                          {{
-                            landlord.contactStatus === "contacted"
-                              ? "已联系"
-                              : "未联系"
-                          }}
-                        </el-tag>
-                        <el-tag
-                          size="small"
-                          type="success"
-                          v-if="landlord.wechatStatus === 'added'"
-                          effect="plain"
-                          >已加WX</el-tag
-                        >
-                        <span style="margin-left: 4px"
-                          >{{ landlord.properties?.length || 0 }} 个房源</span
-                        >
-                      </div>
-                      <div style="display: flex; gap: 2px">
-                        <el-button
-                          type="primary"
-                          link
-                          size="small"
-                          style="margin-left: 0px"
-                          @click.stop="propertyStore.selectLandlord(landlord)"
-                        >
-                          详情
-                        </el-button>
-                        <el-button
-                          :type="landlord.isFavorite ? 'warning' : 'info'"
-                          link
-                          style="margin-left: 0px"
-                          size="small"
-                          :icon="landlord.isFavorite ? StarFilled : Star"
-                          @click.stop="
-                            propertyStore.toggleFavorite(landlord.id)
-                          "
-                        />
-                        <el-popconfirm
-                          title="确定删除此房东？"
-                          @confirm="handleDeleteLandlord(landlord)"
-                          @click.stop
-                        >
-                          <template #reference>
-                            <el-button
-                              type="danger"
-                              link
-                              size="small"
-                              style="margin-left: 0px"
-                              :icon="Delete"
-                              @click.stop
-                            />
-                          </template>
-                        </el-popconfirm>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </DynamicScrollerItem>
-            </template>
-          </DynamicScroller>
-          <el-empty
-            v-if="filteredLandlords.length === 0"
-            description="暂无符合条件的数据"
-            style="
-              height: calc(100vh - 130px);
-              display: flex;
-              align-items: center;
-              justify-content: center;
-            "
-          />
-        </div>
+        <LandlordList
+          v-if="propertyStore.viewMode === 'landlord'"
+          ref="virtualListRef"
+          :map-view-ref="mapViewRef"
+        />
 
         <!-- 房源列表 -->
         <PropertyList
@@ -689,7 +258,7 @@ const showPhotoUpload = ref(false);
       </div>
     </div>
 
-    <!-- 详情抽屉 -->
+    <!-- 房东详情抽屉 -->
     <PropertyDetail />
 
     <!-- 房源详情页 -->
@@ -726,7 +295,7 @@ const showPhotoUpload = ref(false);
       <PhotoUpload />
     </el-dialog>
 
-    <!-- 隐藏的文件输入框 -->
+    <!-- 隐藏的文件输入框，用来恢复备份用的 -->
     <input
       type="file"
       ref="fileInput"
@@ -736,33 +305,14 @@ const showPhotoUpload = ref(false);
     />
 
     <!-- 房东筛选抽屉 -->
-    <el-drawer 
-      v-model="showFilterDrawer" 
-      title="筛选房东" 
+    <el-drawer
+      v-model="showFilterDrawer"
+      title="筛选房东"
       direction="rtl"
       size="400px">
-      <LandlordFilter
-        @apply="handleLandlordFilterApply"
-        @reset="handleLandlordFilterReset"
-      />
+      <LandlordFilter />
     </el-drawer>
 
-    <!-- 删除确认对话框 -->
-    <el-dialog v-model="deleteDialogVisible" title="删除确认" width="450px">
-      <span>确定要删除这个房东吗？此操作无法撤销。</span>
-      <div style="margin-top: 15px">
-        <el-checkbox
-          v-model="deleteWithImages"
-          label="同时删除对应的图片文件（图片会移动到 .trash 文件夹内）"
-        />
-      </div>
-      <template #footer>
-        <span class="dialog-footer">
-          <el-button @click="deleteDialogVisible = false">取消</el-button>
-          <el-button type="danger" @click="confirmDelete"> 删除 </el-button>
-        </span>
-      </template>
-    </el-dialog>
     <!-- 设置对话框 -->
     <el-dialog v-model="settingDialogVisible" title="系统设置" width="500px">
       <el-form :model="amapForm" label-width="100px">
@@ -890,35 +440,6 @@ const showPhotoUpload = ref(false);
   background: #f0f2f5;
 }
 
-.toolbar {
-  height: 60px;
-  background: white;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 24px;
-  z-index: 100;
-}
-
-.logo h1 {
-  font-size: 20px;
-  color: #409eff;
-  margin: 0;
-  white-space: nowrap;
-}
-
-.actions {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.actions .el-button {
-  margin-left: 0;
-  font-size: 16px;
-}
-
 .main-content {
   flex: 1;
   display: flex;
@@ -934,116 +455,6 @@ const showPhotoUpload = ref(false);
   overflow: hidden;
 }
 
-.landlord-list {
-  flex: 1;
-  padding: 16px;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-}
-
-.list-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 12px;
-}
-
-.list-header h3 {
-  font-size: 16px;
-  color: #303133;
-}
-
-.filters {
-  display: flex;
-  gap: 8px;
-}
-
-.property-item {
-  display: flex;
-  gap: 12px;
-  padding: 12px;
-  margin: 0 12px 0 0;
-  background: #f5f7fa;
-  border-radius: 8px;
-  cursor: pointer;
-  transition: all 0.3s;
-  border: 2px solid transparent;
-  min-height: 80px; /* 最小高度,允许动态高度 */
-  box-sizing: border-box;
-}
-
-.property-item:hover {
-  background: #e6f7ff;
-  border: 2px solid #409eff70;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-}
-
-.el-tag {
-  padding: 0 6px;
-}
-
-.property-item.active {
-  border-color: #409eff;
-  background: #e6f7ff;
-}
-
-.property-info {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.info-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.property-info .phone {
-  font-weight: bold;
-  color: #303133;
-  font-size: 14px;
-}
-
-.property-info .phone.secondary {
-  font-size: 12px;
-  color: #909399;
-  font-weight: normal;
-}
-
-.property-info .nickname {
-  font-weight: bold;
-  color: #303133;
-  font-size: 14px;
-}
-
-.property-info .address {
-  font-size: 12px;
-  color: #606266;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.property-info .stats {
-  font-size: 12px;
-  color: #909399;
-  display: flex;
-  justify-content: space-between;
-}
-
-.landlord-icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 50px;
-  height: 50px;
-  background: #f0f9ff;
-  border-radius: 50%;
-  flex-shrink: 0;
-}
-
 .right-panel {
   flex: 1;
   background: white;
@@ -1051,44 +462,5 @@ const showPhotoUpload = ref(false);
   border-radius: 8px;
   overflow: hidden;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-}
-
-/* 虚拟列表滚动条美化 */
-.virtual-scroller :deep(.vue-recycle-scroller__item-wrapper) {
-  overflow-x: hidden !important;
-}
-
-.virtual-scroller :deep(.vue-recycle-scroller__slot) {
-  padding-right: 4px;
-}
-
-/* 动态虚拟列表item间距 */
-.scroller-item {
-  padding-bottom: 12px;
-}
-
-.virtual-scroller :deep(.vue-recycle-scroller__item-view) {
-  margin-bottom: 0;
-}
-
-/* 自定义滚动条样式 */
-.virtual-scroller :deep(*::-webkit-scrollbar) {
-  width: 8px;
-  height: 8px;
-}
-
-.virtual-scroller :deep(*::-webkit-scrollbar-track) {
-  background: #f5f7fa;
-  border-radius: 4px;
-}
-
-.virtual-scroller :deep(*::-webkit-scrollbar-thumb) {
-  background: #c0c4cc;
-  border-radius: 4px;
-  transition: background 0.3s;
-}
-
-.virtual-scroller :deep(*::-webkit-scrollbar-thumb:hover) {
-  background: #909399;
 }
 </style>
