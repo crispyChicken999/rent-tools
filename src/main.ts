@@ -13,6 +13,7 @@ const pinia = createPinia()
 
 app.use(pinia)
 app.use(ElementPlus)
+// @ts-ignore
 app.use(VueVirtualScroller)
 
 app.mount('#app')
