@@ -453,6 +453,7 @@
                         v-model="room.description"
                         type="textarea"
                         :rows="2"
+                        placeholder="输入房源描述..."
                       />
                     </el-form-item>
 

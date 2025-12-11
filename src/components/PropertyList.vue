@@ -79,7 +79,7 @@ const handleBackToLandlord = () => {
   height: 100%;
   display: flex;
   flex-direction: column;
-  background: #f5f7fa;
+  background: #FDFDFD;
 }
 
 .list-scrollbar {
@@ -93,7 +93,7 @@ const handleBackToLandlord = () => {
 
 .property-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  grid-template-columns: repeat(1, 1fr);
   gap: 16px;
   padding-bottom: 16px;
 

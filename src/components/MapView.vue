@@ -1,7 +1,7 @@
 <template>
   <div class="map-wrapper">
     <div id="map-container" ref="mapContainer" class="map-container"></div>
-    <div class="legend">
+    <div class="legend" @contextmenu.prevent>
       <div class="legend-item"><span class="dot green"></span> 一手房东</div>
       <div class="legend-item"><span class="dot yellow"></span> 二手房东</div>
       <div class="legend-item"><span class="dot red"></span> 中介</div>
@@ -964,7 +964,7 @@ defineExpose({
 
 .legend {
   position: absolute;
-  bottom: 20px;
+  top: 20px;
   right: 20px;
   background: white;
   padding: 10px;

@@ -2,13 +2,14 @@
   <el-card class="property-card" shadow="hover">
     <!-- 视频缩略图 -->
     <div class="card-video" @click="handleViewDetail">
-      <video 
+      <video
         v-if="videoUrl"
-        :src="videoUrl" 
+        :src="videoUrl"
         class="video-thumbnail"
         muted
         @mouseenter="handleMouseEnter"
-        @mouseleave="handleMouseLeave" />
+        @mouseleave="handleMouseLeave"
+      />
       <div v-else class="no-video">
         <el-icon :size="40"><VideoCameraFilled /></el-icon>
         <span>暂无视频</span>
@@ -16,40 +17,44 @@
       <div class="play-overlay">
         <el-icon :size="40"><VideoPlay /></el-icon>
       </div>
-      <el-button 
+      <el-button
         class="locate-btn"
-        size="small" 
+        size="small"
         :icon="Location"
         circle
-        @click.stop="handleLocate" />
+        @click.stop="handleLocate"
+      />
     </div>
-    
+
     <!-- 房源信息 -->
     <div class="card-body">
       <h3 class="property-title">
-        {{ data.roomType }} 
-        <span v-if="data.floor" class="floor">· {{ data.floor }}</span>
+        {{ data.roomType }}
+        <span v-if="data.floor" class="floor">· {{ data.floor }}楼</span>
       </h3>
-      <div class="rent">¥{{ data.rent || '--' }} <span class="unit">/ 月</span></div>
+      <div class="rent">
+        ¥{{ data.rent || "--" }} <span class="unit">/ 月</span>
+      </div>
       <div class="address" @click="handleGoToLandlord">
         <el-icon><LocationInformation /></el-icon>
-        {{ data.address || '暂无地址' }}
+        {{ data.address || "暂无地址" }}
       </div>
-      
+
       <!-- 配套设施标签 -->
       <div v-if="data.amenities.length > 0" class="amenities">
-        <el-tag 
+        <el-tag
           v-for="item in displayAmenities"
           :key="item"
           size="small"
-          type="info">
+          type="info"
+        >
           {{ item }}
         </el-tag>
         <el-tag v-if="data.amenities.length > 4" size="small" type="info">
           +{{ data.amenities.length - 4 }}
         </el-tag>
       </div>
-      
+
       <!-- 公共费用 -->
       <div class="fees">
         <span class="fee-item">
@@ -65,13 +70,13 @@
           {{ data.deposit }}
         </span>
       </div>
-      
+
       <!-- 房东信息 -->
       <div class="landlord-info">
         <el-icon><Phone /></el-icon>
         {{ data.landlordPhone }} ({{ getLandlordTypeLabel(data.landlordType) }})
       </div>
-      
+
       <!-- 操作按钮 -->
       <el-button type="primary" @click="handleViewDetail" class="detail-btn">
         查看详情
@@ -81,19 +86,19 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch, onBeforeUnmount } from 'vue';
-import { 
-  VideoPlay, 
-  Location, 
-  LocationInformation, 
-  Phone, 
-  Lightning, 
+import { computed, ref, watch, onBeforeUnmount } from "vue";
+import {
+  VideoPlay,
+  Location,
+  LocationInformation,
+  Phone,
+  Lightning,
   Money,
-  VideoCameraFilled
-} from '@element-plus/icons-vue';
-import type { PropertyViewItem } from '@/types';
-import { LandlordType } from '@/types';
-import { getValidDirectoryHandle, getFileByPath } from '@/utils/fileSystem';
+  VideoCameraFilled,
+} from "@element-plus/icons-vue";
+import type { PropertyViewItem } from "@/types";
+import { LandlordType } from "@/types";
+import { getValidDirectoryHandle, getFileByPath } from "@/utils/fileSystem";
 
 const props = defineProps<{
   data: PropertyViewItem;
@@ -105,7 +110,7 @@ const emit = defineEmits<{
   viewLandlord: [landlordId: string];
 }>();
 
-const videoUrl = ref('');
+const videoUrl = ref("");
 const displayAmenities = computed(() => props.data.amenities.slice(0, 4));
 
 // 加载视频 URL
@@ -116,24 +121,24 @@ const loadVideoUrl = async () => {
   }
 
   if (!props.data.videos[0]?.fileName) {
-    videoUrl.value = '';
+    videoUrl.value = "";
     return;
   }
 
   try {
-    const dirHandle = await getValidDirectoryHandle('userPhotosFolder');
+    const dirHandle = await getValidDirectoryHandle("userPhotosFolder");
     if (!dirHandle) {
-      videoUrl.value = '';
+      videoUrl.value = "";
       return;
     }
-    
+
     const file = await getFileByPath(dirHandle, props.data.videos[0].fileName);
     if (file) {
       videoUrl.value = URL.createObjectURL(file);
     }
   } catch (error) {
-    console.error('加载视频失败:', error);
-    videoUrl.value = '';
+    console.error("加载视频失败:", error);
+    videoUrl.value = "";
   }
 };
 
@@ -148,17 +153,17 @@ onBeforeUnmount(() => {
 });
 
 const handleViewDetail = () => {
-  emit('viewDetail', props.data.propertyId);
+  emit("viewDetail", props.data.propertyId);
 };
 
 const handleLocate = () => {
   if (props.data.gps) {
-    emit('locate', props.data.gps);
+    emit("locate", props.data.gps);
   }
 };
 
 const handleGoToLandlord = () => {
-  emit('viewLandlord', props.data.landlordId);
+  emit("viewLandlord", props.data.landlordId);
 };
 
 const handleMouseEnter = (event: Event) => {
@@ -175,25 +180,25 @@ const handleMouseLeave = (event: Event) => {
 };
 
 const formatWater = (water: { type: string; price?: number }) => {
-  if (water.type === 'civil') return '民用水';
+  if (water.type === "civil") return "民用水";
   if (water.price) return `${water.price}元/吨`;
   return water.type;
 };
 
 const formatElectricity = (electricity: { type: string; price?: number }) => {
-  if (electricity.type === 'civil') return '民用电';
+  if (electricity.type === "civil") return "民用电";
   if (electricity.price) return `${electricity.price}元/度`;
   return electricity.type;
 };
 
 const getLandlordTypeLabel = (type: LandlordType) => {
   const labels: Record<LandlordType, string> = {
-    [LandlordType.FirstHand]: '一手房东',
-    [LandlordType.SecondHand]: '二手房东',
-    [LandlordType.Agent]: '中介',
-    [LandlordType.Other]: '其他',
+    [LandlordType.FirstHand]: "一手房东",
+    [LandlordType.SecondHand]: "二手房东",
+    [LandlordType.Agent]: "中介",
+    [LandlordType.Other]: "其他",
   };
-  return labels[type] || '未知';
+  return labels[type] || "未知";
 };
 </script>
 
@@ -204,9 +209,11 @@ const getLandlordTypeLabel = (type: LandlordType) => {
   height: 100%;
   display: flex;
   flex-direction: column;
+  border-radius: 8px;
+  border: 1px solid #ebeef5;
 
   &:hover {
-    transform: translateY(-4px);
+    border-color: #409eff;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   }
 

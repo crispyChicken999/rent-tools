@@ -349,6 +349,11 @@ const handleViewLandlordFromProperty = (landlordId: string) => {
   // 切换到房东视图并定位到该房东
   propertyStore.setViewMode("landlord");
   propertyStore.setFocusedLandlord(landlordId);
+
+  // 地图自动打开这个房东的详情
+  if (mapViewRef.value) {
+    
+  }
 };
 
 // 房源筛选相关处理
@@ -494,7 +499,7 @@ const showPhotoUpload = ref(false);
       <!-- 左侧：列表 -->
       <div class="left-panel" id="left-panel">
         <!-- 房东列表 -->
-        <div v-if="propertyStore.viewMode === 'landlord'" class="property-list">
+        <div v-if="propertyStore.viewMode === 'landlord'" class="landlord-list">
           <div class="list-header">
             <h3>房东列表 ({{ filteredLandlords.length }})</h3>
             <el-input
@@ -1029,7 +1034,7 @@ const showPhotoUpload = ref(false);
   overflow: hidden;
 }
 
-.property-list {
+.landlord-list {
   flex: 1;
   padding: 16px;
   overflow: hidden;
