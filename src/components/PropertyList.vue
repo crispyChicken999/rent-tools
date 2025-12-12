@@ -60,35 +60,30 @@
     </DynamicScroller>
 
     <!-- 紧凑视图 -->
-    <div v-else class="compact-view">
-      <div
-        v-for="item in filteredProperties"
-        :key="item.propertyId"
-        class="compact-item"
-        @click="handleViewDetail(item.propertyId)"
-      >
-        <video
-          v-if="item.videos && item.videos.length > 0"
-          class="compact-video-bg"
-          :src="getVideoUrl(item.videos[0])"
-          muted
-          loop
-          @mouseenter="playVideo"
-          @mouseleave="pauseVideo"
-        />
-        <div v-else class="compact-no-video">
-          <el-icon :size="40"><VideoCamera /></el-icon>
-          <span>暂无视频</span>
-        </div>
-        <div class="compact-overlay">
-          <div class="compact-rent">¥{{ item.rent || '--' }}</div>
-          <div class="compact-info">
-            <span class="compact-type">{{ item.roomType || '未知' }}</span>
-            <span class="compact-phone">{{ item.landlordPhone }}</span>
-          </div>
-        </div>
-      </div>
-    </div>
+    <DynamicScroller
+      v-else
+      :items="compactRows"
+      :min-item-size="216"
+      class="compact-scroller"
+      key-field="rowIndex"
+    >
+      <template #default="{ item, index, active }">
+        <DynamicScrollerItem
+          :item="item"
+          :active="active"
+          :size-dependencies="[item.items.length]"
+          :data-index="index"
+          class="compact-row"
+        >
+          <CompactPropertyItem
+            v-for="property in item.items"
+            :key="property.propertyId"
+            :data="property"
+            @click="handleViewDetail(property.propertyId)"
+          />
+        </DynamicScrollerItem>
+      </template>
+    </DynamicScroller>
   </div>
 </template>
 
@@ -96,8 +91,8 @@
 import { computed, ref } from "vue";
 import { DynamicScroller, DynamicScrollerItem } from "vue-virtual-scroller";
 import "vue-virtual-scroller/dist/vue-virtual-scroller.css";
-import { VideoCamera } from "@element-plus/icons-vue";
 import PropertyCard from "./PropertyCard.vue";
+import CompactPropertyItem from "./CompactPropertyItem.vue";
 import { usePropertyStore } from "@/stores/property";
 import type { PropertyViewItem } from "@/types";
 
@@ -106,6 +101,21 @@ const propertyStore = usePropertyStore();
 const viewType = ref<'card' | 'compact'>('card');
 
 const filteredProperties = computed(() => propertyStore.filteredProperties);
+
+// 将房源数据三个一组，用于紧凑视图的虚拟列表
+const compactRows = computed(() => {
+  const properties = filteredProperties.value;
+  const rows: { rowIndex: number; items: PropertyViewItem[] }[] = [];
+  
+  for (let i = 0; i < properties.length; i += 3) {
+    rows.push({
+      rowIndex: i / 3,
+      items: properties.slice(i, i + 3),
+    });
+  }
+  
+  return rows;
+});
 
 const averageRent = computed(() => {
   const properties = filteredProperties.value.filter((p) => p.rent);
@@ -146,32 +156,6 @@ const handleViewLandlord = (landlordId: string) => {
 
 const handleBackToLandlord = () => {
   propertyStore.setViewMode("landlord");
-};
-
-// 获取视频URL
-const getVideoUrl = (video: any): string => {
-  if (!video || !video.fileName) return '';
-  // 返回文件路径，视频标签会尝试加载
-  return video.fileName;
-};
-
-// 视频悬停播放
-const playVideo = (event: MouseEvent) => {
-  const video = event.target as HTMLVideoElement;
-  if (video && video.tagName === 'VIDEO') {
-    video.play().catch(() => {
-      // 播放失败时忽略错误
-    });
-  }
-};
-
-// 视频停止播放
-const pauseVideo = (event: MouseEvent) => {
-  const video = event.target as HTMLVideoElement;
-  if (video && video.tagName === 'VIDEO') {
-    video.pause();
-    video.currentTime = 0;
-  }
 };
 </script>
 
@@ -235,92 +219,16 @@ const pauseVideo = (event: MouseEvent) => {
   }
 }
 
-.compact-view {
+.compact-scroller {
   flex: 1;
   padding: 16px;
   overflow-y: auto;
+}
+
+.compact-row {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 16px;
-  align-content: start;
-}
-
-.compact-item {
-  position: relative;
-  height: 200px;
-  border-radius: 8px;
-  overflow: hidden;
-  cursor: pointer;
-  transition: all 0.3s;
-
-  &:hover {
-    transform: translateY(-4px);
-    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.15);
-
-    .compact-info {
-      opacity: 1;
-    }
-  }
-}
-
-.compact-video-bg {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  position: absolute;
-  top: 0;
-  left: 0;
-}
-
-.compact-no-video {
-  width: 100%;
-  height: 100%;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  color: white;
-  font-size: 14px;
-  gap: 8px;
-}
-
-.compact-overlay {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: linear-gradient(to bottom, rgba(0, 0, 0, 0.1) 0%, rgba(0, 0, 0, 0.6) 100%);
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  padding: 12px;
-}
-
-.compact-rent {
-  font-size: 24px;
-  font-weight: 700;
-  color: white;
-  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
-}
-
-.compact-info {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  opacity: 0.7;
-  transition: opacity 0.3s;
-
-  .compact-type {
-    font-size: 14px;
-    color: white;
-    font-weight: 600;
-  }
-
-  .compact-phone {
-    font-size: 12px;
-    color: rgba(255, 255, 255, 0.9);
-  }
+  margin-bottom: 16px;
 }
 </style>

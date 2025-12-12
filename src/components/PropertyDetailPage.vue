@@ -289,7 +289,7 @@
 
             <el-descriptions :column="1" border>
               <el-descriptions-item label="电话">
-                <el-tooltip placement="top" content="点我跳转房东详情页">
+                <el-tooltip placement="right" content="点我跳转房东详情页">
                   <el-link type="primary" @click="handleGoToLandlord">
                     {{ landlordInfo?.phoneNumbers[0] || "--" }}
                   </el-link>
