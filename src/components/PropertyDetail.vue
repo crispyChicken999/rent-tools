@@ -597,26 +597,24 @@
       <!-- 底部操作栏 -->
       <div class="action-buttons">
         <el-button
-          :type="editForm.isFavorite ? 'warning' : 'default'"
-          @click="toggleFavorite"
-          size="large"
-        >
-          <el-icon
-            ><component :is="editForm.isFavorite ? StarFilled : Star"
-          /></el-icon>
-          {{ editForm.isFavorite ? "已收藏" : "收藏" }}
-        </el-button>
-        <el-button
           type="primary"
           @click="saveChanges"
           :loading="saving"
-          size="large"
-          >保存修改</el-button
+          :icon="Check"
+          >保存</el-button
         >
-        <el-button @click="closeDrawer" size="large">关闭</el-button>
+        <el-button
+          type="warning"
+          @click="toggleFavorite"
+          :plain="!editForm.isFavorite"
+          :icon="editForm.isFavorite ? StarFilled : Star"
+        >
+          {{ editForm.isFavorite ? "已收藏" : "收藏" }}
+        </el-button>
+        <el-button @click="closeDrawer" :icon="Close" plain>关闭</el-button>
         <el-button
           type="danger"
-          size="large"
+          :icon="DeleteFilled"
           @click="deleteDialogVisible = true"
           >删除</el-button
         >
@@ -777,6 +775,9 @@ import {
   Star,
   StarFilled,
   VideoCamera,
+  Check,
+  DeleteFilled,
+  Close,
 } from "@element-plus/icons-vue";
 import { usePropertyStore } from "@/stores/property";
 import {
@@ -883,8 +884,14 @@ const avatarUrl = ref("");
 // 监听选中房东变化，填充表单
 watch(
   landlord,
-  async (newVal) => {
+  async (newVal, oldVal) => {
     if (newVal) {
+      // 如果是同一个房东，只更新收藏状态，不重置表单
+      if (oldVal && newVal.id === oldVal.id) {
+        editForm.value.isFavorite = newVal.isFavorite;
+        return;
+      }
+
       // 深拷贝以避免直接修改 store
       const data = JSON.parse(JSON.stringify(newVal));
       // 确保数组存在
@@ -1626,9 +1633,9 @@ const copyToClipboard = async (text: string) => {
 
 const toggleFavorite = async () => {
   try {
+    const newStatus = !editForm.value.isFavorite;
     await propertyStore.toggleLandlordFavorite(editForm.value.id);
-    editForm.value.isFavorite = !editForm.value.isFavorite;
-    ElMessage.success(editForm.value.isFavorite ? "已收藏" : "已取消收藏");
+    ElMessage.success(newStatus ? "已收藏" : "已取消收藏");
   } catch (err) {
     ElMessage.error("操作失败");
   }
@@ -1655,7 +1662,7 @@ const previewImage = (url: string) => {
   padding: 0 20px;
 }
 </style>
-<style scoped>
+<style lang="scss" scoped>
 .landlord-detail {
   padding: 0;
 }
@@ -2011,11 +2018,14 @@ const previewImage = (url: string) => {
   border-top: 1px solid #ebeef5;
   display: flex;
   justify-content: center;
-  gap: 15px;
+  gap: 12px;
   position: sticky;
   bottom: 0;
   background: #fff;
   z-index: 10;
+  .el-button {
+    margin:0;
+  }
 }
 
 .location-info {
