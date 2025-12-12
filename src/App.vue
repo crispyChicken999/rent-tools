@@ -262,7 +262,7 @@ const showPhotoUpload = ref(false);
       direction="rtl"
       size="400px"
     >
-      <PropertyFilter @apply-filter="showPropertyFilterDrawer = false" />
+      <PropertyFilter  v-if="propertyStore.viewMode === 'property'" @apply-filter="showPropertyFilterDrawer = false" />
     </el-drawer>
 
     <!-- 照片上传对话框 -->
@@ -291,7 +291,7 @@ const showPhotoUpload = ref(false);
       direction="rtl"
       size="400px"
     >
-      <LandlordFilter @apply-filter="showFilterDrawer = false" />
+      <LandlordFilter v-if="propertyStore.viewMode === 'landlord'"  @apply-filter="showFilterDrawer = false" />
     </el-drawer>
 
     <!-- 设置对话框 -->
