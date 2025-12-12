@@ -171,6 +171,13 @@ export async function getFileByName(
   fileName: string
 ): Promise<File | null> {
   try {
+    // 检查文件名是否包含路径分隔符
+    if (fileName.includes('/') || fileName.includes('\\')) {
+      // 如果包含路径，使用 getFileByPath
+      return await getFileByPath(dirHandle, fileName);
+    }
+    
+    // 否则直接获取文件
     const fileHandle = await dirHandle.getFileHandle(fileName);
     return await fileHandle.getFile();
   } catch (error) {

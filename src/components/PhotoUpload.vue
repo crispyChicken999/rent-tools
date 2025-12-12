@@ -1,6 +1,67 @@
 <template>
   <div class="photo-upload">
     <div class="upload-section">
+      <!-- 操作说明 -->
+      <el-collapse v-model="activeHelp" class="help-section">
+        <el-collapse-item name="1">
+          <template #title>
+            <div class="help-title">
+              <el-icon><QuestionFilled /></el-icon>
+              <span>操作说明</span>
+            </div>
+          </template>
+          <div class="help-content">
+            <div class="help-step">
+              <h4>📁 第一步：选择照片文件夹</h4>
+              <p>
+                点击"选择照片文件夹"按钮，选择存放招租广告照片的文件夹。系统会记住这个文件夹，下次打开无需重新选择。
+              </p>
+            </div>
+            <div class="help-step">
+              <h4>🔍 第二步：扫描文件夹</h4>
+              <p>
+                点击"扫描文件夹"按钮，系统会自动读取照片的GPS信息，并为每张照片创建房东记录。
+              </p>
+            </div>
+            <div class="help-step">
+              <h4>⚡ 第三步：快速整理</h4>
+              <p>
+                点击"快速整理"按钮，进入快速录入模式。左侧查看照片，右侧输入电话号码。
+              </p>
+              <ul>
+                <li><kbd>Enter</kbd> - 保存并跳转到下一个房东</li>
+                <li><kbd>Shift+Enter</kbd> - 添加新的电话号码输入框</li>
+                <li><kbd>↑/↓</kbd> - 在多个电话输入框之间切换</li>
+                <li>
+                  <kbd>←/→</kbd> 或 <kbd>A/D</kbd> - 切换上一个/下一个房东
+                </li>
+                <li>
+                  <kbd>+/-</kbd> -
+                  循环切换图片缩放模式（正常/竖屏放大/横屏放大）
+                </li>
+                <li><kbd>Delete</kbd> - 删除当前房东（需按两次确认）</li>
+              </ul>
+            </div>
+            <div class="help-step">
+              <h4>💡 小贴士</h4>
+              <ul>
+                <li>
+                  照片必须包含GPS信息才能自动定位，建议使用手机原生相机拍摄
+                </li>
+                <li>
+                  系统不会复制照片文件，只是记录文件位置，请勿移动或删除原始照片
+                </li>
+                <li>
+                  如果房东有多个电话号码，可以使用
+                  <kbd>Shift+Enter</kbd> 添加多个输入框
+                </li>
+                <li>点击绿色"保存"按钮可以保存当前房东信息而不跳转</li>
+              </ul>
+            </div>
+          </div>
+        </el-collapse-item>
+      </el-collapse>
+
       <div v-if="folderPath" class="current-folder">
         当前文件夹：<el-tag type="success">{{ folderPath }}</el-tag>
       </div>
@@ -14,32 +75,35 @@
       />
 
       <div v-else class="button-group">
-        <el-button
-          type="primary"
-          size="large"
-          :icon="Folder"
-          @click="selectFolder"
-          :loading="scanning"
-        >
-          选择照片文件夹
-        </el-button>
+        <!-- 第一行：选择文件夹和扫描按钮 -->
+        <div class="button-row">
+          <el-button
+            type="primary"
+            size="large"
+            :icon="Folder"
+            @click="selectFolder"
+            :loading="scanning"
+          >
+            选择照片文件夹
+          </el-button>
+
+          <el-button
+            v-if="folderPath"
+            type="success"
+            size="large"
+            :icon="Refresh"
+            @click="scanFolder"
+            :loading="scanning"
+          >
+            扫描文件夹
+          </el-button>
+        </div>
 
         <el-button
-          v-if="folderPath"
-          type="success"
-          size="large"
-          :icon="Refresh"
-          @click="scanFolder"
-          :loading="scanning"
-        >
-          扫描文件夹
-        </el-button>
-
-        <el-button
-          v-if="folderPath"
           type="warning"
           size="large"
           :icon="Edit"
+          v-if="folderPath"
           :loading="scanning"
           @click="startQuickOrganize"
         >
@@ -116,9 +180,7 @@
                 class="image-wrapper"
                 :class="{
                   'zoom-portrait-large': imageZoomMode === 1,
-                  'zoom-portrait-small': imageZoomMode === 2,
-                  'zoom-landscape-large': imageZoomMode === 3,
-                  'zoom-landscape-small': imageZoomMode === 4,
+                  'zoom-landscape-large': imageZoomMode === 2,
                 }"
                 :data-zoom-mode="imageZoomMode"
                 @click="() => toggleImageZoom('forward')"
@@ -129,6 +191,10 @@
           </el-carousel>
           <div v-else class="no-image">无照片</div>
           <div class="photo-info">{{ currentImageUrls.length }} 张照片</div>
+          <!-- 缩放模式提示 -->
+          <div class="zoom-mode-indicator" v-if="imageZoomMode > 0">
+            {{ zoomModeText }}
+          </div>
         </div>
 
         <div class="right-panel">
@@ -152,15 +218,17 @@
                   placeholder="输入电话号码"
                   size="large"
                   @keydown.enter.exact.prevent="saveAndNext"
-                  @keydown.ctrl.enter.prevent="addPhoneField"
+                  @keydown.shift.enter.prevent="addPhoneField"
+                  @keydown.up.prevent="focusPrevInput(index)"
+                  @keydown.down.prevent="focusNextInput(index)"
                   clearable
                 >
                   <template #prepend>电话 {{ index + 1 }}</template>
                 </el-input>
               </div>
               <div class="input-tip">
-                Enter 保存 | Ctrl+Enter 添加号码 | A/D或左右箭头 切换 | +/-
-                循环缩放
+                <p>Enter 保存 | Shift+Enter 添加号码 | ↑/↓ 切换输入框</p>
+                <p>A/D或左右箭头 切换房东 | +/- 循环缩放</p>
               </div>
               <div>
                 <el-checkbox v-model="deleteWithImages">
@@ -189,6 +257,14 @@
                   上一个 (←/A)
                 </el-button>
                 <el-button
+                  type="success"
+                  size="large"
+                  @click="saveCurrentLandlord"
+                  :icon="Check"
+                >
+                  保存
+                </el-button>
+                <el-button
                   type="primary"
                   size="large"
                   @click="nextLandlord"
@@ -215,7 +291,14 @@
 <script setup lang="ts">
 import { ref, onMounted, computed, nextTick } from "vue";
 import { ElMessage, ElMessageBox } from "element-plus";
-import { Folder, Refresh, Delete, Edit } from "@element-plus/icons-vue";
+import {
+  Folder,
+  Refresh,
+  Delete,
+  Edit,
+  Check,
+  QuestionFilled,
+} from "@element-plus/icons-vue";
 import {
   isFileSystemAccessSupported,
   requestDirectoryAccess,
@@ -235,6 +318,7 @@ const scanning = ref(false);
 const progress = ref(0);
 const currentFile = ref(0);
 const totalFiles = ref(0);
+const activeHelp = ref<string[]>([]); // 默认折叠帮助面板
 
 const scanResult = ref<{
   total: number;
@@ -391,7 +475,7 @@ const currentPhones = ref<string[]>([""]);
 const deleteWithImages = ref(true);
 const deleteConfirmCount = ref(0);
 const currentImageUrls = ref<string[]>([]);
-// 图片缩放模式: 0=正常, 1=竖屏放大, 2=竖屏缩小, 3=横屏放大, 4=横屏缩小
+// 图片缩放模式: 0=正常展示, 1=竖屏放大, 2=横屏放大
 const imageZoomMode = ref(0);
 const phoneInputRefs = ref<any[]>([]);
 let loadingImagesVersion = 0;
@@ -399,6 +483,18 @@ let loadingImagesVersion = 0;
 const organizeLandlord = computed(() => {
   if (propertyStore.landlords.length === 0) return null;
   return propertyStore.landlords[organizeIndex.value];
+});
+
+// 缩放模式文本提示
+const zoomModeText = computed(() => {
+  switch (imageZoomMode.value) {
+    case 1:
+      return "📐 竖屏放大模式";
+    case 2:
+      return "📐 横屏放大模式";
+    default:
+      return "";
+  }
 });
 
 const loadImagesForCurrentLandlord = async () => {
@@ -472,11 +568,11 @@ const startQuickOrganize = async () => {
 // 图片缩放切换函数，支持正向和反向
 const toggleImageZoom = (direction: "forward" | "backward" = "forward") => {
   if (direction === "forward") {
-    // + 键：正向循环 0 → 1 → 2 → 3 → 4 → 0
-    imageZoomMode.value = (imageZoomMode.value + 1) % 5;
+    // + 键：正向循环 0 → 1 → 2 → 0
+    imageZoomMode.value = (imageZoomMode.value + 1) % 3;
   } else {
-    // - 键：反向循环 0 → 4 → 3 → 2 → 1 → 0
-    imageZoomMode.value = (imageZoomMode.value - 1 + 5) % 5;
+    // - 键：反向循环 0 → 2 → 1 → 0
+    imageZoomMode.value = (imageZoomMode.value - 1 + 3) % 3;
   }
 
   // 使用双重 nextTick + requestAnimationFrame 确保 DOM 和 CSS 样式都完全更新
@@ -592,6 +688,42 @@ const addPhoneField = () => {
   });
 };
 
+// 聚焦到上一个输入框
+const focusPrevInput = (currentIndex: number) => {
+  if (currentIndex > 0) {
+    nextTick(() => {
+      const inputs = phoneInputRefs.value;
+      if (inputs && inputs[currentIndex - 1]) {
+        const prevInput = inputs[currentIndex - 1];
+        if (prevInput.$el) {
+          const inputElement = prevInput.$el.querySelector("input");
+          inputElement?.focus();
+        } else {
+          prevInput.focus();
+        }
+      }
+    });
+  }
+};
+
+// 聚焦到下一个输入框
+const focusNextInput = (currentIndex: number) => {
+  if (currentIndex < currentPhones.value.length - 1) {
+    nextTick(() => {
+      const inputs = phoneInputRefs.value;
+      if (inputs && inputs[currentIndex + 1]) {
+        const nextInput = inputs[currentIndex + 1];
+        if (nextInput.$el) {
+          const inputElement = nextInput.$el.querySelector("input");
+          inputElement?.focus();
+        } else {
+          nextInput.focus();
+        }
+      }
+    });
+  }
+};
+
 const saveAndNext = async () => {
   if (organizeLandlord.value) {
     // 保存电话
@@ -614,6 +746,27 @@ const saveAndNext = async () => {
       nextLandlord();
     } else {
       ElMessage.success("整理完成！");
+    }
+  }
+};
+
+// 只保存当前房东，不跳转
+const saveCurrentLandlord = async () => {
+  if (organizeLandlord.value) {
+    const validPhones = currentPhones.value
+      .map((p) => p.trim())
+      .filter((p) => p);
+
+    if (
+      validPhones.length > 0 ||
+      organizeLandlord.value.phoneNumbers.length > 0
+    ) {
+      await propertyStore.updateLandlordData(organizeLandlord.value.id, {
+        phoneNumbers: validPhones,
+      });
+      ElMessage.success("保存成功");
+    } else {
+      ElMessage.warning("请至少输入一个电话号码");
     }
   }
 };
@@ -711,10 +864,104 @@ function formatProgress(_percentage: number): string {
   border: 1px solid #dcdfe6;
 }
 
+.help-section {
+  margin-bottom: 15px;
+  border: none;
+
+  :deep(.el-collapse-item__header) {
+    background-color: #f5f7fa;
+    border: 1px solid #e4e7ed;
+    border-radius: 4px;
+    padding: 0 12px;
+    font-weight: 500;
+    height: 40px;
+    line-height: 40px;
+  }
+
+  :deep(.el-collapse-item__wrap) {
+    border: none;
+  }
+
+  :deep(.el-collapse-item__content) {
+    padding: 12px;
+    background-color: #fafafa;
+    border: 1px solid #e4e7ed;
+    border-top: none;
+    border-radius: 0 0 4px 4px;
+  }
+}
+
+.help-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #409eff;
+
+  .el-icon {
+    font-size: 16px;
+  }
+}
+
+.help-content {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.help-step {
+  h4 {
+    margin: 0 0 6px 0;
+    color: #303133;
+    font-size: 14px;
+    font-weight: 600;
+  }
+
+  p {
+    margin: 0 0 6px 0;
+    color: #606266;
+    line-height: 1.5;
+    font-size: 13px;
+  }
+
+  ul {
+    margin: 0;
+    padding-left: 18px;
+    color: #606266;
+    line-height: 1.6;
+    font-size: 13px;
+
+    li {
+      margin-bottom: 3px;
+    }
+  }
+
+  kbd {
+    display: inline-block;
+    padding: 1px 5px;
+    font-size: 11px;
+    font-family: "Courier New", monospace;
+    color: #303133;
+    background-color: #f4f4f5;
+    border: 1px solid #d3d4d6;
+    border-radius: 3px;
+    box-shadow: 0 1px 0 rgba(0, 0, 0, 0.1);
+    white-space: nowrap;
+  }
+}
+
 .button-group {
   display: flex;
   flex-direction: column;
   gap: 10px;
+}
+
+.button-row {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 20px;
+  .el-button {
+    flex: 1;
+  }
 }
 
 .el-button {
@@ -775,20 +1022,6 @@ function formatProgress(_percentage: number): string {
   object-fit: unset;
 }
 
-/* 竖屏缩小模式 */
-.image-wrapper.zoom-portrait-small {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-.image-wrapper.zoom-portrait-small .carousel-image {
-  width: auto;
-  height: auto;
-  max-width: 100%;
-  max-height: 100%;
-  object-fit: contain;
-}
-
 /* 横屏放大模式 */
 .image-wrapper.zoom-landscape-large {
   display: block;
@@ -805,20 +1038,6 @@ function formatProgress(_percentage: number): string {
   display: block;
 }
 
-/* 横屏缩小模式 */
-.image-wrapper.zoom-landscape-small {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-.image-wrapper.zoom-landscape-small .carousel-image {
-  width: auto;
-  height: auto;
-  max-width: 100%;
-  max-height: 100%;
-  object-fit: contain;
-}
-
 .photo-info {
   position: absolute;
   bottom: 20px;
@@ -827,6 +1046,31 @@ function formatProgress(_percentage: number): string {
   background: rgba(0, 0, 0, 0.5);
   padding: 5px 10px;
   border-radius: 4px;
+}
+
+.zoom-mode-indicator {
+  position: absolute;
+  bottom: 20px;
+  left: 20px;
+  color: white;
+  background: rgba(67, 160, 71, 0.8);
+  padding: 8px 15px;
+  border-radius: 4px;
+  font-size: 14px;
+  font-weight: 500;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .right-panel {
@@ -858,7 +1102,10 @@ function formatProgress(_percentage: number): string {
 .input-tip {
   font-size: 12px;
   color: #909399;
-  margin-top: 5px;
+  margin: 10px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
 }
 
 .actions {
