@@ -524,7 +524,10 @@ const isFavorite = computed(() => {
 // 切换收藏状态
 const handleToggleFavorite = async () => {
   if (!props.landlordId || !props.propertyId) return;
-  await propertyStore.toggleFavorite(props.landlordId, props.propertyId);
+  await propertyStore.togglePropertyFavorite(
+    props.landlordId,
+    props.propertyId
+  );
 };
 
 // 当前视频URL

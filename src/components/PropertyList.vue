@@ -176,7 +176,7 @@ const handleViewLandlord = (landlordId: string) => {
 };
 
 const handleToggleFavorite = async (landlordId: string, propertyId: string) => {
-  await propertyStore.toggleFavorite(landlordId, propertyId);
+  await propertyStore.togglePropertyFavorite(landlordId, propertyId);
 };
 
 const handleBackToLandlord = () => {

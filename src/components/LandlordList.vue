@@ -258,7 +258,7 @@ const handleViewDetail = (landlord: Landlord) => {
 };
 
 const handleToggleFavorite = (landlordId: string) => {
-  propertyStore.toggleFavorite(landlordId);
+  propertyStore.toggleLandlordFavorite(landlordId);
 };
 
 const handleDelete = (landlord: Landlord) => {

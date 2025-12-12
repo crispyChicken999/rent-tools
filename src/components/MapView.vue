@@ -840,7 +840,7 @@ async function showInfoWindow(marker: any, landlord: Landlord) {
             type: landlord.isFavorite ? "warning" : "default",
             size: "small",
             onClick: async () => {
-              await propertyStore.toggleFavorite(landlord.id);
+              await propertyStore.toggleLandlordFavorite(landlord.id);
               // 重新渲染 InfoWindow 以更新按钮状态
               const updatedLandlord = propertyStore.landlords.find(
                 (l) => l.id === landlord.id

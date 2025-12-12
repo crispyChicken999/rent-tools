@@ -434,9 +434,12 @@ export const usePropertyStore = defineStore("property", () => {
     }
 
     // 应用排序
-    if (propertyFilters.value.sortBy && propertyFilters.value.sortBy !== "default") {
+    if (
+      propertyFilters.value.sortBy &&
+      propertyFilters.value.sortBy !== "default"
+    ) {
       const sortBy = propertyFilters.value.sortBy;
-      
+
       if (sortBy === "rentAsc") {
         // 租金升序
         result = [...result].sort((a, b) => {
@@ -454,11 +457,11 @@ export const usePropertyStore = defineStore("property", () => {
       } else if (sortBy === "roomType") {
         // 按房型排序：单间 < 一房一厅 < 两房一厅 < 三房一厅
         const roomTypeOrder: { [key: string]: number } = {
-          "单间": 1,
-          "一房一厅": 2,
-          "两房一厅": 3,
-          "三房一厅": 4,
-          "四房一厅": 5,
+          单间: 1,
+          一房一厅: 2,
+          两房一厅: 3,
+          三房一厅: 4,
+          四房一厅: 5,
         };
         result = [...result].sort((a, b) => {
           const orderA = roomTypeOrder[a.roomType] || 999;
@@ -945,8 +948,21 @@ export const usePropertyStore = defineStore("property", () => {
     return await findLandlordsByPhone(phone);
   }
 
+  /** 切换房东收藏状态 */
+  async function toggleLandlordFavorite(landlordId: string) {
+    const landlord = landlords.value.find((l) => l.id === landlordId);
+    if (landlord) {
+      await updateLandlordData(landlordId, {
+        isFavorite: !landlord.isFavorite,
+      });
+    }
+  }
+
   /** 切换房源收藏状态 */
-  async function toggleFavorite(landlordId: string, propertyId: string) {
+  async function togglePropertyFavorite(
+    landlordId: string,
+    propertyId: string
+  ) {
     const landlord = landlords.value.find((l) => l.id === landlordId);
     if (!landlord) {
       throw new Error("房东不存在");
@@ -960,9 +976,7 @@ export const usePropertyStore = defineStore("property", () => {
     }
 
     // 深度克隆 properties 数组，确保是纯数据对象
-    const updatedProperties = JSON.parse(
-      JSON.stringify(landlord.properties)
-    );
+    const updatedProperties = JSON.parse(JSON.stringify(landlord.properties));
     updatedProperties[propertyIndex].isFavorite =
       !updatedProperties[propertyIndex].isFavorite;
 
@@ -1447,7 +1461,8 @@ export const usePropertyStore = defineStore("property", () => {
     setFocusedLandlord,
     clearAllData,
     restoreBackup,
-    toggleFavorite,
+    toggleLandlordFavorite,
+    togglePropertyFavorite,
 
     // 房源视图方法
     applyPropertyFilters,

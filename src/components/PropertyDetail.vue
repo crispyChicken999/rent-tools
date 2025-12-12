@@ -46,12 +46,20 @@
                     </div>
                   </div>
                   <!-- 图片丢失的情况 -->
-                  <div v-else-if="editForm.photos.length > 0 && currentPhotoIndex < editForm.photos.length" class="missing-photo">
+                  <div
+                    v-else-if="
+                      editForm.photos.length > 0 &&
+                      currentPhotoIndex < editForm.photos.length
+                    "
+                    class="missing-photo"
+                  >
                     <div class="missing-photo-content">
                       <el-icon :size="64" color="#f56c6c"><Picture /></el-icon>
                       <div class="missing-photo-text">
                         <div>图片已丢失</div>
-                        <div class="missing-photo-filename">{{ editForm.photos[currentPhotoIndex]?.fileName }}</div>
+                        <div class="missing-photo-filename">
+                          {{ editForm.photos[currentPhotoIndex]?.fileName }}
+                        </div>
                       </div>
                       <el-button
                         type="danger"
@@ -506,12 +514,19 @@
                               您的浏览器不支持视频播放
                             </video>
                             <!-- 视频丢失 -->
-                            <div v-else-if="videoLoadErrors.get(video.fileName)" class="video-error">
+                            <div
+                              v-else-if="videoLoadErrors.get(video.fileName)"
+                              class="video-error"
+                            >
                               <div class="video-error-content">
-                                <el-icon :size="48" color="#f56c6c"><VideoCamera /></el-icon>
+                                <el-icon :size="48" color="#f56c6c"
+                                  ><VideoCamera
+                                /></el-icon>
                                 <div class="video-error-text">
                                   <div>视频已丢失</div>
-                                  <div class="video-error-filename">{{ video.fileName }}</div>
+                                  <div class="video-error-filename">
+                                    {{ video.fileName }}
+                                  </div>
                                 </div>
                                 <el-button
                                   type="danger"
@@ -1611,7 +1626,7 @@ const copyToClipboard = async (text: string) => {
 
 const toggleFavorite = async () => {
   try {
-    await propertyStore.toggleFavorite(editForm.value.id);
+    await propertyStore.toggleLandlordFavorite(editForm.value.id);
     editForm.value.isFavorite = !editForm.value.isFavorite;
     ElMessage.success(editForm.value.isFavorite ? "已收藏" : "已取消收藏");
   } catch (err) {
