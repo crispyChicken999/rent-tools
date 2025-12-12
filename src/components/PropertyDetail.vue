@@ -172,6 +172,13 @@
                   </el-radio-group>
                 </el-form-item>
 
+                <el-form-item label="微信昵称">
+                  <el-input
+                    v-model="editForm.wechatNickname"
+                    placeholder="输入微信昵称"
+                  />
+                </el-form-item>
+
                 <el-form-item label="微信状态">
                   <el-radio-group v-model="editForm.wechatStatus">
                     <el-radio
@@ -232,12 +239,6 @@
                       </el-button>
                     </div>
                   </div>
-                </el-form-item>
-                <el-form-item label="微信昵称">
-                  <el-input
-                    v-model="editForm.wechatNickname"
-                    placeholder="输入微信昵称"
-                  />
                 </el-form-item>
 
                 <el-form-item label="联系状态">
@@ -2024,7 +2025,7 @@ const previewImage = (url: string) => {
   background: #fff;
   z-index: 10;
   .el-button {
-    margin:0;
+    margin: 0;
   }
 }
 
