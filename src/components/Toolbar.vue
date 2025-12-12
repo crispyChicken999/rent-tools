@@ -70,7 +70,6 @@
           :icon="QuestionFilled"
           circle
           plain
-          type="info"
           @click="emit('tour')"
         />
       </el-tooltip>
@@ -81,10 +80,13 @@
           :icon="Setting"
           circle
           plain
-          type="info"
           @click="emit('settings')"
         />
       </el-tooltip>
+
+      <el-tag type="info" style="margin-left: 12px">
+        共 {{ propertyStore.landlords.length }} 个房东
+      </el-tag>
 
       <el-tooltip content="筛选房东" placement="bottom">
         <el-button
@@ -110,10 +112,6 @@
           circle
         />
       </el-tooltip>
-
-      <el-tag type="info" style="margin-left: 12px">
-        共 {{ propertyStore.landlords.length }} 个房东
-      </el-tag>
     </div>
   </div>
 </template>
@@ -132,14 +130,14 @@ import { usePropertyStore } from "@/stores/property";
 const propertyStore = usePropertyStore();
 
 const emit = defineEmits<{
-  'import-photos': [];
-  'export': [];
-  'import-backup': [];
-  'backup': [];
-  'tour': [];
-  'settings': [];
-  'filter-landlord': [];
-  'filter-property': [];
+  "import-photos": [];
+  export: [];
+  "import-backup": [];
+  backup: [];
+  tour: [];
+  settings: [];
+  "filter-landlord": [];
+  "filter-property": [];
 }>();
 </script>
 

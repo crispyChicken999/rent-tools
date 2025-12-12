@@ -22,6 +22,33 @@ import { getAddressFromGps } from "@/utils/geocode";
 import { applyGpsOffset } from "@/utils/exif";
 import { getValidDirectoryHandle, moveToTrash } from "@/utils/fileSystem";
 
+/**
+ * 判断点是否在多边形内（射线法）
+ * @param point 要判断的点 {lng, lat}
+ * @param polygon 多边形顶点数组 [{lng, lat}, ...]
+ * @returns 点是否在多边形内
+ */
+function isPointInPolygon(
+  point: { lng: number; lat: number },
+  polygon: { lng: number; lat: number }[]
+): boolean {
+  const { lng: x, lat: y } = point;
+  let inside = false;
+
+  for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+    const xi = polygon[i].lng;
+    const yi = polygon[i].lat;
+    const xj = polygon[j].lng;
+    const yj = polygon[j].lat;
+
+    const intersect =
+      yi > y !== yj > y && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi;
+    if (intersect) inside = !inside;
+  }
+
+  return inside;
+}
+
 export const usePropertyStore = defineStore("property", () => {
   // ========== 状态 ==========
   const landlords = ref<Landlord[]>([]);
@@ -37,6 +64,9 @@ export const usePropertyStore = defineStore("property", () => {
   // 临时筛选状态（用于预览计数）
   const tempLandlordFilters = ref<FilterOptions>({});
   const tempPropertyFilters = ref<PropertyFilterOptions>({});
+
+  // ========== 地图圈选状态 ==========
+  const selectedArea = ref<{ lng: number; lat: number }[] | null>(null); // 圈选的区域坐标数组
 
   // ========== 计算属性 ==========
   const filteredLandlords = computed(() => {
@@ -192,6 +222,14 @@ export const usePropertyStore = defineStore("property", () => {
         return l.phoneNumbers.some(
           (phone) => (phoneCounts.get(phone) || 0) >= 3
         );
+      });
+    }
+
+    // 地图圈选区域筛选
+    if (selectedArea.value && selectedArea.value.length >= 3) {
+      result = result.filter((l) => {
+        if (!l.gps) return false; // 没有GPS的房东不显示
+        return isPointInPolygon(l.gps, selectedArea.value!);
       });
     }
 
@@ -411,6 +449,14 @@ export const usePropertyStore = defineStore("property", () => {
           return orderA - orderB;
         });
       }
+    }
+
+    // 地图圈选区域筛选
+    if (selectedArea.value && selectedArea.value.length >= 3) {
+      result = result.filter((p) => {
+        if (!p.gps) return false; // 没有GPS的房源不显示
+        return isPointInPolygon(p.gps, selectedArea.value!);
+      });
     }
 
     return result;
@@ -1192,6 +1238,11 @@ export const usePropertyStore = defineStore("property", () => {
       filterOptions.keyword = formData.keyword.trim();
     }
 
+    // 排序方式
+    if (formData.sortBy && formData.sortBy !== "default") {
+      filterOptions.sortBy = formData.sortBy;
+    }
+
     propertyFilters.value = filterOptions;
   }
 
@@ -1250,6 +1301,11 @@ export const usePropertyStore = defineStore("property", () => {
       filterOptions.keyword = formData.keyword.trim();
     }
 
+    // 排序方式
+    if (formData.sortBy && formData.sortBy !== "default") {
+      filterOptions.sortBy = formData.sortBy;
+    }
+
     tempPropertyFilters.value = filterOptions;
   }
 
@@ -1262,6 +1318,16 @@ export const usePropertyStore = defineStore("property", () => {
   /** 切换视图模式 */
   function setViewMode(mode: ViewMode) {
     viewMode.value = mode;
+  }
+
+  /** 设置地图圈选区域 */
+  function setSelectedArea(area: { lng: number; lat: number }[] | null) {
+    selectedArea.value = area;
+  }
+
+  /** 清除地图圈选区域 */
+  function clearSelectedArea() {
+    selectedArea.value = null;
   }
 
   return {
@@ -1313,5 +1379,10 @@ export const usePropertyStore = defineStore("property", () => {
     updateTempPropertyFilters,
     clearPropertyFilters,
     setViewMode,
+
+    // 地图圈选相关
+    selectedArea,
+    setSelectedArea,
+    clearSelectedArea,
   };
 });

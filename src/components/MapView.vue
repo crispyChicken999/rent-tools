@@ -44,6 +44,47 @@
         <Location />
       </el-icon>
     </div>
+
+    <!-- 圈选工具按钮 -->
+    <div class="draw-tools">
+      <el-tooltip content="在地图上框选区域筛选房源/房东" placement="left">
+        <div
+          class="draw-button"
+          :class="{ active: isDrawing }"
+          @click="toggleDrawMode"
+          title="圈选区域"
+        >
+          <el-icon :size="20">
+            <svg viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+              <path
+                fill="currentColor"
+                d="M832 512a32 32 0 1 1 64 0v352a32 32 0 0 1-32 32H160a32 32 0 0 1-32-32V160a32 32 0 0 1 32-32h352a32 32 0 0 1 0 64H192v640h640V512z"
+              />
+              <path
+                fill="currentColor"
+                d="m469.952 554.24 52.8-7.552L847.104 222.4a32 32 0 1 0-45.248-45.248L477.44 501.44l-7.552 52.8zm422.4-422.4a96 96 0 0 1 0 135.808l-331.84 331.84a32 32 0 0 1-18.112 9.088l-105.6 15.104a32 32 0 0 1-36.224-36.224l15.104-105.6a32 32 0 0 1 9.024-18.112l331.904-331.84a96 96 0 0 1 135.744 0z"
+              />
+            </svg>
+          </el-icon>
+        </div>
+      </el-tooltip>
+      <el-tooltip
+        v-if="propertyStore.selectedArea"
+        content="清除圈选区域"
+        placement="left"
+      >
+        <div class="draw-button clear" @click="clearDrawing" title="清除圈选">
+          <el-icon :size="20">
+            <svg viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+              <path
+                fill="currentColor"
+                d="M512 64a448 448 0 1 1 0 896 448 448 0 0 1 0-896zm0 393.664L407.936 353.6a38.4 38.4 0 1 0-54.336 54.336L457.664 512 353.6 616.064a38.4 38.4 0 1 0 54.336 54.336L512 566.336 616.064 670.4a38.4 38.4 0 1 0 54.336-54.336L566.336 512 670.4 407.936a38.4 38.4 0 1 0-54.336-54.336L512 457.664z"
+              />
+            </svg>
+          </el-icon>
+        </div>
+      </el-tooltip>
+    </div>
   </div>
 </template>
 
@@ -86,6 +127,11 @@ let highlightedPhones = ref<Set<string>>(new Set()); // 当前高亮的手机号
 let currentInfoWindow: any = null; // 当前打开的 InfoWindow
 const isLocating = ref(false); // 定位中状态
 let userLocationMarker: any = null; // 用户位置标记
+
+// 地图圈选相关
+const isDrawing = ref(false); // 是否正在绘制
+let mouseTool: any = null; // 高德地图鼠标绘制工具
+let drawnPolygon: any = null; // 绘制的多边形对象
 
 // 判断房东是否为疑似二房东（电话出现3次及以上）
 function isSuspectedSecondHand(landlord: Landlord): boolean {
@@ -165,7 +211,7 @@ watch(
   { deep: true }
 );
 
-// 定位用户当前位置
+// 定位用户当前位置（使用高德地图定位）
 const locateUser = async () => {
   if (!map) {
     ElMessage.warning("地图未初始化");
@@ -179,77 +225,116 @@ const locateUser = async () => {
   try {
     const AMap = await loadAMap();
 
-    // 使用浏览器地理位置 API
-    if (!navigator.geolocation) {
-      ElMessage.error("浏览器不支持地理定位");
-      isLocating.value = false;
-      return;
-    }
-
-    navigator.geolocation.getCurrentPosition(
-      async (position) => {
-        const { longitude, latitude } = position.coords;
-        const userPos = [longitude, latitude];
-
-        // 移除旧的用户位置标记
-        if (userLocationMarker) {
-          map.remove(userLocationMarker);
-        }
-
-        // 创建用户位置标记
-        userLocationMarker = new AMap.Marker({
-          position: userPos,
-          icon: new AMap.Icon({
-            size: new AMap.Size(30, 30),
-            image:
-              "data:image/svg+xml;base64," +
-              btoa(`
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="30" height="30">
+    // 使用高德地图的 Geolocation 插件
+    AMap.plugin(["AMap.Geolocation"], () => {
+      const geolocation = new AMap.Geolocation({
+        enableHighAccuracy: true, // 是否使用高精度定位，默认：true
+        timeout: 10000, // 超过10秒后停止定位，默认：5s
+        position: "RB", // 定位按钮的停靠位置（右下角）
+        offset: [10, 20], // 定位按钮与设置的停靠位置的偏移量
+        zoomToAccuracy: true, // 定位成功后是否自动调整地图视野到定位点
+        showCircle: true, // 定位成功后是否显示精度圈
+        showMarker: true, // 定位成功后是否显示定位点
+        showButton: false, // 是否显示定位按钮（我们自己有按钮）
+        markerOptions: {
+          // 自定义定位点样式
+          offset: new AMap.Pixel(-18, -36),
+          content: `
+            <div style="position: relative;">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="36" height="36">
                 <circle cx="12" cy="12" r="10" fill="#409eff" opacity="0.3"/>
                 <circle cx="12" cy="12" r="5" fill="#409eff"/>
                 <circle cx="12" cy="12" r="3" fill="white"/>
               </svg>
-            `),
-            imageSize: new AMap.Size(30, 30),
-          }),
-          offset: new AMap.Pixel(-15, -15),
-          zIndex: 1000,
-          title: "我的位置",
-        });
+            </div>
+          `,
+        },
+        circleOptions: {
+          // 精度圈样式
+          strokeColor: "#409EFF",
+          strokeOpacity: 0.5,
+          strokeWeight: 1,
+          fillColor: "#409EFF",
+          fillOpacity: 0.15,
+        },
+      });
 
-        map.add(userLocationMarker);
+      // 执行定位
+      geolocation.getCurrentPosition((status: string, result: any) => {
+        if (status === "complete") {
+          // 定位成功
+          const { accuracy } = result;
 
-        // 居中并设置合适的缩放级别
-        map.setZoomAndCenter(15, userPos);
+          ElMessage.success(`定位成功！精度：${Math.round(accuracy)}米`);
 
-        ElMessage.success("定位成功");
-        isLocating.value = false;
-      },
-      (error) => {
-        console.error("定位失败:", error);
-        let errorMsg = "定位失败";
+          // 保存用户位置标记的引用（高德自动创建的）
+          userLocationMarker = result.marker;
 
-        switch (error.code) {
-          case error.PERMISSION_DENIED:
-            errorMsg = "用户拒绝了地理位置权限";
-            break;
-          case error.POSITION_UNAVAILABLE:
-            errorMsg = "地理位置信息不可用";
-            break;
-          case error.TIMEOUT:
-            errorMsg = "定位超时";
-            break;
+          isLocating.value = false;
+        } else {
+          // 定位失败
+          console.error("定位失败:", result);
+
+          let errorMsg = "定位失败";
+          if (result.message) {
+            errorMsg = result.message;
+          }
+
+          // 如果高德定位失败，尝试使用浏览器原生定位作为降级方案
+          if (navigator.geolocation) {
+            ElMessage.warning("高德定位失败，尝试使用浏览器定位...");
+
+            navigator.geolocation.getCurrentPosition(
+              (position) => {
+                const { longitude, latitude } = position.coords;
+                const userPos = [longitude, latitude];
+
+                // 移除旧的用户位置标记
+                if (userLocationMarker) {
+                  map.remove(userLocationMarker);
+                }
+
+                // 创建用户位置标记
+                userLocationMarker = new AMap.Marker({
+                  position: userPos,
+                  content: `
+                    <div style="position: relative;">
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="36" height="36">
+                        <circle cx="12" cy="12" r="10" fill="#409eff" opacity="0.3"/>
+                        <circle cx="12" cy="12" r="5" fill="#409eff"/>
+                        <circle cx="12" cy="12" r="3" fill="white"/>
+                      </svg>
+                    </div>
+                  `,
+                  offset: new AMap.Pixel(-18, -36),
+                  zIndex: 1000,
+                  title: "我的位置（浏览器定位）",
+                });
+
+                map.add(userLocationMarker);
+                map.setZoomAndCenter(15, userPos);
+
+                ElMessage.success("浏览器定位成功");
+                isLocating.value = false;
+              },
+              (error) => {
+                console.error("浏览器定位也失败:", error);
+                ElMessage.error(errorMsg);
+                isLocating.value = false;
+              },
+              {
+                enableHighAccuracy: true,
+                timeout: 10000,
+                maximumAge: 0,
+              }
+            );
+          } else {
+            ElMessage.error(errorMsg);
+            isLocating.value = false;
+          }
         }
-
-        ElMessage.error(errorMsg);
-        isLocating.value = false;
-      },
-      {
-        enableHighAccuracy: true,
-        timeout: 10000,
-        maximumAge: 0,
-      }
-    );
+      });
+    });
   } catch (error) {
     console.error("定位出错:", error);
     ElMessage.error("定位出错");
@@ -894,6 +979,125 @@ const focusLandlord = (landlord: Landlord) => {
   }
 };
 
+// ========== 地图圈选相关函数 ==========
+
+// 初始化鼠标绘制工具
+async function initMouseTool() {
+  if (!map || mouseTool) return;
+
+  const AMap = await loadAMap();
+
+  // 加载 MouseTool 插件
+  return new Promise<void>((resolve, reject) => {
+    AMap.plugin(["AMap.MouseTool"], () => {
+      try {
+        // 创建鼠标绘制工具
+        mouseTool = new AMap.MouseTool(map);
+
+        // 监听绘制完成事件
+        mouseTool.on("draw", (e: any) => {
+          const polygon = e.obj;
+          drawnPolygon = polygon;
+
+          // 获取多边形的路径
+          const path = polygon.getPath();
+          const coordinates = path.map((point: any) => ({
+            lng: point.lng,
+            lat: point.lat,
+          }));
+
+          // 保存到 Store
+          propertyStore.setSelectedArea(coordinates);
+
+          // 关闭绘制模式
+          isDrawing.value = false;
+          mouseTool.close(true); // 保留绘制的图形
+
+          // 设置多边形样式
+          polygon.setOptions({
+            strokeColor: "#409EFF",
+            strokeWeight: 2,
+            strokeOpacity: 0.8,
+            fillColor: "#409EFF",
+            fillOpacity: 0.2,
+          });
+
+          ElMessage.success(
+            `已圈选区域，筛选到 ${
+              props.viewMode === "landlord"
+                ? propertyStore.filteredLandlords.length
+                : propertyStore.filteredProperties.length
+            } 条数据`
+          );
+        });
+
+        resolve();
+      } catch (error) {
+        console.error("初始化 MouseTool 失败:", error);
+        reject(error);
+      }
+    });
+  });
+}
+
+// 切换绘制模式
+async function toggleDrawMode() {
+  if (!map) {
+    ElMessage.warning("地图未初始化");
+    return;
+  }
+
+  // 如果已有圈选区域，先清除
+  if (propertyStore.selectedArea) {
+    await clearDrawing();
+  }
+
+  // 初始化鼠标工具
+  if (!mouseTool) {
+    await initMouseTool();
+  }
+
+  if (isDrawing.value) {
+    // 关闭绘制模式
+    isDrawing.value = false;
+    mouseTool.close(true);
+  } else {
+    // 开启绘制模式
+    isDrawing.value = true;
+    mouseTool.polygon({
+      strokeColor: "#409EFF",
+      strokeWeight: 2,
+      strokeOpacity: 0.8,
+      fillColor: "#409EFF",
+      fillOpacity: 0.2,
+    });
+    ElMessage.info({
+      message: "请在地图上绘制圈选区域，点击起点/双击完成绘制",
+      duration: 4000
+    });
+  }
+}
+
+// 清除圈选区域
+async function clearDrawing() {
+  // 清除绘制的多边形
+  if (drawnPolygon && map) {
+    map.remove(drawnPolygon);
+    drawnPolygon = null;
+  }
+
+  // 清除 Store 中的数据
+  propertyStore.clearSelectedArea();
+
+  // 关闭绘制模式
+  if (mouseTool) {
+    mouseTool.close(true);
+  }
+  isDrawing.value = false;
+
+  ElMessage.success("已清除圈选区域");
+}
+
 // ========== 房源视图相关函数 ==========
 
 // 清空房东标记
@@ -1222,7 +1426,7 @@ defineExpose({
       height: 6px;
       transform: rotate(45deg);
       background: white;
-      border: 1px solid #C3C3C3;
+      border: 1px solid #c3c3c3;
       z-index: 999;
       clip-path: polygon(0 0, 100% 0, 100% 100%);
     }
@@ -1332,5 +1536,60 @@ defineExpose({
 
 .location-button .el-icon {
   color: #409eff;
+}
+
+// 圈选工具按钮
+.draw-tools {
+  position: absolute;
+  bottom: 170px;
+  right: 20px;
+  width: 30px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  z-index: 100;
+}
+
+.draw-button {
+  width: 30px;
+  height: 30px;
+  background: white;
+  border-radius: 4px;
+  box-shadow: 0 0 3px rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.3s;
+
+  &:hover {
+    background: #eee;
+  }
+
+  &:active {
+    transform: scale(0.95);
+  }
+
+  &.active {
+    background: #409eff;
+    .el-icon {
+      color: white;
+    }
+  }
+
+  &.clear {
+    background: #f56c6c;
+    .el-icon {
+      color: white;
+    }
+
+    &:hover {
+      background: #f78989;
+    }
+  }
+
+  .el-icon {
+    color: #409eff;
+  }
 }
 </style>
