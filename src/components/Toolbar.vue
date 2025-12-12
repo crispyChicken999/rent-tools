@@ -74,20 +74,7 @@
         />
       </el-tooltip>
 
-      <el-tooltip content="设置" placement="bottom">
-        <el-button
-          id="btn-settings"
-          :icon="Setting"
-          circle
-          plain
-          @click="emit('settings')"
-        />
-      </el-tooltip>
-
-      <el-tag type="info">
-        共 {{ propertyStore.landlords.length }} 个房东
-      </el-tag>
-
+      <!-- 房东视图筛选按钮 -->
       <el-tooltip content="筛选房东" placement="bottom">
         <el-button
           v-if="propertyStore.viewMode === 'landlord'"
@@ -110,6 +97,20 @@
           type="primary"
           plain
           circle
+        />
+      </el-tooltip>
+
+      <el-tag type="info">
+        共 {{ propertyStore.landlords.length }} 个房东
+      </el-tag>
+
+      <el-tooltip content="设置" placement="bottom">
+        <el-button
+          id="btn-settings"
+          :icon="Setting"
+          circle
+          plain
+          @click="emit('settings')"
         />
       </el-tooltip>
     </div>
