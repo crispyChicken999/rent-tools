@@ -107,7 +107,7 @@
 
 <script setup lang="ts">
 import { computed, ref } from "vue";
-import { Grid, List } from "@element-plus/icons-vue";
+import { Grid } from "@element-plus/icons-vue";
 import { DynamicScroller, DynamicScrollerItem } from "vue-virtual-scroller";
 import "vue-virtual-scroller/dist/vue-virtual-scroller.css";
 import PropertyCard from "./PropertyCard.vue";
