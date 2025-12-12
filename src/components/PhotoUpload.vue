@@ -85,7 +85,7 @@
     <!-- 快速整理弹窗 -->
     <el-dialog
       v-model="showQuickOrganize"
-      title="快速整理房东信息 (快捷键: ←/→/A/D 切换, +/- 缩放, Delete 删除, Enter 保存)"
+      title="快速整理房东信息 (快捷键: ←/→/A/D 切换, +/- 循环缩放, Delete 删除, Enter 保存)"
       fullscreen
       :show-close="true"
       @opened="onQuickOrganizeOpened"
@@ -114,8 +114,14 @@
             >
               <div
                 class="image-wrapper"
-                :class="{ 'is-zoomed': isImageZoomed }"
-                @click="toggleImageZoom"
+                :class="{
+                  'zoom-portrait-large': imageZoomMode === 1,
+                  'zoom-portrait-small': imageZoomMode === 2,
+                  'zoom-landscape-large': imageZoomMode === 3,
+                  'zoom-landscape-small': imageZoomMode === 4,
+                }"
+                :data-zoom-mode="imageZoomMode"
+                @click="() => toggleImageZoom('forward')"
               >
                 <img :src="url" class="carousel-image" />
               </div>
@@ -153,11 +159,13 @@
                 </el-input>
               </div>
               <div class="input-tip">
-                Enter 保存 | Ctrl+Enter 添加号码 | A/D或左右箭头 切换
+                Enter 保存 | Ctrl+Enter 添加号码 | A/D或左右箭头 切换 | +/-
+                循环缩放
               </div>
               <div>
                 <el-checkbox v-model="deleteWithImages">
-                  同时删除对应的图片文件（图片会移动到同目录下的 .trash 文件夹中）
+                  同时删除对应的图片文件（图片会移动到同目录下的 .trash
+                  文件夹中）
                 </el-checkbox>
               </div>
             </div>
@@ -277,7 +285,10 @@ onMounted(async () => {
 async function selectFolder() {
   try {
     // 请求读写权限
-    const result = await requestDirectoryAccess('userPhotosFolder', 'readwrite');
+    const result = await requestDirectoryAccess(
+      "userPhotosFolder",
+      "readwrite"
+    );
     dirHandle = result.handle;
     folderPath.value = result.displayPath;
     ElMessage.success("文件夹访问权限已授予（包含写入权限）");
@@ -380,7 +391,8 @@ const currentPhones = ref<string[]>([""]);
 const deleteWithImages = ref(true);
 const deleteConfirmCount = ref(0);
 const currentImageUrls = ref<string[]>([]);
-const isImageZoomed = ref(false);
+// 图片缩放模式: 0=正常, 1=竖屏放大, 2=竖屏缩小, 3=横屏放大, 4=横屏缩小
+const imageZoomMode = ref(0);
 const phoneInputRefs = ref<any[]>([]);
 let loadingImagesVersion = 0;
 
@@ -457,25 +469,63 @@ const startQuickOrganize = async () => {
   await loadImagesForCurrentLandlord();
 };
 
-const toggleImageZoom = () => {
-  isImageZoomed.value = !isImageZoomed.value;
-  nextTick(() => {
-    if (isImageZoomed.value) {
-      // 放大时滚动到中间
-      const wrappers = document.querySelectorAll(".image-wrapper.is-zoomed");
-      wrappers.forEach((wrapper) => {
-        const img = wrapper.querySelector("img");
-        if (img) {
-          // 垂直居中
-          wrapper.scrollTop = (img.scrollHeight - wrapper.clientHeight) / 2;
-        }
-      });
-    }
+// 图片缩放切换函数，支持正向和反向
+const toggleImageZoom = (direction: "forward" | "backward" = "forward") => {
+  if (direction === "forward") {
+    // + 键：正向循环 0 → 1 → 2 → 3 → 4 → 0
+    imageZoomMode.value = (imageZoomMode.value + 1) % 5;
+  } else {
+    // - 键：反向循环 0 → 4 → 3 → 2 → 1 → 0
+    imageZoomMode.value = (imageZoomMode.value - 1 + 5) % 5;
+  }
 
-    if (phoneInputRefs.value.length > 0) {
-      phoneInputRefs.value[0]?.focus();
-    }
+  // 使用双重 nextTick + requestAnimationFrame 确保 DOM 和 CSS 样式都完全更新
+  nextTick(() => {
+    nextTick(() => {
+      // 使用 requestAnimationFrame 确保浏览器完成重排和重绘
+      requestAnimationFrame(() => {
+        // 反向切换时需要等待 CSS transition 动画完成，正向切换时立即执行
+        const delay = direction === "backward" ? 350 : 0;
+
+        setTimeout(() => {
+          if (imageZoomMode.value > 0) {
+            // 放大时滚动到中间
+            const wrappers = document.querySelectorAll(
+              ".image-wrapper[data-zoom-mode]"
+            );
+            wrappers.forEach((wrapper) => {
+              const img = wrapper.querySelector("img");
+              if (img) {
+                // 等待图片完全加载后再计算滚动位置
+                if (img.complete) {
+                  centerImage(wrapper as HTMLElement, img as HTMLImageElement);
+                } else {
+                  img.onload = () => {
+                    centerImage(
+                      wrapper as HTMLElement,
+                      img as HTMLImageElement
+                    );
+                  };
+                }
+              }
+            });
+          }
+
+          if (phoneInputRefs.value.length > 0) {
+            phoneInputRefs.value[0]?.focus();
+          }
+        }, delay); // + 键无延迟，- 键等待 350ms
+      });
+    });
   });
+};
+
+// 居中图片的辅助函数
+const centerImage = (wrapper: HTMLElement, img: HTMLImageElement) => {
+  // 垂直居中
+  wrapper.scrollTop = (img.scrollHeight - wrapper.clientHeight) / 2;
+  // 横向居中
+  wrapper.scrollLeft = (img.scrollWidth - wrapper.clientWidth) / 2;
 };
 
 const onQuickOrganizeOpened = () => {
@@ -495,7 +545,7 @@ const closeQuickOrganize = () => {
 const nextLandlord = () => {
   if (organizeIndex.value < propertyStore.landlords.length - 1) {
     organizeIndex.value++;
-    isImageZoomed.value = false;
+    imageZoomMode.value = 0;
     loadImagesForCurrentLandlord();
     nextTick(() => {
       if (phoneInputRefs.value.length > 0) {
@@ -510,7 +560,7 @@ const nextLandlord = () => {
 const prevLandlord = () => {
   if (organizeIndex.value > 0) {
     organizeIndex.value--;
-    isImageZoomed.value = false;
+    imageZoomMode.value = 0;
     loadImagesForCurrentLandlord();
     nextTick(() => {
       if (phoneInputRefs.value.length > 0) {
@@ -522,11 +572,23 @@ const prevLandlord = () => {
 
 const addPhoneField = () => {
   currentPhones.value.push("");
+  // 使用双重 nextTick 确保 DOM 完全更新后再聚焦
   nextTick(() => {
-    const inputs = phoneInputRefs.value;
-    if (inputs && inputs.length > 0) {
-      inputs[inputs.length - 1]?.focus();
-    }
+    nextTick(() => {
+      const inputs = phoneInputRefs.value;
+      if (inputs && inputs.length > 0) {
+        const lastInput = inputs[inputs.length - 1];
+        if (lastInput) {
+          // 如果是 Element Plus 的 input 组件，需要访问其内部的 input 元素
+          if (lastInput.$el) {
+            const inputElement = lastInput.$el.querySelector("input");
+            inputElement?.focus();
+          } else {
+            lastInput.focus();
+          }
+        }
+      }
+    });
   });
 };
 
@@ -572,7 +634,7 @@ const handleDeleteRequest = async () => {
           organizeIndex.value = propertyStore.landlords.length - 1;
         }
         // 重新加载当前（新的）房东
-        isImageZoomed.value = false;
+        imageZoomMode.value = 0;
         loadImagesForCurrentLandlord();
         nextTick(() => {
           if (phoneInputRefs.value.length > 0) {
@@ -599,9 +661,14 @@ const handleOrganizeKeydown = (e: KeyboardEvent) => {
   } else if (e.key === "Delete") {
     e.preventDefault();
     handleDeleteRequest();
-  } else if (e.key === "+" || e.key === "=" || e.key === "-") {
+  } else if (e.key === "+" || e.key === "=") {
+    // + 键：正向循环
     e.preventDefault();
-    toggleImageZoom();
+    toggleImageZoom("forward");
+  } else if (e.key === "-") {
+    // - 键：反向循环
+    e.preventDefault();
+    toggleImageZoom("backward");
   }
 };
 
@@ -694,10 +761,13 @@ function formatProgress(_percentage: number): string {
   overflow: hidden;
 }
 
-.image-wrapper.is-zoomed {
+/* 竖屏放大模式 */
+.image-wrapper.zoom-portrait-large {
   display: block;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
-.image-wrapper.is-zoomed .carousel-image {
+.image-wrapper.zoom-portrait-large .carousel-image {
   width: 100%;
   height: auto;
   max-width: none;
@@ -705,11 +775,48 @@ function formatProgress(_percentage: number): string {
   object-fit: unset;
 }
 
-.image-wrapper {
-  width: 100%;
-  height: 100%;
+/* 竖屏缩小模式 */
+.image-wrapper.zoom-portrait-small {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.image-wrapper.zoom-portrait-small .carousel-image {
+  width: 50%;
+  height: auto;
+  max-width: 50%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+/* 横屏放大模式 */
+.image-wrapper.zoom-landscape-large {
+  display: block;
   overflow-y: auto;
-  overflow-x: hidden;
+  overflow-x: auto;
+}
+.image-wrapper.zoom-landscape-large .carousel-image {
+  width: auto;
+  height: 100%;
+  max-width: none;
+  max-height: none;
+  object-fit: unset;
+  margin: 0 auto;
+  display: block;
+}
+
+/* 横屏缩小模式 */
+.image-wrapper.zoom-landscape-small {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.image-wrapper.zoom-landscape-small .carousel-image {
+  width: auto;
+  height: 50%;
+  max-width: 100%;
+  max-height: 50%;
+  object-fit: contain;
 }
 
 .photo-info {

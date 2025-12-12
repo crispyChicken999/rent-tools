@@ -28,6 +28,9 @@
         </div>
         <div class="legend-divider"></div>
         <div class="legend-item">
+          <span class="dot star">⭐</span> 收藏房东
+        </div>
+        <div class="legend-item">
           <span class="dot square"></span> 疑似二房东 (方形)
         </div>
         <div class="legend-item">
@@ -1073,7 +1076,7 @@ async function toggleDrawMode() {
     });
     ElMessage.info({
       message: "请在地图上绘制圈选区域，点击起点/双击完成绘制",
-      duration: 4000
+      duration: 4000,
     });
   }
 }
@@ -1506,6 +1509,18 @@ defineExpose({
     border-width: 1px;
     border-color: #ff4444;
   }
+}
+
+.dot.star {
+  border-radius: 0;
+  background: transparent;
+  border: none;
+  font-size: 12px;
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  line-height: 1;
+  text-indent: -3px;
 }
 
 .location-button {
