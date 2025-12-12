@@ -188,6 +188,7 @@ export interface RoomInfo {
   videos: Video[]; // 视频列表
 
   available?: boolean; // 是否可租
+  isFavorite?: boolean; // 是否收藏（房源级别）
 }
 
 // ========== 常量定义 ==========
@@ -299,6 +300,7 @@ export interface PropertyFilterOptions {
   amenities?: string[]; // 配套设施：空调、洗衣机等
   floor?: string; // 楼层：低楼层(<3)、中楼层(3-7)、高楼层(>7)
   available?: boolean; // 是否可租
+  favoriteStatus?: "all" | "favorite" | "unfavorite"; // 收藏状态
 
   // 房东维度（关联筛选）
   landlordType?: LandlordType[]; // 房东类型
@@ -349,6 +351,9 @@ export interface PropertyViewItem {
 
   // 照片（使用房东主图）
   photo?: Photo;
+
+  // 收藏状态（从房东继承）
+  isFavorite?: boolean;
 }
 
 /** 视图模式 */

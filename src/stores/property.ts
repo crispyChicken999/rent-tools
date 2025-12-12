@@ -286,6 +286,9 @@ export const usePropertyStore = defineStore("property", () => {
 
           // 照片（使用房东主图）
           photo: landlord.photos[0],
+
+          // 收藏状态（房源自身的收藏状态）
+          isFavorite: property.isFavorite,
         });
       });
     });
@@ -401,6 +404,20 @@ export const usePropertyStore = defineStore("property", () => {
           }
           return true;
         }
+        return true;
+      });
+    }
+
+    // 应用收藏状态筛选
+    if (
+      propertyFilters.value.favoriteStatus &&
+      propertyFilters.value.favoriteStatus !== "all"
+    ) {
+      result = result.filter((p) => {
+        if (propertyFilters.value.favoriteStatus === "favorite")
+          return p.isFavorite === true;
+        if (propertyFilters.value.favoriteStatus === "unfavorite")
+          return !p.isFavorite;
         return true;
       });
     }
@@ -715,6 +732,20 @@ export const usePropertyStore = defineStore("property", () => {
       });
     }
 
+    // 应用收藏状态筛选
+    if (
+      previewFilters.favoriteStatus &&
+      previewFilters.favoriteStatus !== "all"
+    ) {
+      result = result.filter((p) => {
+        if (previewFilters.favoriteStatus === "favorite")
+          return p.isFavorite === true;
+        if (previewFilters.favoriteStatus === "unfavorite")
+          return !p.isFavorite;
+        return true;
+      });
+    }
+
     if (previewFilters.keyword) {
       const keyword = previewFilters.keyword.toLowerCase();
       result = result.filter(
@@ -914,12 +945,30 @@ export const usePropertyStore = defineStore("property", () => {
     return await findLandlordsByPhone(phone);
   }
 
-  /** 切换收藏状态 */
-  async function toggleFavorite(id: string) {
-    const landlord = landlords.value.find((l) => l.id === id);
-    if (landlord) {
-      await updateLandlordData(id, { isFavorite: !landlord.isFavorite });
+  /** 切换房源收藏状态 */
+  async function toggleFavorite(landlordId: string, propertyId: string) {
+    const landlord = landlords.value.find((l) => l.id === landlordId);
+    if (!landlord) {
+      throw new Error("房东不存在");
     }
+
+    const propertyIndex = landlord.properties.findIndex(
+      (p) => p.id === propertyId
+    );
+    if (propertyIndex === -1) {
+      throw new Error("房源不存在");
+    }
+
+    // 深度克隆 properties 数组，确保是纯数据对象
+    const updatedProperties = JSON.parse(
+      JSON.stringify(landlord.properties)
+    );
+    updatedProperties[propertyIndex].isFavorite =
+      !updatedProperties[propertyIndex].isFavorite;
+
+    await updateLandlordData(landlordId, {
+      properties: updatedProperties,
+    });
   }
 
   /** 合并房东记录 */
@@ -1254,6 +1303,11 @@ export const usePropertyStore = defineStore("property", () => {
       filterOptions.keyword = formData.keyword.trim();
     }
 
+    // 收藏状态
+    if (formData.favoriteStatus && formData.favoriteStatus !== "all") {
+      filterOptions.favoriteStatus = formData.favoriteStatus;
+    }
+
     // 排序方式
     if (formData.sortBy && formData.sortBy !== "default") {
       filterOptions.sortBy = formData.sortBy;
@@ -1315,6 +1369,11 @@ export const usePropertyStore = defineStore("property", () => {
 
     if (formData.keyword && formData.keyword.trim()) {
       filterOptions.keyword = formData.keyword.trim();
+    }
+
+    // 收藏状态
+    if (formData.favoriteStatus && formData.favoriteStatus !== "all") {
+      filterOptions.favoriteStatus = formData.favoriteStatus;
     }
 
     // 排序方式

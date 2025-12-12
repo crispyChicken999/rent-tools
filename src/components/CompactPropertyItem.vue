@@ -20,7 +20,19 @@
     <div class="compact-overlay">
       <div class="compact-rent">¥{{ data.rent || "--" }}</div>
       <div class="compact-info">
-        <span class="compact-type">{{ data.roomType || "未知" }}</span>
+        <div class="compact-row">
+          <span class="compact-type">{{ data.roomType || "未知" }}</span>
+          <el-button
+            class="compact-favorite-btn"
+            :type="isFavorite ? 'warning' : 'info'"
+            size="small"
+            plain
+            circle
+            :icon="isFavorite ? StarFilled : Star"
+            @click.stop="handleToggleFavorite"
+          >
+          </el-button>
+        </div>
         <span class="compact-phone">{{ data.landlordPhone }}</span>
       </div>
     </div>
@@ -28,8 +40,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, onBeforeUnmount } from "vue";
-import { VideoCameraFilled } from "@element-plus/icons-vue";
+import { ref, watch, onBeforeUnmount, computed } from "vue";
+import { VideoCameraFilled, Star, StarFilled } from "@element-plus/icons-vue";
 import type { PropertyViewItem } from "@/types";
 import { getValidDirectoryHandle, getFileByPath } from "@/utils/fileSystem";
 
@@ -39,10 +51,12 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   click: [];
+  toggleFavorite: [landlordId: string, propertyId: string];
 }>();
 
 const videoRef = ref<HTMLVideoElement>();
 const videoUrl = ref("");
+const isFavorite = computed(() => props.data.isFavorite || false);
 
 // 加载视频 URL（使用 blob）
 const loadVideoUrl = async () => {
@@ -102,6 +116,10 @@ const handleMouseLeave = () => {
     videoRef.value.pause();
     videoRef.value.currentTime = 0;
   }
+};
+
+const handleToggleFavorite = () => {
+  emit("toggleFavorite", props.data.landlordId, props.data.propertyId);
 };
 </script>
 
@@ -170,7 +188,7 @@ const handleMouseLeave = () => {
 .compact-rent {
   font-size: 24px;
   font-weight: 700;
-  color: #FFF;
+  color: #fff;
   text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
   transition: all 0.3s;
 }
@@ -182,10 +200,22 @@ const handleMouseLeave = () => {
   opacity: 0.7;
   transition: opacity 0.3s;
 
+  .compact-row {
+    display: flex;
+    align-items: center;
+  }
   .compact-type {
     font-size: 14px;
     color: white;
     font-weight: 600;
+  }
+
+  .compact-favorite-btn {
+    font-size: 12px;
+    background: none;
+    border: none;
+    padding: 0;
+    height: fit-content;
   }
 
   .compact-phone {

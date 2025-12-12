@@ -75,6 +75,15 @@
           </el-radio-group>
         </el-form-item>
 
+        <!-- 收藏状态 -->
+        <el-form-item label="收藏状态">
+          <el-radio-group v-model="filterForm.favoriteStatus">
+            <el-radio label="all">全部</el-radio>
+            <el-radio label="favorite">收藏</el-radio>
+            <el-radio label="unfavorite">未收藏</el-radio>
+          </el-radio-group>
+        </el-form-item>
+
         <!-- 房东类型 -->
         <el-form-item label="房东类型">
           <el-select
@@ -216,6 +225,7 @@ interface FilterFormData {
   rentMax?: number;
   amenities: string[];
   availableStatus: "all" | boolean;
+  favoriteStatus: "all" | "favorite" | "unfavorite";
   landlordType: LandlordType[];
   depositMethod: string[];
   waterType: string;
@@ -232,6 +242,7 @@ const filterForm = reactive<FilterFormData>({
   rentMax: undefined,
   amenities: [],
   availableStatus: "all",
+  favoriteStatus: "all",
   landlordType: [],
   depositMethod: [],
   waterType: "all",
@@ -253,7 +264,7 @@ watch(
 
 const handleApply = () => {
   propertyStore.applyPropertyFilters({ ...filterForm });
-  emit('applyFilter');
+  emit("applyFilter");
 };
 
 const handleReset = () => {
@@ -262,6 +273,7 @@ const handleReset = () => {
   filterForm.rentMax = undefined;
   filterForm.amenities = [];
   filterForm.availableStatus = "all";
+  filterForm.favoriteStatus = "all";
   filterForm.landlordType = [];
   filterForm.depositMethod = [];
   filterForm.waterType = "all";

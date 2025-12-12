@@ -71,6 +71,7 @@
             @view-detail="handleViewDetail"
             @locate="handleCardLocate"
             @view-landlord="handleViewLandlord"
+            @toggle-favorite="handleToggleFavorite"
             @click="handleCardClick(item)"
           />
         </DynamicScrollerItem>
@@ -98,6 +99,7 @@
             :key="property.propertyId"
             :data="property"
             @click="handleViewDetail(property.propertyId)"
+            @toggle-favorite="handleToggleFavorite"
           />
         </DynamicScrollerItem>
       </template>
@@ -171,6 +173,10 @@ const handleViewLandlord = (landlordId: string) => {
 
   // 也通知父组件
   emit("viewLandlord", landlordId);
+};
+
+const handleToggleFavorite = async (landlordId: string, propertyId: string) => {
+  await propertyStore.toggleFavorite(landlordId, propertyId);
 };
 
 const handleBackToLandlord = () => {

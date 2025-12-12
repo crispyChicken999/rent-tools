@@ -24,6 +24,14 @@
         circle
         @click.stop="handleLocate"
       />
+      <el-button
+        class="favorite-btn"
+        size="small"
+        :icon="isFavorite ? StarFilled : Star"
+        circle
+        :type="isFavorite ? 'warning' : 'default'"
+        @click.stop="handleToggleFavorite"
+      />
     </div>
 
     <!-- 房源信息 -->
@@ -95,6 +103,8 @@ import {
   Lightning,
   Money,
   VideoCameraFilled,
+  Star,
+  StarFilled,
 } from "@element-plus/icons-vue";
 import type { PropertyViewItem } from "@/types";
 import { LandlordType } from "@/types";
@@ -108,10 +118,12 @@ const emit = defineEmits<{
   viewDetail: [propertyId: string];
   locate: [gps: { lng: number; lat: number }];
   viewLandlord: [landlordId: string];
+  toggleFavorite: [landlordId: string, propertyId: string];
 }>();
 
 const videoUrl = ref("");
 const displayAmenities = computed(() => props.data.amenities.slice(0, 4));
+const isFavorite = computed(() => props.data.isFavorite || false);
 
 // 加载视频 URL
 const loadVideoUrl = async () => {
@@ -166,6 +178,10 @@ const handleGoToLandlord = () => {
   emit("viewLandlord", props.data.landlordId);
 };
 
+const handleToggleFavorite = () => {
+  emit("toggleFavorite", props.data.landlordId, props.data.propertyId);
+};
+
 const handleMouseEnter = (event: Event) => {
   const video = event.target as HTMLVideoElement;
   video.play().catch(() => {
@@ -183,7 +199,7 @@ const formatWater = (water: { type: string; price?: number }) => {
   if (water.type === "civil") return "3元/吨（民用水）";
   if (water.type === "5.0") return "5元/吨";
   if (water.price) return `${water.price}元/吨`;
-  return '未设置'
+  return "未设置";
 };
 
 const formatElectricity = (electricity: { type: string; price?: number }) => {
@@ -192,7 +208,7 @@ const formatElectricity = (electricity: { type: string; price?: number }) => {
   if (electricity.type === "1.0") return "1元/度";
   if (electricity.type === "1.5") return "1.5元/度";
   if (electricity.price) return `${electricity.price}元/度`;
-  return '未设置'
+  return "未设置";
 };
 
 const getLandlordTypeLabel = (type: LandlordType) => {
@@ -287,6 +303,14 @@ const getLandlordTypeLabel = (type: LandlordType) => {
     &:hover {
       background: white;
     }
+  }
+
+  .favorite-btn {
+    position: absolute;
+    top: 8px;
+    right: 48px;
+    backdrop-filter: blur(4px);
+    z-index: 1;
   }
 }
 

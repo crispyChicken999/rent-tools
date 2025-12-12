@@ -310,6 +310,13 @@
     <template #footer>
       <div class="dialog-footer">
         <div class="footer-left">
+          <el-button
+            :icon="isFavorite ? StarFilled : Star"
+            :type="isFavorite ? 'warning' : 'default'"
+            @click="handleToggleFavorite"
+          >
+            {{ isFavorite ? "已收藏" : "收藏" }}
+          </el-button>
           <el-button @click="handleGoToLandlord">
             <el-icon><EditPen /></el-icon>
             编辑房源信息
@@ -349,6 +356,8 @@ import {
   User,
   VideoCamera,
   Loading,
+  Star,
+  StarFilled,
 } from "@element-plus/icons-vue";
 import { usePropertyStore } from "@/stores/property";
 import {
@@ -506,6 +515,17 @@ const feesModified = computed(() => {
     formData.value.deposit !== original.deposit
   );
 });
+
+// 是否收藏
+const isFavorite = computed(() => {
+  return currentProperty.value?.isFavorite || false;
+});
+
+// 切换收藏状态
+const handleToggleFavorite = async () => {
+  if (!props.landlordId || !props.propertyId) return;
+  await propertyStore.toggleFavorite(props.landlordId, props.propertyId);
+};
 
 // 当前视频URL
 const currentVideoUrl = ref("");
