@@ -84,7 +84,7 @@
         />
       </el-tooltip>
 
-      <el-tag type="info" style="margin-left: 12px">
+      <el-tag type="info">
         共 {{ propertyStore.landlords.length }} 个房东
       </el-tag>
 

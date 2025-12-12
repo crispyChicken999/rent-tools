@@ -8,8 +8,26 @@
       </div>
       <div class="header-right">
         <el-radio-group v-model="viewType" size="small">
-          <el-radio-button label="card">卡片视图</el-radio-button>
-          <el-radio-button label="compact">紧凑视图</el-radio-button>
+          <el-tooltip content="卡片视图" placement="top">
+            <el-radio-button label="card">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="12"
+                height="12"
+                viewBox="2 2 20 20"
+              >
+                <path
+                  fill="currentColor"
+                  d="M3 18h18v-2H3zm0-5h18v-2H3zm0-7v2h18V6z"
+                />
+              </svg>
+            </el-radio-button>
+          </el-tooltip>
+          <el-tooltip content="紧凑视图" placement="top">
+            <el-radio-button label="compact">
+              <el-icon><Grid /></el-icon>
+            </el-radio-button>
+          </el-tooltip>
         </el-radio-group>
       </div>
     </div>
@@ -89,6 +107,7 @@
 
 <script setup lang="ts">
 import { computed, ref } from "vue";
+import { Grid, List } from "@element-plus/icons-vue";
 import { DynamicScroller, DynamicScrollerItem } from "vue-virtual-scroller";
 import "vue-virtual-scroller/dist/vue-virtual-scroller.css";
 import PropertyCard from "./PropertyCard.vue";
@@ -98,7 +117,7 @@ import type { PropertyViewItem } from "@/types";
 
 const propertyStore = usePropertyStore();
 
-const viewType = ref<'card' | 'compact'>('card');
+const viewType = ref<"card" | "compact">("card");
 
 const filteredProperties = computed(() => propertyStore.filteredProperties);
 
@@ -106,14 +125,14 @@ const filteredProperties = computed(() => propertyStore.filteredProperties);
 const compactRows = computed(() => {
   const properties = filteredProperties.value;
   const rows: { rowIndex: number; items: PropertyViewItem[] }[] = [];
-  
+
   for (let i = 0; i < properties.length; i += 3) {
     rows.push({
       rowIndex: i / 3,
       items: properties.slice(i, i + 3),
     });
   }
-  
+
   return rows;
 });
 

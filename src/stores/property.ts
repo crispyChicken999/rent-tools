@@ -608,6 +608,14 @@ export const usePropertyStore = defineStore("property", () => {
       });
     }
 
+    // 地图圈选区域筛选
+    if (selectedArea.value && selectedArea.value.length >= 3) {
+      result = result.filter((l) => {
+        if (!l.gps) return false;
+        return isPointInPolygon(l.gps, selectedArea.value!);
+      });
+    }
+
     return result.length;
   });
 
@@ -715,6 +723,14 @@ export const usePropertyStore = defineStore("property", () => {
           p.description?.toLowerCase().includes(keyword) ||
           p.landlordPhone.includes(keyword)
       );
+    }
+
+    // 地图圈选区域筛选
+    if (selectedArea.value && selectedArea.value.length >= 3) {
+      result = result.filter((p) => {
+        if (!p.gps) return false;
+        return isPointInPolygon(p.gps, selectedArea.value!);
+      });
     }
 
     return result.length;

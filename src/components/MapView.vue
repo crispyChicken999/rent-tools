@@ -1410,7 +1410,7 @@ defineExpose({
     border-radius: 4px;
     box-shadow: 0 0 3px #00000080;
     font-size: 12px;
-    min-width: 180px;
+    min-width: 140px;
     opacity: 0;
     visibility: hidden;
     transform: translateY(-10px);
@@ -1451,7 +1451,6 @@ defineExpose({
 }
 
 .legend-tip {
-  text-align: center;
   color: #409eff;
   font-size: 12px;
   margin-top: 4px;
