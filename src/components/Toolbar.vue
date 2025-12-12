@@ -64,16 +64,6 @@
         />
       </el-tooltip>
 
-      <el-tooltip content="使用说明" placement="bottom">
-        <el-button
-          id="btn-tour"
-          :icon="QuestionFilled"
-          circle
-          plain
-          @click="emit('tour')"
-        />
-      </el-tooltip>
-
       <!-- 房东视图筛选按钮 -->
       <el-tooltip content="筛选房东" placement="bottom">
         <el-button
@@ -103,6 +93,16 @@
       <el-tag type="info">
         共 {{ propertyStore.landlords.length }} 个房东
       </el-tag>
+
+      <el-tooltip content="使用说明" placement="bottom">
+        <el-button
+          id="btn-tour"
+          :icon="QuestionFilled"
+          circle
+          plain
+          @click="emit('tour')"
+        />
+      </el-tooltip>
 
       <el-tooltip content="设置" placement="bottom">
         <el-button
