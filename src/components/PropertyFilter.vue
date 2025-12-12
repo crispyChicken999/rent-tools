@@ -169,6 +169,16 @@
             </template>
           </el-input>
         </el-form-item>
+
+        <!-- 排序方式 -->
+        <el-form-item label="排序方式">
+          <el-radio-group v-model="filterForm.sortBy">
+            <el-radio label="default">默认</el-radio>
+            <el-radio label="rentAsc">租金↑</el-radio>
+            <el-radio label="rentDesc">租金↓</el-radio>
+            <el-radio label="roomType">房型</el-radio>
+          </el-radio-group>
+        </el-form-item>
       </el-form>
     </el-scrollbar>
 
@@ -213,6 +223,7 @@ interface FilterFormData {
   waterPriceMax?: number;
   electricityPriceMax?: number;
   keyword: string;
+  sortBy: "default" | "rentAsc" | "rentDesc" | "roomType";
 }
 
 const filterForm = reactive<FilterFormData>({
@@ -228,6 +239,7 @@ const filterForm = reactive<FilterFormData>({
   waterPriceMax: undefined,
   electricityPriceMax: undefined,
   keyword: "",
+  sortBy: "default",
 });
 
 // 监听表单变化，实时更新预览计数
@@ -257,6 +269,7 @@ const handleReset = () => {
   filterForm.waterPriceMax = undefined;
   filterForm.electricityPriceMax = undefined;
   filterForm.keyword = "";
+  filterForm.sortBy = "default";
 
   propertyStore.clearPropertyFilters();
 };

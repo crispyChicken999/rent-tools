@@ -2,22 +2,40 @@
   <div class="map-wrapper">
     <div id="map-container" ref="mapContainer" class="map-container"></div>
     <div class="legend" @contextmenu.prevent>
-      <div class="legend-item"><span class="dot green"></span> 一手房东</div>
-      <div class="legend-item"><span class="dot yellow"></span> 二手房东</div>
-      <div class="legend-item"><span class="dot red"></span> 中介</div>
-      <div class="legend-item"><span class="dot gray"></span> 其他</div>
-      <div class="legend-item">
-        <span class="dot bright"></span> 已联系 (亮色)
+      <div class="legend-trigger">
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="18"
+          height="18"
+          viewBox="0 0 24 24"
+        >
+          <path
+            fill="currentColor"
+            d="M11 18h2v-2h-2zm1-16C6.48 2 2 6.48 2 12s4.48 10 10 10s10-4.48 10-10S17.52 2 12 2m0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8s8 3.59 8 8s-3.59 8-8 8m0-14c-2.21 0-4 1.79-4 4h2c0-1.1.9-2 2-2s2 .9 2 2c0 2-3 1.75-3 5h2c0-2.25 3-2.5 3-5c0-2.21-1.79-4-4-4"
+          />
+        </svg>
       </div>
-      <div class="legend-item">
-        <span class="dot dark"></span> 未联系 (暗色)
+      <div class="legend-content">
+        <div class="legend-item"><span class="dot green"></span> 一手房东</div>
+        <div class="legend-item"><span class="dot yellow"></span> 二手房东</div>
+        <div class="legend-item"><span class="dot red"></span> 中介</div>
+        <div class="legend-item"><span class="dot gray"></span> 其他</div>
+        <div class="legend-item">
+          <span class="dot bright"></span> 已联系 (亮色)
+        </div>
+        <div class="legend-item">
+          <span class="dot dark"></span> 未联系 (暗色)
+        </div>
+        <div class="legend-divider"></div>
+        <div class="legend-item">
+          <span class="dot square"></span> 疑似二房东 (方形)
+        </div>
+        <div class="legend-item">
+          <span class="dot square highlighted"></span> 电话重复出现
+        </div>
+        <div class="legend-divider"></div>
+        <div class="legend-tip">💡 右键地图创建房东</div>
       </div>
-      <div class="legend-divider"></div>
-      <div class="legend-item">
-        <span class="dot square"></span> 疑似二房东 (方形)
-      </div>
-      <div class="legend-divider"></div>
-      <div class="legend-tip">💡 右键地图创建房东</div>
     </div>
 
     <!-- 定位按钮 -->
@@ -510,11 +528,9 @@ function getMarkerStyle(landlord: Landlord) {
     color: baseColor,
     opacity: isContacted ? 1.0 : 0.6,
     borderColor: isHighlighted ? "#FF4444" : isFavorite ? "#E6A23C" : "#FFFFFF", // 高亮时显示红色边框
-    borderWidth: isHighlighted
-      ? "4px"
-      : isFavorite
+    borderWidth: isFavorite
       ? "3px"
-      : isContacted
+      : isContacted || isHighlighted
       ? "2px"
       : "1px",
     scale: isFavorite ? 1.4 : isContacted ? 1.2 : 1.0, // 高亮时不放大,保持原始大小
@@ -1157,14 +1173,67 @@ defineExpose({
 
 .legend {
   position: absolute;
-  top: 20px;
+  bottom: 130px;
   right: 20px;
-  background: white;
-  padding: 10px;
-  border-radius: 4px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-  font-size: 12px;
   z-index: 100;
+
+  .legend-trigger {
+    width: 30px;
+    height: 30px;
+    background: white;
+    border-radius: 4px;
+    box-shadow: 0 0 3px rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    font-weight: bold;
+    color: #409eff;
+    cursor: help;
+    transition: all 0.3s;
+
+    &:hover {
+      background: #eee;
+    }
+  }
+
+  .legend-content {
+    position: absolute;
+    bottom: 3px;
+    right: 40px;
+    background: white;
+    padding: 10px;
+    border-radius: 4px;
+    box-shadow: 0 0 3px #00000080;
+    font-size: 12px;
+    min-width: 180px;
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(-10px);
+    transition: all 0.3s;
+    pointer-events: none;
+
+    &::after {
+      content: "";
+      position: absolute;
+      bottom: 10px;
+      right: -4px;
+      width: 6px;
+      height: 6px;
+      transform: rotate(45deg);
+      background: white;
+      border: 1px solid #C3C3C3;
+      z-index: 999;
+      clip-path: polygon(0 0, 100% 0, 100% 100%);
+    }
+  }
+
+  &:hover .legend-content {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+    pointer-events: auto;
+  }
 }
 
 .legend-item {
@@ -1202,35 +1271,38 @@ defineExpose({
   margin-right: 6px;
   display: inline-block;
   border: 1px solid #eee;
+  &.green {
+    background: #67c23a;
+  }
+  &.yellow {
+    background: #e4a13c;
+  }
+  &.blue {
+    background: #409eff;
+  }
+  &.red {
+    background: #f56c6c;
+  }
+  &.gray {
+    background: #909399;
+  }
+  &.bright {
+    background: #409eff;
+    opacity: 1;
+  }
+  &.dark {
+    background: #409eff;
+    opacity: 0.6;
+  }
 }
 
 .dot.square {
   border-radius: 2px;
   background: #909399;
-}
-
-.dot.green {
-  background: #67c23a;
-}
-.dot.yellow {
-  background: #e4a13c;
-}
-.dot.blue {
-  background: #409eff;
-}
-.dot.red {
-  background: #f56c6c;
-}
-.dot.gray {
-  background: #909399;
-}
-.dot.bright {
-  background: #409eff;
-  opacity: 1;
-}
-.dot.dark {
-  background: #409eff;
-  opacity: 0.6;
+  &.highlighted {
+    border-width: 1px;
+    border-color: #ff4444;
+  }
 }
 
 .location-button {
@@ -1251,9 +1323,6 @@ defineExpose({
 
   &:hover {
     background: #eee;
-    svg {
-      font-weight: bold;
-    }
   }
 }
 

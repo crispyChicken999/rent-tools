@@ -378,6 +378,41 @@ export const usePropertyStore = defineStore("property", () => {
       );
     }
 
+    // 应用排序
+    if (propertyFilters.value.sortBy && propertyFilters.value.sortBy !== "default") {
+      const sortBy = propertyFilters.value.sortBy;
+      
+      if (sortBy === "rentAsc") {
+        // 租金升序
+        result = [...result].sort((a, b) => {
+          const rentA = a.rent || 0;
+          const rentB = b.rent || 0;
+          return rentA - rentB;
+        });
+      } else if (sortBy === "rentDesc") {
+        // 租金降序
+        result = [...result].sort((a, b) => {
+          const rentA = a.rent || 0;
+          const rentB = b.rent || 0;
+          return rentB - rentA;
+        });
+      } else if (sortBy === "roomType") {
+        // 按房型排序：单间 < 一房一厅 < 两房一厅 < 三房一厅
+        const roomTypeOrder: { [key: string]: number } = {
+          "单间": 1,
+          "一房一厅": 2,
+          "两房一厅": 3,
+          "三房一厅": 4,
+          "四房一厅": 5,
+        };
+        result = [...result].sort((a, b) => {
+          const orderA = roomTypeOrder[a.roomType] || 999;
+          const orderB = roomTypeOrder[b.roomType] || 999;
+          return orderA - orderB;
+        });
+      }
+    }
+
     return result;
   });
 

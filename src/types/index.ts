@@ -310,6 +310,9 @@ export interface PropertyFilterOptions {
 
   // 搜索
   keyword?: string; // 关键词搜索（地址、备注）
+  
+  // 排序
+  sortBy?: "default" | "rentAsc" | "rentDesc" | "roomType"; // 排序方式
 }
 
 /** 房源视图项（扁平化的房源数据） */
