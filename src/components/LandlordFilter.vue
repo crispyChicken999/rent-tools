@@ -193,6 +193,10 @@ import { usePropertyStore } from "@/stores/property";
 
 const propertyStore = usePropertyStore();
 
+const emit = defineEmits<{
+  applyFilter: [];
+}>();
+
 interface FilterFormData {
   contactStatus: string;
   wechatStatus: string;
@@ -238,6 +242,7 @@ watch(
 
 const handleApply = () => {
   propertyStore.applyLandlordFilters({ ...filterForm });
+  emit('applyFilter');
 };
 
 const handleReset = () => {

@@ -19,6 +19,13 @@
       <div class="legend-divider"></div>
       <div class="legend-tip">💡 右键地图创建房东</div>
     </div>
+
+    <!-- 定位按钮 -->
+    <div class="location-button" @click="locateUser" title="定位至当前位置">
+      <el-icon :size="20" :class="{ 'is-loading': isLocating }">
+        <Location />
+      </el-icon>
+    </div>
   </div>
 </template>
 
@@ -31,7 +38,7 @@ import {
   ElIcon,
   ElMessageBox,
 } from "element-plus";
-import { CopyDocument } from "@element-plus/icons-vue";
+import { CopyDocument, Location } from "@element-plus/icons-vue";
 import { loadAMap } from "@/utils/geocode";
 import { usePropertyStore } from "@/stores/property";
 import { LandlordType, ContactStatus } from "@/types";
@@ -39,13 +46,16 @@ import type { Landlord, PropertyViewItem, ViewMode } from "@/types";
 import { getValidDirectoryHandle, getFileByPath } from "@/utils/fileSystem";
 
 // 接收 props
-const props = withDefaults(defineProps<{
-  viewMode?: ViewMode;
-  properties?: PropertyViewItem[];
-}>(), {
-  viewMode: 'landlord',
-  properties: () => []
-});
+const props = withDefaults(
+  defineProps<{
+    viewMode?: ViewMode;
+    properties?: PropertyViewItem[];
+  }>(),
+  {
+    viewMode: "landlord",
+    properties: () => [],
+  }
+);
 
 const propertyStore = usePropertyStore();
 const mapContainer = ref<HTMLDivElement>();
@@ -56,6 +66,8 @@ let propertyMarkers: Map<string, any> = new Map(); // 房源标记
 let currentInfoWinImage: string | null = null;
 let highlightedPhones = ref<Set<string>>(new Set()); // 当前高亮的手机号集合
 let currentInfoWindow: any = null; // 当前打开的 InfoWindow
+const isLocating = ref(false); // 定位中状态
+let userLocationMarker: any = null; // 用户位置标记
 
 // 判断房东是否为疑似二房东（电话出现3次及以上）
 function isSuspectedSecondHand(landlord: Landlord): boolean {
@@ -95,7 +107,7 @@ onUnmounted(() => {
 watch(
   () => propertyStore.filteredLandlords,
   () => {
-    if (props.viewMode === 'landlord') {
+    if (props.viewMode === "landlord") {
       renderMarkers();
     }
   },
@@ -107,17 +119,17 @@ watch(
   () => props.viewMode,
   (newMode) => {
     if (!map) return;
-    
+
     // 关闭当前打开的 InfoWindow
     if (currentInfoWindow) {
       currentInfoWindow.close();
       currentInfoWindow = null;
     }
-    
-    if (newMode === 'landlord') {
+
+    if (newMode === "landlord") {
       clearPropertyMarkers();
       renderMarkers();
-    } else if (newMode === 'property') {
+    } else if (newMode === "property") {
       clearLandlordMarkers();
       renderPropertyMarkers();
     }
@@ -128,12 +140,104 @@ watch(
 watch(
   () => props.properties,
   () => {
-    if (props.viewMode === 'property') {
+    if (props.viewMode === "property") {
       renderPropertyMarkers();
     }
   },
   { deep: true }
 );
+
+// 定位用户当前位置
+const locateUser = async () => {
+  if (!map) {
+    ElMessage.warning("地图未初始化");
+    return;
+  }
+
+  if (isLocating.value) return;
+
+  isLocating.value = true;
+
+  try {
+    const AMap = await loadAMap();
+
+    // 使用浏览器地理位置 API
+    if (!navigator.geolocation) {
+      ElMessage.error("浏览器不支持地理定位");
+      isLocating.value = false;
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        const { longitude, latitude } = position.coords;
+        const userPos = [longitude, latitude];
+
+        // 移除旧的用户位置标记
+        if (userLocationMarker) {
+          map.remove(userLocationMarker);
+        }
+
+        // 创建用户位置标记
+        userLocationMarker = new AMap.Marker({
+          position: userPos,
+          icon: new AMap.Icon({
+            size: new AMap.Size(30, 30),
+            image:
+              "data:image/svg+xml;base64," +
+              btoa(`
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="30" height="30">
+                <circle cx="12" cy="12" r="10" fill="#409eff" opacity="0.3"/>
+                <circle cx="12" cy="12" r="5" fill="#409eff"/>
+                <circle cx="12" cy="12" r="3" fill="white"/>
+              </svg>
+            `),
+            imageSize: new AMap.Size(30, 30),
+          }),
+          offset: new AMap.Pixel(-15, -15),
+          zIndex: 1000,
+          title: "我的位置",
+        });
+
+        map.add(userLocationMarker);
+
+        // 居中并设置合适的缩放级别
+        map.setZoomAndCenter(15, userPos);
+
+        ElMessage.success("定位成功");
+        isLocating.value = false;
+      },
+      (error) => {
+        console.error("定位失败:", error);
+        let errorMsg = "定位失败";
+
+        switch (error.code) {
+          case error.PERMISSION_DENIED:
+            errorMsg = "用户拒绝了地理位置权限";
+            break;
+          case error.POSITION_UNAVAILABLE:
+            errorMsg = "地理位置信息不可用";
+            break;
+          case error.TIMEOUT:
+            errorMsg = "定位超时";
+            break;
+        }
+
+        ElMessage.error(errorMsg);
+        isLocating.value = false;
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 0,
+      }
+    );
+  } catch (error) {
+    console.error("定位出错:", error);
+    ElMessage.error("定位出错");
+    isLocating.value = false;
+  }
+};
 
 async function initMap() {
   try {
@@ -167,9 +271,9 @@ async function initMap() {
         if (position) {
           try {
             // 如果当前不是房东视图，切换到房东视图
-            if (props.viewMode !== 'landlord') {
-              propertyStore.setViewMode('landlord');
-              await new Promise(resolve => setTimeout(resolve, 100));
+            if (props.viewMode !== "landlord") {
+              propertyStore.setViewMode("landlord");
+              await new Promise((resolve) => setTimeout(resolve, 100));
             }
             await createLandlordAtLocation({
               lng: position.lng,
@@ -615,44 +719,55 @@ async function showInfoWindow(marker: any, landlord: Landlord) {
     ]),
 
     // 按钮
-    h("div", { style: { marginTop: "10px", display: "flex", gap: "8px", justifyContent: "center" } }, [
-      h(
-        ElButton,
-        {
-          type: landlord.isFavorite ? "warning" : "default",
-          size: "small",
-          onClick: async () => {
-            await propertyStore.toggleFavorite(landlord.id);
-            // 重新渲染 InfoWindow 以更新按钮状态
-            const updatedLandlord = propertyStore.landlords.find(
-              (l) => l.id === landlord.id
-            );
-            if (updatedLandlord) {
-              await showInfoWindow(marker, updatedLandlord);
-            }
-            ElMessage.success(landlord.isFavorite ? "已取消收藏" : "已收藏");
-          },
+    h(
+      "div",
+      {
+        style: {
+          marginTop: "10px",
+          display: "flex",
+          gap: "8px",
+          justifyContent: "center",
         },
-        () => landlord.isFavorite ? "⭐ 取消收藏" : "☆ 收藏"
-      ),
-      h(
-        ElButton,
-        {
-          type: "primary",
-          size: "small",
-          onClick: () => {
-            // 每次点击时从 store 获取最新数据
-            const latestLandlord = propertyStore.landlords.find(
-              (l) => l.id === landlord.id
-            );
-            if (latestLandlord) {
-              propertyStore.selectLandlord(latestLandlord);
-            }
+      },
+      [
+        h(
+          ElButton,
+          {
+            type: landlord.isFavorite ? "warning" : "default",
+            size: "small",
+            onClick: async () => {
+              await propertyStore.toggleFavorite(landlord.id);
+              // 重新渲染 InfoWindow 以更新按钮状态
+              const updatedLandlord = propertyStore.landlords.find(
+                (l) => l.id === landlord.id
+              );
+              if (updatedLandlord) {
+                await showInfoWindow(marker, updatedLandlord);
+              }
+              ElMessage.success(landlord.isFavorite ? "已取消收藏" : "已收藏");
+            },
           },
-        },
-        () => "查看详情"
-      ),
-    ]),
+          () => (landlord.isFavorite ? "⭐ 取消收藏" : "☆ 收藏")
+        ),
+        h(
+          ElButton,
+          {
+            type: "primary",
+            size: "small",
+            onClick: () => {
+              // 每次点击时从 store 获取最新数据
+              const latestLandlord = propertyStore.landlords.find(
+                (l) => l.id === landlord.id
+              );
+              if (latestLandlord) {
+                propertyStore.selectLandlord(latestLandlord);
+              }
+            },
+          },
+          () => "查看详情"
+        ),
+      ]
+    ),
   ]);
 
   // 渲染
@@ -786,7 +901,7 @@ async function renderPropertyMarkers() {
   if (!map) return;
 
   const AMap = await loadAMap();
-  
+
   // 按 GPS 分组房源
   const groupedProperties = propertyStore.groupedPropertiesByGps;
 
@@ -805,12 +920,12 @@ async function renderPropertyMarkers() {
       position: position,
       content: content,
       offset: new AMap.Pixel(-20, -20),
-      extData: { type: 'property', properties, gps },
-      zIndex: 100
+      extData: { type: "property", properties, gps },
+      zIndex: 100,
     });
 
     // 点击标记显示 InfoWindow
-    marker.on('click', () => {
+    marker.on("click", () => {
       showPropertyInfoWindow(marker, properties);
     });
 
@@ -850,42 +965,44 @@ function createPropertyBadge(count: number, color: string) {
 
 // 获取房源状态颜色
 function getPropertiesStatusColor(properties: PropertyViewItem[]): string {
-  const availableCount = properties.filter(p => p.available).length;
-  if (availableCount === properties.length) return '#67c23a'; // 全部可租 - 绿色
-  if (availableCount === 0) return '#909399'; // 全部已租 - 灰色
-  return '#409eff'; // 部分可租 - 蓝色
+  const availableCount = properties.filter((p) => p.available).length;
+  if (availableCount === properties.length) return "#67c23a"; // 全部可租 - 绿色
+  if (availableCount === 0) return "#909399"; // 全部已租 - 灰色
+  return "#409eff"; // 部分可租 - 蓝色
 }
 
 // 显示房源 InfoWindow
 function showPropertyInfoWindow(marker: any, properties: PropertyViewItem[]) {
   const AMap = (window as any).AMap;
-  
+
   // 关闭之前的 InfoWindow
   if (currentInfoWindow) {
     currentInfoWindow.close();
   }
-  
+
   const infoWindow = new AMap.InfoWindow({
     isCustom: false, // 使用默认样式，包含关闭按钮和小箭头
     content: createPropertyInfoWindowContent(properties),
     offset: new AMap.Pixel(0, -35),
     closeWhenClickMap: true,
   });
-  
+
   infoWindow.on("close", () => {
     if (currentInfoWindow === infoWindow) {
       currentInfoWindow = null;
     }
   });
-  
+
   infoWindow.open(map, marker.getPosition());
   currentInfoWindow = infoWindow;
 }
 
 // 创建房源 InfoWindow 内容
-function createPropertyInfoWindowContent(properties: PropertyViewItem[]): HTMLElement {
-  const container = document.createElement('div');
-  container.className = 'property-info-window';
+function createPropertyInfoWindowContent(
+  properties: PropertyViewItem[]
+): HTMLElement {
+  const container = document.createElement("div");
+  container.className = "property-info-window";
   container.style.cssText = `
     background: white;
     border-radius: 8px;
@@ -894,12 +1011,14 @@ function createPropertyInfoWindowContent(properties: PropertyViewItem[]): HTMLEl
     max-width: 400px;
   `;
 
-  const title = document.createElement('h4');
-  title.style.cssText = 'margin: 0 0 12px 0; color: #303133;';
-  title.textContent = `${properties[0].address || '未知地址'}（共${properties.length}套房源）`;
+  const title = document.createElement("h4");
+  title.style.cssText = "margin: 0 0 12px 0; color: #303133;";
+  title.textContent = `${properties[0].address || "未知地址"}（共${
+    properties.length
+  }套房源）`;
   container.appendChild(title);
 
-  const grid = document.createElement('div');
+  const grid = document.createElement("div");
   grid.style.cssText = `
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
@@ -908,8 +1027,8 @@ function createPropertyInfoWindowContent(properties: PropertyViewItem[]): HTMLEl
     overflow-y: auto;
   `;
 
-  properties.forEach(property => {
-    const item = document.createElement('div');
+  properties.forEach((property) => {
+    const item = document.createElement("div");
     item.style.cssText = `
       border: 1px solid #ebeef5;
       border-radius: 4px;
@@ -918,20 +1037,22 @@ function createPropertyInfoWindowContent(properties: PropertyViewItem[]): HTMLEl
       transition: all 0.3s;
     `;
     item.onmouseenter = () => {
-      item.style.borderColor = '#409eff';
-      item.style.boxShadow = '0 2px 8px rgba(64, 158, 255, 0.3)';
+      item.style.borderColor = "#409eff";
+      item.style.boxShadow = "0 2px 8px rgba(64, 158, 255, 0.3)";
     };
     item.onmouseleave = () => {
-      item.style.borderColor = '#ebeef5';
-      item.style.boxShadow = 'none';
+      item.style.borderColor = "#ebeef5";
+      item.style.boxShadow = "none";
     };
     item.onclick = () => {
       // 触发打开房源详情事件
-      propertyStore.setViewMode('property');
+      propertyStore.setViewMode("property");
       // 需要通过 emit 通知父组件打开详情页
-      window.dispatchEvent(new CustomEvent('open-property-detail', { 
-        detail: { propertyId: property.propertyId } 
-      }));
+      window.dispatchEvent(
+        new CustomEvent("open-property-detail", {
+          detail: { propertyId: property.propertyId },
+        })
+      );
     };
 
     const content = `
@@ -939,10 +1060,10 @@ function createPropertyInfoWindowContent(properties: PropertyViewItem[]): HTMLEl
         ${property.roomType}
       </div>
       <div style="font-size: 12px; color: #f56c6c;">
-        ¥${property.rent || '--'}/月
+        ¥${property.rent || "--"}/月
       </div>
       <div style="font-size: 12px; color: #909399; margin-top: 4px;">
-        ${property.available ? '✓ 可租' : '× 已租'}
+        ${property.available ? "✓ 可租" : "× 已租"}
       </div>
     `;
     item.innerHTML = content;
@@ -951,15 +1072,16 @@ function createPropertyInfoWindowContent(properties: PropertyViewItem[]): HTMLEl
 
   container.appendChild(grid);
 
-  const footer = document.createElement('div');
-  footer.style.cssText = 'margin-top: 12px; padding-top: 12px; border-top: 1px solid #ebeef5; font-size: 12px; color: #909399; display: flex; align-items: center; gap: 8px;';
-  
-  const phoneText = document.createElement('span');
+  const footer = document.createElement("div");
+  footer.style.cssText =
+    "margin-top: 12px; padding-top: 12px; border-top: 1px solid #ebeef5; font-size: 12px; color: #909399; display: flex; align-items: center; gap: 8px;";
+
+  const phoneText = document.createElement("span");
   phoneText.textContent = `📞 房东: ${properties[0].landlordPhone}`;
   footer.appendChild(phoneText);
-  
-  const copyBtn = document.createElement('button');
-  copyBtn.textContent = '复制';
+
+  const copyBtn = document.createElement("button");
+  copyBtn.textContent = "复制";
   copyBtn.style.cssText = `
     padding: 2px 8px;
     background: #409eff;
@@ -971,24 +1093,24 @@ function createPropertyInfoWindowContent(properties: PropertyViewItem[]): HTMLEl
     transition: all 0.3s;
   `;
   copyBtn.onmouseenter = () => {
-    copyBtn.style.background = '#66b1ff';
+    copyBtn.style.background = "#66b1ff";
   };
   copyBtn.onmouseleave = () => {
-    copyBtn.style.background = '#409eff';
+    copyBtn.style.background = "#409eff";
   };
   copyBtn.onclick = async () => {
     try {
       await navigator.clipboard.writeText(properties[0].landlordPhone);
-      copyBtn.textContent = '已复制';
+      copyBtn.textContent = "已复制";
       setTimeout(() => {
-        copyBtn.textContent = '复制';
+        copyBtn.textContent = "复制";
       }, 2000);
     } catch (err) {
-      console.error('复制失败:', err);
+      console.error("复制失败:", err);
     }
   };
   footer.appendChild(copyBtn);
-  
+
   container.appendChild(footer);
 
   return container;
@@ -997,11 +1119,11 @@ function createPropertyInfoWindowContent(properties: PropertyViewItem[]): HTMLEl
 // 定位到指定位置
 function locateToPosition(gps: { lng: number; lat: number }) {
   if (!map) return;
-  
+
   map.setZoomAndCenter(16, [gps.lng, gps.lat]);
 
   // 如果是房源视图，找到对应的标记并打开 InfoWindow
-  if (props.viewMode === 'property') {
+  if (props.viewMode === "property") {
     const key = `${gps.lng},${gps.lat}`;
     const marker = propertyMarkers.get(key);
     if (marker) {
@@ -1019,7 +1141,7 @@ defineExpose({
 });
 </script>
 
-<style scoped>
+<style lang="scss" scoped>
 .map-wrapper {
   width: 100%;
   height: 100%;
@@ -1109,5 +1231,37 @@ defineExpose({
 .dot.dark {
   background: #409eff;
   opacity: 0.6;
+}
+
+.location-button {
+  position: absolute;
+  bottom: 90px;
+  right: 20px;
+  width: 30px;
+  height: 30px;
+  background: white;
+  border-radius: 4px;
+  box-shadow: 0 0 3px rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 100;
+  transition: all 0.3s;
+
+  &:hover {
+    background: #eee;
+    svg {
+      font-weight: bold;
+    }
+  }
+}
+
+.location-button:active {
+  transform: scale(0.95);
+}
+
+.location-button .el-icon {
+  color: #409eff;
 }
 </style>

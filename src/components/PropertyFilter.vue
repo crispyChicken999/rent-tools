@@ -196,6 +196,10 @@ import { usePropertyStore } from "@/stores/property";
 
 const propertyStore = usePropertyStore();
 
+const emit = defineEmits<{
+  applyFilter: [];
+}>();
+
 interface FilterFormData {
   roomTypes: string[];
   rentMin?: number;
@@ -237,6 +241,7 @@ watch(
 
 const handleApply = () => {
   propertyStore.applyPropertyFilters({ ...filterForm });
+  emit('applyFilter');
 };
 
 const handleReset = () => {

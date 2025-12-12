@@ -495,6 +495,7 @@
                             />
                           </div>
                           <div class="video-wrapper">
+                            <!-- 视频加载成功 -->
                             <video
                               v-if="videoUrls.get(video.fileName)"
                               controls
@@ -504,6 +505,25 @@
                             >
                               您的浏览器不支持视频播放
                             </video>
+                            <!-- 视频丢失 -->
+                            <div v-else-if="videoLoadErrors.get(video.fileName)" class="video-error">
+                              <div class="video-error-content">
+                                <el-icon :size="48" color="#f56c6c"><VideoCamera /></el-icon>
+                                <div class="video-error-text">
+                                  <div>视频已丢失</div>
+                                  <div class="video-error-filename">{{ video.fileName }}</div>
+                                </div>
+                                <el-button
+                                  type="danger"
+                                  size="small"
+                                  :icon="Delete"
+                                  @click="room.videos.splice(vIndex, 1)"
+                                >
+                                  删除此视频
+                                </el-button>
+                              </div>
+                            </div>
+                            <!-- 加载中 -->
                             <div v-else class="video-loading">
                               <el-icon class="is-loading"><Loading /></el-icon>
                               <span style="margin-left: 8px">加载中...</span>
@@ -741,6 +761,7 @@ import {
   View,
   Star,
   StarFilled,
+  VideoCamera,
 } from "@element-plus/icons-vue";
 import { usePropertyStore } from "@/stores/property";
 import {
@@ -802,6 +823,7 @@ const fileListRows = computed(() => {
   return rows;
 });
 const videoUrls = reactive(new Map<string, string>()); // 缓存视频 URL
+const videoLoadErrors = reactive(new Map<string, boolean>()); // 追踪视频加载失败状态
 const isDragging = ref(false);
 const refreshingAddress = ref(false);
 const deleteDialogVisible = ref(false);
@@ -877,6 +899,7 @@ watch(
       // 加载视频
       videoUrls.forEach((url) => URL.revokeObjectURL(url));
       videoUrls.clear();
+      videoLoadErrors.clear();
       await loadVideos(data.properties);
 
       // 加载头像
@@ -1118,6 +1141,7 @@ const handleClosed = () => {
   avatarUrl.value = "";
   videoUrls.forEach((url) => URL.revokeObjectURL(url));
   videoUrls.clear();
+  videoLoadErrors.clear();
 };
 
 onUnmounted(() => {
@@ -1476,7 +1500,10 @@ const getVideoUrl = async (fileName: string) => {
 
   try {
     const dirHandle = await getValidDirectoryHandle();
-    if (!dirHandle) return "";
+    if (!dirHandle) {
+      videoLoadErrors.set(fileName, true);
+      return "";
+    }
 
     let file: File | null = null;
     if (fileName.includes("/") || fileName.includes("\\")) {
@@ -1493,11 +1520,15 @@ const getVideoUrl = async (fileName: string) => {
     if (file) {
       const url = URL.createObjectURL(file);
       videoUrls.set(fileName, url);
+      videoLoadErrors.set(fileName, false);
       return url;
+    } else {
+      videoLoadErrors.set(fileName, true);
     }
     return "";
   } catch (e) {
     console.error("Failed to load video", e);
+    videoLoadErrors.set(fileName, true);
     return "";
   }
 };
@@ -1916,6 +1947,42 @@ const previewImage = (url: string) => {
   align-items: center;
   color: #909399;
   font-size: 14px;
+}
+
+.video-error {
+  width: 100%;
+  min-height: 150px;
+  background: #fef0f0;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px dashed #f56c6c;
+}
+
+.video-error-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 20px;
+}
+
+.video-error-text {
+  text-align: center;
+  color: #f56c6c;
+}
+
+.video-error-text > div:first-child {
+  font-weight: 600;
+  font-size: 16px;
+  margin-bottom: 4px;
+}
+
+.video-error-filename {
+  font-size: 12px;
+  color: #909399;
+  word-break: break-all;
 }
 
 .add-room-btn {

@@ -6,47 +6,83 @@
     :fullscreen="true"
     destroy-on-close
     :close-on-click-modal="false"
-    @close="handleClose">
+    @close="handleClose"
+  >
     <div class="property-detail-container">
       <!-- 左侧：视频播放器 -->
       <div class="video-section">
-        <div v-if="currentProperty && currentProperty.videos.length > 0" class="video-player-wrapper">
+        <div
+          v-if="currentProperty && currentProperty.videos.length > 0"
+          class="video-player-wrapper"
+        >
+          <!-- 视频加载成功 -->
           <video
+            v-if="currentVideoUrl"
             ref="videoPlayerRef"
             :src="currentVideoUrl"
             class="video-player"
             controls
-            @loadedmetadata="handleVideoLoaded">
+            @loadedmetadata="handleVideoLoaded"
+          >
             您的浏览器不支持视频播放
           </video>
-          
+          <!-- 视频丢失 -->
+          <div v-else-if="videoLoadError" class="video-error">
+            <div class="video-error-content">
+              <el-icon :size="64" color="#f56c6c"><VideoCamera /></el-icon>
+              <div class="video-error-text">
+                <div>视频已丢失</div>
+                <div class="video-error-filename">
+                  {{ currentProperty.videos[currentVideoIndex]?.fileName }}
+                </div>
+              </div>
+              <el-button type="danger" size="small" @click="handleGoToLandlord">
+                去房东详情删除
+              </el-button>
+            </div>
+          </div>
+          <!-- 加载中 -->
+          <div v-else class="video-loading">
+            <el-icon class="is-loading" :size="48"><Loading /></el-icon>
+            <span style="margin-top: 12px">加载中...</span>
+          </div>
+
           <!-- 视频切换控制 -->
           <div class="video-controls">
             <el-button
               :disabled="currentVideoIndex === 0"
-              @click="previousVideo">
+              @click="previousVideo"
+            >
               <el-icon><ArrowLeft /></el-icon>
               上一个
             </el-button>
             <span class="video-count">
-              {{ currentVideoIndex + 1 }} / {{ currentProperty?.videos.length || 0 }}
+              {{ currentVideoIndex + 1 }} /
+              {{ currentProperty?.videos.length || 0 }}
             </span>
             <el-button
-              :disabled="currentVideoIndex === (currentProperty?.videos.length || 0) - 1"
-              @click="nextVideo">
+              :disabled="
+                currentVideoIndex === (currentProperty?.videos.length || 0) - 1
+              "
+              @click="nextVideo"
+            >
               下一个
               <el-icon><ArrowRight /></el-icon>
             </el-button>
           </div>
 
           <!-- 视频列表缩略图 -->
-          <div v-if="currentProperty && currentProperty.videos.length > 1" class="video-thumbnails">
+          <div
+            v-if="currentProperty && currentProperty.videos.length > 1"
+            class="video-thumbnails"
+          >
             <div
-              v-for="(video, index) in (currentProperty?.videos || [])"
+              v-for="(video, index) in currentProperty?.videos || []"
               :key="video.id"
               class="thumbnail-item"
               :class="{ active: index === currentVideoIndex }"
-              @click="currentVideoIndex = index">
+              @click="currentVideoIndex = index"
+            >
               <div v-if="videoThumbnails[index]" class="thumbnail-image">
                 <img :src="videoThumbnails[index]" alt="视频缩略图" />
               </div>
@@ -74,8 +110,8 @@
             :model="formData"
             :rules="formRules"
             label-width="100px"
-            label-position="left">
-            
+            label-position="left"
+          >
             <!-- 房源基本信息 -->
             <el-divider content-position="left">
               <el-icon><HomeFilled /></el-icon>
@@ -88,7 +124,8 @@
                   v-for="type in ROOM_TYPES"
                   :key="type.value"
                   :label="type.label"
-                  :value="type.value" />
+                  :value="type.value"
+                />
               </el-select>
             </el-form-item>
 
@@ -97,25 +134,31 @@
                 v-model="formData.rent"
                 :min="0"
                 :step="100"
+                placeholder="租金金额"
                 controls-position="right"
-                style="width: 200px" />
+                style="width: 200px"
+              />
               <span class="unit">元/月</span>
             </el-form-item>
 
             <el-form-item label="楼层" prop="floor">
-              <el-input
+              <el-input-number
                 v-model="formData.floor"
-                placeholder="如：3楼"
-                style="width: 200px">
-                <template #append>楼</template>
-              </el-input>
+                :min="1"
+                :max="99"
+                placeholder="输入楼层数"
+                style="width: 200px"
+              >
+                <template #suffix>楼</template>
+              </el-input-number>
             </el-form-item>
 
             <el-form-item label="是否可租" prop="available">
               <el-switch
                 v-model="formData.available"
                 active-text="可租"
-                inactive-text="已租出" />
+                inactive-text="已租出"
+              />
             </el-form-item>
 
             <!-- 配套设施 -->
@@ -129,7 +172,8 @@
                 <el-checkbox
                   v-for="amenity in AMENITY_OPTIONS"
                   :key="amenity"
-                  :label="amenity">
+                  :label="amenity"
+                >
                   {{ amenity }}
                 </el-checkbox>
               </el-checkbox-group>
@@ -146,7 +190,8 @@
               type="warning"
               :closable="false"
               show-icon
-              style="margin-bottom: 16px">
+              style="margin-bottom: 16px"
+            >
               <template #title>
                 修改公共费用会同步到房东信息，影响该房东下的所有房源
               </template>
@@ -156,12 +201,14 @@
               <el-select
                 v-model="formData.water.type"
                 placeholder="请选择水费类型"
-                style="width: 200px">
+                style="width: 200px"
+              >
                 <el-option
                   v-for="type in WATER_TYPES"
                   :key="type.value"
                   :label="type.label"
-                  :value="type.value" />
+                  :value="type.value"
+                />
               </el-select>
               <el-input-number
                 v-if="formData.water.type === 'custom'"
@@ -170,20 +217,25 @@
                 :step="0.1"
                 :precision="2"
                 controls-position="right"
-                style="width: 150px; margin-left: 8px" />
-              <span v-if="formData.water.type === 'custom'" class="unit">元/吨</span>
+                style="width: 150px; margin-left: 8px"
+              />
+              <span v-if="formData.water.type === 'custom'" class="unit"
+                >元/吨</span
+              >
             </el-form-item>
 
             <el-form-item label="电费">
               <el-select
                 v-model="formData.electricity.type"
                 placeholder="请选择电费类型"
-                style="width: 200px">
+                style="width: 200px"
+              >
                 <el-option
                   v-for="type in ELECTRICITY_TYPES"
                   :key="type.value"
                   :label="type.label"
-                  :value="type.value" />
+                  :value="type.value"
+                />
               </el-select>
               <el-input-number
                 v-if="formData.electricity.type === 'custom'"
@@ -192,20 +244,25 @@
                 :step="0.01"
                 :precision="2"
                 controls-position="right"
-                style="width: 150px; margin-left: 8px" />
-              <span v-if="formData.electricity.type === 'custom'" class="unit">元/度</span>
+                style="width: 150px; margin-left: 8px"
+              />
+              <span v-if="formData.electricity.type === 'custom'" class="unit"
+                >元/度</span
+              >
             </el-form-item>
 
             <el-form-item label="押金方式">
               <el-select
                 v-model="formData.deposit"
                 placeholder="请选择押金方式"
-                style="width: 200px">
+                style="width: 200px"
+              >
                 <el-option
                   v-for="method in DEPOSIT_METHODS"
                   :key="method.value"
                   :label="method.label"
-                  :value="method.value" />
+                  :value="method.value"
+                />
               </el-select>
             </el-form-item>
 
@@ -220,7 +277,8 @@
                 v-model="formData.description"
                 type="textarea"
                 :rows="4"
-                placeholder="补充说明..." />
+                placeholder="补充说明..."
+              />
             </el-form-item>
 
             <!-- 房东信息（只读） -->
@@ -231,15 +289,17 @@
 
             <el-descriptions :column="1" border>
               <el-descriptions-item label="电话">
-                <el-link type="primary" @click="handleGoToLandlord">
-                  {{ landlordInfo?.phoneNumbers[0] || '--' }}
-                </el-link>
+                <el-tooltip placement="top" content="点我跳转房东详情页">
+                  <el-link type="primary" @click="handleGoToLandlord">
+                    {{ landlordInfo?.phoneNumbers[0] || "--" }}
+                  </el-link>
+                </el-tooltip>
               </el-descriptions-item>
               <el-descriptions-item label="类型">
                 {{ getLandlordTypeLabel(landlordInfo?.landlordType) }}
               </el-descriptions-item>
               <el-descriptions-item label="地址">
-                {{ landlordInfo?.address || '暂无地址' }}
+                {{ landlordInfo?.address || "暂无地址" }}
               </el-descriptions-item>
             </el-descriptions>
           </el-form>
@@ -261,7 +321,8 @@
             type="primary"
             :disabled="!hasChanges"
             :loading="saving"
-            @click="handleSave">
+            @click="handleSave"
+          >
             保存修改
           </el-button>
         </div>
@@ -271,8 +332,13 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, toRaw } from 'vue';
-import { ElMessage, ElMessageBox, type FormInstance, type FormRules } from 'element-plus';
+import { ref, computed, watch, toRaw } from "vue";
+import {
+  ElMessage,
+  ElMessageBox,
+  type FormInstance,
+  type FormRules,
+} from "element-plus";
 import {
   ArrowLeft,
   ArrowRight,
@@ -280,9 +346,11 @@ import {
   ShoppingCart,
   Money,
   EditPen,
-  User
-} from '@element-plus/icons-vue';
-import { usePropertyStore } from '@/stores/property';
+  User,
+  VideoCamera,
+  Loading,
+} from "@element-plus/icons-vue";
+import { usePropertyStore } from "@/stores/property";
 import {
   ROOM_TYPES,
   AMENITY_OPTIONS,
@@ -290,10 +358,10 @@ import {
   ELECTRICITY_TYPES,
   DEPOSIT_METHODS,
   LandlordType,
-  type Property
-} from '@/types';
+  type Property,
+} from "@/types";
 
-import { getValidDirectoryHandle, getFileByPath } from '@/utils/fileSystem';
+import { getValidDirectoryHandle, getFileByPath } from "@/utils/fileSystem";
 
 const props = defineProps<{
   modelValue: boolean;
@@ -302,9 +370,9 @@ const props = defineProps<{
 }>();
 
 const emit = defineEmits<{
-  'update:modelValue': [value: boolean];
-  'saved': [];
-  'goToLandlord': [landlordId: string];
+  "update:modelValue": [value: boolean];
+  saved: [];
+  goToLandlord: [landlordId: string];
 }>();
 
 const propertyStore = usePropertyStore();
@@ -314,23 +382,26 @@ const formRef = ref<FormInstance>();
 const currentVideoIndex = ref(0);
 const saving = ref(false);
 const videoThumbnails = ref<{ [key: number]: string }>({}); // 视频缩略图映射
+const videoLoadError = ref(false); // 视频加载失败状态
 
 // 获取房东信息
 const landlordInfo = computed(() => {
-  return propertyStore.landlords.find(l => l.id === props.landlordId);
+  return propertyStore.landlords.find((l) => l.id === props.landlordId);
 });
 
 // 获取房源信息
 const currentProperty = computed(() => {
   const landlord = landlordInfo.value;
   if (!landlord) return null;
-  return landlord.properties.find(p => p.id === props.propertyId);
+  return landlord.properties.find((p) => p.id === props.propertyId);
 });
 
 // 对话框标题
 const dialogTitle = computed(() => {
-  if (!currentProperty.value) return '房源详情';
-  return `房源详情 - ${currentProperty.value.roomType} · ${landlordInfo.value?.address || ''}`;
+  if (!currentProperty.value) return "房源详情";
+  return `房源详情 - ${currentProperty.value.roomType} · ${
+    landlordInfo.value?.address || ""
+  }`;
 });
 
 // 表单数据
@@ -355,37 +426,35 @@ interface FormData {
 }
 
 const formData = ref<FormData>({
-  roomType: '',
+  roomType: "",
   rent: undefined,
-  floor: '',
-  description: '',
+  floor: "",
+  description: "",
   amenities: [],
   available: true,
   water: {
-    type: 'civil',
+    type: "civil",
     price: undefined,
-    unit: '吨'
+    unit: "吨",
   },
   electricity: {
-    type: 'civil',
+    type: "civil",
     price: undefined,
-    unit: '度'
+    unit: "度",
   },
-  deposit: '押一付一'
+  deposit: "押一付一",
 });
 
 // 原始数据（用于比较是否有修改）
-const originalData = ref<string>('');
+const originalData = ref<string>("");
 
 // 表单验证规则
 const formRules: FormRules = {
-  roomType: [
-    { required: true, message: '请选择房型', trigger: 'change' }
-  ],
+  roomType: [{ required: true, message: "请选择房型", trigger: "change" }],
   rent: [
-    { required: true, message: '请输入租金', trigger: 'blur' },
-    { type: 'number', min: 0, message: '租金必须大于0', trigger: 'blur' }
-  ]
+    { required: true, message: "请输入租金", trigger: "blur" },
+    { type: "number", min: 0, message: "租金必须大于0", trigger: "blur" },
+  ],
 };
 
 // 初始化表单数据
@@ -399,20 +468,20 @@ const initFormData = () => {
     roomType: property.roomType,
     rent: property.rent,
     floor: property.floor,
-    description: property.notes || '',
+    description: property.notes || "",
     amenities: [...property.amenities],
     available: property.available,
     water: {
       type: landlord.commonFees.water.type,
       price: landlord.commonFees.water.price,
-      unit: landlord.commonFees.water.unit
+      unit: landlord.commonFees.water.unit,
     },
     electricity: {
       type: landlord.commonFees.electricity.type,
       price: landlord.commonFees.electricity.price,
-      unit: landlord.commonFees.electricity.unit
+      unit: landlord.commonFees.electricity.unit,
     },
-    deposit: landlord.deposit
+    deposit: landlord.deposit,
   };
 
   // 保存原始数据用于比较
@@ -427,41 +496,63 @@ const hasChanges = computed(() => {
 // 检测公共费用是否被修改
 const feesModified = computed(() => {
   if (!landlordInfo.value) return false;
-  
+
   const original = landlordInfo.value;
   return (
-    JSON.stringify(formData.value.water) !== JSON.stringify(original.commonFees.water) ||
-    JSON.stringify(formData.value.electricity) !== JSON.stringify(original.commonFees.electricity) ||
+    JSON.stringify(formData.value.water) !==
+      JSON.stringify(original.commonFees.water) ||
+    JSON.stringify(formData.value.electricity) !==
+      JSON.stringify(original.commonFees.electricity) ||
     formData.value.deposit !== original.deposit
   );
 });
 
 // 当前视频URL
-const currentVideoUrl = ref('');
+const currentVideoUrl = ref("");
 
 // 监听视频索引变化，加载视频
-watch([currentVideoIndex, currentProperty], async () => {
-  if (!currentProperty.value?.videos.length) {
-    currentVideoUrl.value = '';
-    return;
-  }
-  const url = await getVideoUrl(currentProperty.value.videos[currentVideoIndex.value].fileName);
-  currentVideoUrl.value = url;
-}, { immediate: true });
+watch(
+  [currentVideoIndex, currentProperty],
+  async () => {
+    videoLoadError.value = false;
+    currentVideoUrl.value = "";
+
+    if (!currentProperty.value?.videos.length) {
+      return;
+    }
+
+    const url = await getVideoUrl(
+      currentProperty.value.videos[currentVideoIndex.value].fileName
+    );
+    if (url) {
+      currentVideoUrl.value = url;
+      videoLoadError.value = false;
+    } else {
+      videoLoadError.value = true;
+    }
+  },
+  { immediate: true }
+);
 
 // 获取视频URL
 const getVideoUrl = async (fileName: string) => {
   try {
-    const dirHandle = await getValidDirectoryHandle('userPhotosFolder');
-    if (!dirHandle) return '';
-    
+    const dirHandle = await getValidDirectoryHandle("userPhotosFolder");
+    if (!dirHandle) {
+      console.error("获取目录句柄失败");
+      return "";
+    }
+
     const file = await getFileByPath(dirHandle, fileName);
-    if (!file) return '';
-    
+    if (!file) {
+      console.error("视频文件不存在:", fileName);
+      return "";
+    }
+
     return URL.createObjectURL(file);
   } catch (error) {
-    console.error('获取视频失败:', error);
-    return '';
+    console.error("获取视频失败:", fileName, error);
+    return "";
   }
 };
 
@@ -476,21 +567,25 @@ const generateVideoThumbnail = (video: HTMLVideoElement, index: number) => {
   try {
     // 设置视频到第一帧
     video.currentTime = 1; // 第1秒
-    
-    video.addEventListener('seeked', () => {
-      const canvas = document.createElement('canvas');
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
-      
-      const ctx = canvas.getContext('2d');
-      if (ctx) {
-        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-        const thumbnail = canvas.toDataURL('image/jpeg', 0.7);
-        videoThumbnails.value[index] = thumbnail;
-      }
-    }, { once: true });
+
+    video.addEventListener(
+      "seeked",
+      () => {
+        const canvas = document.createElement("canvas");
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+
+        const ctx = canvas.getContext("2d");
+        if (ctx) {
+          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+          const thumbnail = canvas.toDataURL("image/jpeg", 0.7);
+          videoThumbnails.value[index] = thumbnail;
+        }
+      },
+      { once: true }
+    );
   } catch (error) {
-    console.error('生成视频缩略图失败:', error);
+    console.error("生成视频缩略图失败:", error);
   }
 };
 
@@ -503,26 +598,29 @@ const previousVideo = () => {
 
 // 切换到下一个视频
 const nextVideo = () => {
-  if (currentVideoIndex.value < (currentProperty.value?.videos.length || 0) - 1) {
+  if (
+    currentVideoIndex.value <
+    (currentProperty.value?.videos.length || 0) - 1
+  ) {
     currentVideoIndex.value++;
   }
 };
 
 // 获取房东类型标签
 const getLandlordTypeLabel = (type?: LandlordType) => {
-  if (!type) return '未知';
+  if (!type) return "未知";
   const labels: Record<LandlordType, string> = {
-    [LandlordType.FirstHand]: '一手房东',
-    [LandlordType.SecondHand]: '二手房东',
-    [LandlordType.Agent]: '中介',
-    [LandlordType.Other]: '其他',
+    [LandlordType.FirstHand]: "一手房东",
+    [LandlordType.SecondHand]: "二手房东",
+    [LandlordType.Agent]: "中介",
+    [LandlordType.Other]: "其他",
   };
-  return labels[type] || '未知';
+  return labels[type] || "未知";
 };
 
 // 跳转到房东详情
 const handleGoToLandlord = () => {
-  emit('goToLandlord', props.landlordId);
+  emit("goToLandlord", props.landlordId);
   visible.value = false;
 };
 
@@ -533,7 +631,7 @@ const handleSave = async () => {
   // 表单验证
   await formRef.value.validate(async (valid) => {
     if (!valid) {
-      ElMessage.warning('请检查表单填写是否正确');
+      ElMessage.warning("请检查表单填写是否正确");
       return;
     }
 
@@ -541,7 +639,7 @@ const handleSave = async () => {
     try {
       // 使用 toRaw 获取原始数据，模仿房东详情的保存方式
       const rawLandlord = toRaw(landlordInfo.value!);
-      
+
       // 更新房源信息
       const updatedProperties = rawLandlord.properties.map((p: any) => {
         if (p.id === props.propertyId) {
@@ -553,7 +651,7 @@ const handleSave = async () => {
             notes: formData.value.description,
             amenities: toRaw(formData.value.amenities),
             available: formData.value.available,
-            updatedAt: new Date().toISOString()
+            updatedAt: new Date().toISOString(),
           };
         }
         return toRaw(p);
@@ -562,7 +660,7 @@ const handleSave = async () => {
       // 构建完整的更新数据
       const dataToSave: any = {
         properties: updatedProperties,
-        updatedAt: new Date().toISOString()
+        updatedAt: new Date().toISOString(),
       };
 
       // 如果公共费用有修改，同步到房东
@@ -571,29 +669,29 @@ const handleSave = async () => {
           electricity: {
             type: formData.value.electricity.type,
             price: formData.value.electricity.price,
-            unit: formData.value.electricity.unit
+            unit: formData.value.electricity.unit,
           },
           water: {
             type: formData.value.water.type,
             price: formData.value.water.price,
-            unit: formData.value.water.unit
+            unit: formData.value.water.unit,
           },
           internet: toRaw(rawLandlord.commonFees.internet),
           management: toRaw(rawLandlord.commonFees.management),
           garbage: toRaw(rawLandlord.commonFees.garbage),
-          other: toRaw(rawLandlord.commonFees.other)
+          other: toRaw(rawLandlord.commonFees.other),
         };
         dataToSave.deposit = formData.value.deposit;
       }
 
       await propertyStore.updateLandlordData(props.landlordId, dataToSave);
 
-      ElMessage.success('保存成功');
-      emit('saved');
+      ElMessage.success("保存成功");
+      emit("saved");
       visible.value = false;
     } catch (error: any) {
-      console.error('保存失败:', error);
-      ElMessage.error('保存失败: ' + (error.message || '未知错误'));
+      console.error("保存失败:", error);
+      ElMessage.error("保存失败: " + (error.message || "未知错误"));
     } finally {
       saving.value = false;
     }
@@ -603,15 +701,17 @@ const handleSave = async () => {
 // 取消修改
 const handleCancel = () => {
   if (hasChanges.value) {
-    ElMessageBox.confirm('有未保存的修改，确定要关闭吗？', '提示', {
-      confirmButtonText: '确定',
-      cancelButtonText: '取消',
-      type: 'warning'
-    }).then(() => {
-      visible.value = false;
-    }).catch(() => {
-      // 用户取消
-    });
+    ElMessageBox.confirm("有未保存的修改，确定要关闭吗？", "提示", {
+      confirmButtonText: "确定",
+      cancelButtonText: "取消",
+      type: "warning",
+    })
+      .then(() => {
+        visible.value = false;
+      })
+      .catch(() => {
+        // 用户取消
+      });
   } else {
     visible.value = false;
   }
@@ -619,29 +719,119 @@ const handleCancel = () => {
 
 // 关闭对话框
 const handleClose = () => {
-  emit('update:modelValue', false);
+  emit("update:modelValue", false);
 };
 
 // 监听 visible 变化
 watch(visible, (val) => {
-  emit('update:modelValue', val);
+  emit("update:modelValue", val);
 });
 
 // 监听 props.modelValue 变化
-watch(() => props.modelValue, (val) => {
-  visible.value = val;
-  if (val) {
-    initFormData();
-    currentVideoIndex.value = 0;
+watch(
+  () => props.modelValue,
+  (val) => {
+    visible.value = val;
+    if (val) {
+      initFormData();
+      currentVideoIndex.value = 0;
+      // 添加键盘监听
+      document.addEventListener("keydown", handleKeyDown);
+    } else {
+      // 移除键盘监听
+      document.removeEventListener("keydown", handleKeyDown);
+    }
   }
-});
+);
 
 // 组件挂载时初始化
-watch(() => currentProperty.value, () => {
-  if (currentProperty.value) {
-    initFormData();
+watch(
+  () => currentProperty.value,
+  () => {
+    if (currentProperty.value) {
+      initFormData();
+    }
+  },
+  { immediate: true }
+);
+
+// 获取当前房源在房源列表中的索引（使用筛选后的列表）
+const currentPropertyIndex = computed(() => {
+  // 使用 flattenedProperties 获取所有房源列表
+  const properties = propertyStore.flattenedProperties;
+  return properties.findIndex((p) => p.propertyId === props.propertyId);
+});
+
+// 是否有上一个房源
+const hasPreviousProperty = computed(() => {
+  return currentPropertyIndex.value > 0;
+});
+
+// 是否有下一个房源
+const hasNextProperty = computed(() => {
+  const properties = propertyStore.flattenedProperties;
+  return (
+    currentPropertyIndex.value >= 0 &&
+    currentPropertyIndex.value < properties.length - 1
+  );
+});
+
+// 切换到上一个房源
+const goToPreviousProperty = () => {
+  if (!hasPreviousProperty.value) return;
+
+  const properties = propertyStore.flattenedProperties;
+  const prevProperty = properties[currentPropertyIndex.value - 1];
+
+  // 发出事件通知父组件切换房源
+  emit("update:modelValue", false);
+  setTimeout(() => {
+    const event = new CustomEvent("switchProperty", {
+      detail: {
+        propertyId: prevProperty.propertyId,
+        landlordId: prevProperty.landlordId,
+      },
+    });
+    window.dispatchEvent(event);
+  }, 100);
+};
+
+// 切换到下一个房源
+const goToNextProperty = () => {
+  if (!hasNextProperty.value) return;
+
+  const properties = propertyStore.flattenedProperties;
+  const nextProperty = properties[currentPropertyIndex.value + 1];
+
+  emit("update:modelValue", false);
+  setTimeout(() => {
+    const event = new CustomEvent("switchProperty", {
+      detail: {
+        propertyId: nextProperty.propertyId,
+        landlordId: nextProperty.landlordId,
+      },
+    });
+    window.dispatchEvent(event);
+  }, 100);
+};
+
+// 键盘事件处理
+const handleKeyDown = (event: KeyboardEvent) => {
+  // Alt + 左方向键：上一个房源
+  if (event.altKey && event.key === "ArrowLeft") {
+    event.preventDefault();
+    if (hasPreviousProperty.value) {
+      goToPreviousProperty();
+    }
   }
-}, { immediate: true });
+  // Alt + 右方向键：下一个房源
+  else if (event.altKey && event.key === "ArrowRight") {
+    event.preventDefault();
+    if (hasNextProperty.value) {
+      goToNextProperty();
+    }
+  }
+};
 </script>
 
 <style scoped lang="scss">
@@ -814,11 +1004,59 @@ watch(() => currentProperty.value, () => {
   background: #fafafa;
 }
 
+.video-error {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #fef0f0;
+  border-radius: 8px;
+  border: 2px dashed #f56c6c;
+}
+
+.video-error-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  padding: 40px;
+}
+
+.video-error-text {
+  text-align: center;
+  color: #f56c6c;
+}
+
+.video-error-text > div:first-child {
+  font-weight: 600;
+  font-size: 18px;
+  margin-bottom: 8px;
+}
+
+.video-error-filename {
+  font-size: 13px;
+  color: #909399;
+  word-break: break-all;
+  max-width: 400px;
+}
+
+.video-loading {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: #f5f7fa;
+  border-radius: 8px;
+  color: #909399;
+  font-size: 16px;
+}
+
 .thumbnail-image {
   width: 100%;
   height: 100%;
   overflow: hidden;
-  
+
   img {
     width: 100%;
     height: 100%;

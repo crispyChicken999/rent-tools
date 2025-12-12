@@ -76,6 +76,13 @@ onMounted(async () => {
   window.addEventListener("open-property-detail", ((e: CustomEvent) => {
     handlePropertyDetailView(e.detail.propertyId);
   }) as EventListener);
+
+  // 监听房源切换事件（来自详情页的Alt+左右键）
+  window.addEventListener("switchProperty", ((e: CustomEvent) => {
+    currentPropertyId.value = e.detail.propertyId;
+    currentLandlordId.value = e.detail.landlordId;
+    propertyDetailVisible.value = true;
+  }) as EventListener);
 });
 
 // 监听视图模式切换，重置筛选
@@ -255,7 +262,7 @@ const showPhotoUpload = ref(false);
       direction="rtl"
       size="400px"
     >
-      <PropertyFilter />
+      <PropertyFilter @apply-filter="showPropertyFilterDrawer = false" />
     </el-drawer>
 
     <!-- 照片上传对话框 -->
@@ -284,7 +291,7 @@ const showPhotoUpload = ref(false);
       direction="rtl"
       size="400px"
     >
-      <LandlordFilter />
+      <LandlordFilter @apply-filter="showFilterDrawer = false" />
     </el-drawer>
 
     <!-- 设置对话框 -->
