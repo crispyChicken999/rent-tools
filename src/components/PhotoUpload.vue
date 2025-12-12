@@ -682,7 +682,7 @@ function formatProgress(_percentage: number): string {
 }
 </script>
 
-<style scoped>
+<style lang="scss" scoped>
 .photo-upload {
   padding: 20px;
 }
@@ -782,9 +782,9 @@ function formatProgress(_percentage: number): string {
   justify-content: center;
 }
 .image-wrapper.zoom-portrait-small .carousel-image {
-  width: 50%;
+  width: auto;
   height: auto;
-  max-width: 50%;
+  max-width: 100%;
   max-height: 100%;
   object-fit: contain;
 }
@@ -813,9 +813,9 @@ function formatProgress(_percentage: number): string {
 }
 .image-wrapper.zoom-landscape-small .carousel-image {
   width: auto;
-  height: 50%;
+  height: auto;
   max-width: 100%;
-  max-height: 50%;
+  max-height: 100%;
   object-fit: contain;
 }
 
