@@ -1208,7 +1208,7 @@ async function initMouseTool() {
 
           // 关闭绘制模式
           isDrawing.value = false;
-          mouseTool.close(true); // 保留绘制的图形
+          mouseTool.close(false); // 保留绘制的图形
 
           // 设置多边形样式
           polygon.setOptions({
@@ -1244,11 +1244,6 @@ async function toggleDrawMode() {
     return;
   }
 
-  // 如果已有圈选区域，先清除
-  if (propertyStore.selectedArea) {
-    await clearDrawing();
-  }
-
   // 初始化鼠标工具
   if (!mouseTool) {
     await initMouseTool();
@@ -1259,6 +1254,12 @@ async function toggleDrawMode() {
     isDrawing.value = false;
     mouseTool.close(true);
   } else {
+    // 如果已有圈选区域，提示用户
+    if (propertyStore.selectedArea) {
+      ElMessage.warning("已有圈选区域，请先清除后再绘制新区域");
+      return;
+    }
+
     // 开启绘制模式
     isDrawing.value = true;
     mouseTool.polygon({
