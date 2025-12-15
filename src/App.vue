@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { onMounted, ref, watch } from "vue";
 import { ElMessage, ElMessageBox } from "element-plus";
+import { DArrowLeft, DArrowRight } from "@element-plus/icons-vue";
 
 import PhotoUpload from "./components/PhotoUpload.vue";
 import MapView from "./components/MapView.vue";
@@ -216,7 +217,24 @@ const showPhotoUpload = ref(false);
     <!-- 主内容区 -->
     <div class="main-content">
       <!-- 左侧：列表 -->
-      <div class="left-panel" id="left-panel">
+      <div
+        class="left-panel"
+        id="left-panel"
+        :class="{ collapsed: propertyStore.isSidebarCollapsed }"
+      >
+        <!-- Toggle按钮 -->
+        <div
+          class="sidebar-toggle"
+          :class="{ visible: propertyStore.isSidebarCollapsed }"
+          @click="propertyStore.toggleSidebar()"
+          title="展开/收起侧边栏"
+        >
+          <el-icon :size="14">
+            <DArrowRight v-if="propertyStore.isSidebarCollapsed" />
+            <DArrowLeft v-else />
+          </el-icon>
+        </div>
+
         <!-- 房东列表 -->
         <LandlordList
           v-if="propertyStore.viewMode === 'landlord'"
@@ -262,7 +280,10 @@ const showPhotoUpload = ref(false);
       direction="rtl"
       size="400px"
     >
-      <PropertyFilter  v-if="propertyStore.viewMode === 'property'" @apply-filter="showPropertyFilterDrawer = false" />
+      <PropertyFilter
+        v-if="propertyStore.viewMode === 'property'"
+        @apply-filter="showPropertyFilterDrawer = false"
+      />
     </el-drawer>
 
     <!-- 照片上传对话框 -->
@@ -291,7 +312,10 @@ const showPhotoUpload = ref(false);
       direction="rtl"
       size="400px"
     >
-      <LandlordFilter v-if="propertyStore.viewMode === 'landlord'"  @apply-filter="showFilterDrawer = false" />
+      <LandlordFilter
+        v-if="propertyStore.viewMode === 'landlord'"
+        @apply-filter="showFilterDrawer = false"
+      />
     </el-drawer>
 
     <!-- 设置对话框 -->
@@ -433,7 +457,50 @@ const showPhotoUpload = ref(false);
   box-shadow: 2px 0 8px rgba(0, 0, 0, 0.1);
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+  position: relative;
+  transition: width 0.3s ease, margin 0.3s ease;
+
+  &.collapsed {
+    width: 0;
+    margin-right: 0;
+    box-shadow: none;
+  }
+
+  /* Toggle按钮 */
+  .sidebar-toggle {
+    position: absolute;
+    right: -20px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 20px;
+    height: 40px;
+    background: white;
+    border: 1px solid #e4e7ed;
+    border-left: none;
+    border-radius: 0 8px 8px 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    z-index: 100;
+    opacity: 0;
+    transition: all 0.3s ease;
+    box-shadow: 2px 0 8px rgba(0, 0, 0, 0.1);
+
+    &:hover {
+      background: #f5f7fa;
+      border-color: #409eff;
+      color: #409eff;
+    }
+
+    &.visible {
+      opacity: 1;
+    }
+  }
+
+  &:hover .sidebar-toggle {
+    opacity: 1;
+  }
 }
 
 .right-panel {

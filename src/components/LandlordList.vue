@@ -1,7 +1,26 @@
 <template>
-  <div class="landlord-list">
+  <div class="landlord-list" v-show="!propertyStore.isSidebarCollapsed">
     <div class="list-header">
       <h3>房东列表 ({{ filteredLandlords.length }})</h3>
+      <div
+        class="search-container"
+        :class="{ expanded: isSearchExpanded }"
+        @mouseenter="isSearchExpanded = true"
+        @mouseleave="handleSearchInputBlur"
+      >
+        <el-input
+          v-model="searchKeyword"
+          placeholder="搜索昵称/电话/地址"
+          clearable
+          @input="handleSearch"
+          @blur="handleSearchInputBlur"
+          ref="searchInputRef"
+        >
+          <template #prefix>
+            <el-icon><Search /></el-icon>
+          </template>
+        </el-input>
+      </div>
     </div>
 
     <DynamicScroller
@@ -165,10 +184,10 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch } from "vue";
+import { computed, ref, watch, nextTick } from "vue";
 import { DynamicScroller, DynamicScrollerItem } from "vue-virtual-scroller";
 import "vue-virtual-scroller/dist/vue-virtual-scroller.css";
-import { Delete, Star, StarFilled } from "@element-plus/icons-vue";
+import { Delete, Star, StarFilled, Search } from "@element-plus/icons-vue";
 import { ElMessage } from "element-plus";
 import LandlordAvatar from "./LandlordAvatar.vue";
 import { usePropertyStore } from "@/stores/property";
@@ -177,6 +196,11 @@ import type { Landlord } from "@/types";
 
 const propertyStore = usePropertyStore();
 const virtualListRef = ref<any>(null);
+
+// 搜索相关状态
+const searchKeyword = ref("");
+const isSearchExpanded = ref(false);
+const searchInputRef = ref<any>(null);
 
 const filteredLandlords = computed(() => propertyStore.filteredLandlords);
 
@@ -283,6 +307,40 @@ const confirmDelete = async () => {
     landlordToDelete.value = null;
   }
 };
+
+// 搜索处理函数
+const handleSearch = () => {
+  propertyStore.setLandlordSearchKeyword(searchKeyword.value);
+};
+
+// const handleSearchBlur = () => {
+//   // 延迟检查，给输入框获得焦点的时间
+//   setTimeout(() => {
+//     if (!searchInputRef.value?.input?.contains(document.activeElement)) {
+//       if (!searchKeyword.value) {
+//         isSearchExpanded.value = false;
+//       }
+//     }
+//   }, 200);
+// };
+
+const handleSearchInputBlur = () => {
+  // 输入框失焦时，如果没有内容则收起
+  setTimeout(() => {
+    if (!searchKeyword.value) {
+      isSearchExpanded.value = false;
+    }
+  }, 200);
+};
+
+// 监听展开状态，自动聚焦输入框
+watch(isSearchExpanded, (newVal) => {
+  if (newVal) {
+    nextTick(() => {
+      searchInputRef.value?.focus();
+    });
+  }
+});
 </script>
 
 <style scoped lang="scss">
@@ -297,6 +355,9 @@ const confirmDelete = async () => {
   padding: 16px;
   border-bottom: 1px solid #e4e7ed;
   background: white;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 
   h3 {
     margin: 0;
@@ -304,10 +365,73 @@ const confirmDelete = async () => {
     font-weight: 600;
     color: #303133;
   }
+
+  .search-container {
+    width: 32px;
+    height: 32px;
+    transition: width 0.3s ease;
+    overflow: hidden;
+    &.expanded {
+      width: 200px;
+      :deep(.el-input__wrapper) {
+        padding: 0 11px;
+        .el-input__inner {
+          opacity: 1;
+        }
+        .el-input__prefix {
+          padding-left: 0px;
+        }
+      }
+    }
+
+    :deep(.el-input__wrapper) {
+      padding: 0;
+      transition: all 0.3s ease;
+      .el-input__prefix {
+        padding-left: 8px;
+      }
+      .el-input__inner {
+        opacity: 0;
+        transition: all 0.3s ease;
+      }
+    }
+  }
 }
 
 .virtual-scroller {
   flex: 1;
+
+  /* 自定义滚动条样式 */
+  /* Webkit浏览器（Chrome, Safari, Edge） */
+  &::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: transparent;
+    border-radius: 4px;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: #dcdfe6;
+    border-radius: 4px;
+    transition: background 0.3s ease;
+
+    &:hover {
+      background: #c0c4cc;
+    }
+  }
+
+  &::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+
+  /* Firefox */
+  :deep(.vue-recycle-scroller__item-wrapper) {
+    scrollbar-width: thin;
+    scrollbar-color: #dcdfe6 transparent;
+  }
 }
 
 .scroller-height {
@@ -315,7 +439,7 @@ const confirmDelete = async () => {
 }
 
 .scroller-item {
-  padding: 12px 12px 0 12px;
+  padding: 12px 8px 0 8px;
 }
 
 .property-item {

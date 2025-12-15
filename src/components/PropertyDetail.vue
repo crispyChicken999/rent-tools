@@ -598,13 +598,6 @@
       <!-- 底部操作栏 -->
       <div class="action-buttons">
         <el-button
-          type="primary"
-          @click="saveChanges"
-          :loading="saving"
-          :icon="Check"
-          >保存</el-button
-        >
-        <el-button
           type="warning"
           @click="toggleFavorite"
           :plain="!editForm.isFavorite"
@@ -612,6 +605,13 @@
         >
           {{ editForm.isFavorite ? "已收藏" : "收藏" }}
         </el-button>
+        <el-button
+          type="primary"
+          @click="saveChanges"
+          :loading="saving"
+          :icon="Check"
+          >保存</el-button
+        >
         <el-button @click="closeDrawer" :icon="Close" plain>关闭</el-button>
         <el-button
           type="danger"

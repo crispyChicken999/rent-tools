@@ -68,7 +68,27 @@ export const usePropertyStore = defineStore("property", () => {
   // ========== 地图圈选状态 ==========
   const selectedArea = ref<{ lng: number; lat: number }[] | null>(null); // 圈选的区域坐标数组
 
+  // ========== 房东搜索关键词 ==========
+  const landlordSearchKeyword = ref<string>(""); // 房东列表快速搜索关键词
+
+  // ========== UI状态 ==========
+  const isSidebarCollapsed = ref(false); // 侧边栏是否折叠
+
   // ========== 计算属性 ==========
+
+  // 电话号码出现次数统计（缓存以提升性能）
+  const phoneCounts = computed(() => {
+    const counts = new Map<string, number>();
+    landlords.value.forEach((l) => {
+      if (l.phoneNumbers && l.phoneNumbers.length > 0) {
+        l.phoneNumbers.forEach((phone) => {
+          counts.set(phone, (counts.get(phone) || 0) + 1);
+        });
+      }
+    });
+    return counts;
+  });
+
   const filteredLandlords = computed(() => {
     let result = landlords.value;
 
@@ -90,6 +110,19 @@ export const usePropertyStore = defineStore("property", () => {
       result = result.filter((l) =>
         l.phoneNumbers.some((phone) => phone.includes(keyword))
       );
+    }
+
+    // 快速搜索关键词筛选（昵称、电话、地址）
+    if (landlordSearchKeyword.value && landlordSearchKeyword.value.trim()) {
+      const keyword = landlordSearchKeyword.value.trim().toLowerCase();
+      result = result.filter((l) => {
+        const matchNickname = l.wechatNickname?.toLowerCase().includes(keyword);
+        const matchPhone = l.phoneNumbers.some((phone) =>
+          phone.includes(keyword)
+        );
+        const matchAddress = l.address?.toLowerCase().includes(keyword);
+        return matchNickname || matchPhone || matchAddress;
+      });
     }
 
     if (filters.value.landlordType && filters.value.landlordType.length > 0) {
@@ -184,44 +217,26 @@ export const usePropertyStore = defineStore("property", () => {
     }
 
     if (filters.value.hideRepeatedPhones) {
-      // 统计所有电话号码的出现次数
-      const phoneCounts = new Map<string, number>();
-      landlords.value.forEach((l) => {
-        if (l.phoneNumbers && l.phoneNumbers.length > 0) {
-          l.phoneNumbers.forEach((phone) => {
-            phoneCounts.set(phone, (phoneCounts.get(phone) || 0) + 1);
-          });
-        }
-      });
+      // 使用缓存的电话号码统计
+      const counts = phoneCounts.value;
 
       // 过滤掉包含重复电话号码的房东
       result = result.filter((l) => {
         if (!l.phoneNumbers || l.phoneNumbers.length === 0) return true; // 没有电话的不过滤
         // 只要有一个电话号码出现次数 >= 3，就认为是二房东，过滤掉
-        return !l.phoneNumbers.some(
-          (phone) => (phoneCounts.get(phone) || 0) >= 3
-        );
+        return !l.phoneNumbers.some((phone) => (counts.get(phone) || 0) >= 3);
       });
     }
 
     if (filters.value.showRepeatedPhones) {
-      // 统计所有电话号码的出现次数
-      const phoneCounts = new Map<string, number>();
-      landlords.value.forEach((l) => {
-        if (l.phoneNumbers && l.phoneNumbers.length > 0) {
-          l.phoneNumbers.forEach((phone) => {
-            phoneCounts.set(phone, (phoneCounts.get(phone) || 0) + 1);
-          });
-        }
-      });
+      // 使用缓存的电话号码统计
+      const counts = phoneCounts.value;
 
       // 只显示包含出现3次及以上电话号码的房东
       result = result.filter((l) => {
         if (!l.phoneNumbers || l.phoneNumbers.length === 0) return false; // 没有电话的不显示
         // 只要有一个电话号码出现次数 >= 3，就显示
-        return l.phoneNumbers.some(
-          (phone) => (phoneCounts.get(phone) || 0) >= 3
-        );
+        return l.phoneNumbers.some((phone) => (counts.get(phone) || 0) >= 3);
       });
     }
 
@@ -482,293 +497,10 @@ export const usePropertyStore = defineStore("property", () => {
     return result;
   });
 
-  // 临时筛选预览计数（不影响实际筛选结果）
-  const previewLandlordCount = computed(() => {
-    let result = landlords.value;
-    const previewFilters = tempLandlordFilters.value;
+  // 临时筛选预览计数（现在实时筛选，直接返回实际结果数量）
+  const previewLandlordCount = computed(() => filteredLandlords.value.length);
 
-    if (previewFilters.wechatStatus && previewFilters.wechatStatus.length > 0) {
-      result = result.filter((l) =>
-        previewFilters.wechatStatus!.includes(l.wechatStatus)
-      );
-    }
-
-    if (
-      previewFilters.contactStatus &&
-      previewFilters.contactStatus.length > 0
-    ) {
-      result = result.filter((l) =>
-        previewFilters.contactStatus!.includes(l.contactStatus)
-      );
-    }
-
-    if (previewFilters.phoneSearch && previewFilters.phoneSearch.trim()) {
-      const keyword = previewFilters.phoneSearch.trim();
-      result = result.filter((l) =>
-        l.phoneNumbers.some((phone) => phone.includes(keyword))
-      );
-    }
-
-    if (previewFilters.landlordType && previewFilters.landlordType.length > 0) {
-      result = result.filter((l) =>
-        previewFilters.landlordType!.includes(l.landlordType)
-      );
-    }
-
-    if (previewFilters.rentRange) {
-      const [min, max] = previewFilters.rentRange;
-      result = result.filter((l) =>
-        l.properties.some((p: any) => p.rent >= min && p.rent <= max)
-      );
-    }
-
-    if (previewFilters.roomTypes && previewFilters.roomTypes.length > 0) {
-      result = result.filter((l) =>
-        l.properties.some((p) => previewFilters.roomTypes!.includes(p.roomType))
-      );
-    }
-
-    if (previewFilters.waterType && previewFilters.waterType !== "all") {
-      result = result.filter((l) => {
-        if (previewFilters.waterType === "civil")
-          return l.commonFees.water.type === "civil";
-        if (previewFilters.waterType === "5.0")
-          return l.commonFees.water.type === "5.0";
-        if (previewFilters.waterType === "custom") {
-          const maxPrice = previewFilters.waterPriceMax;
-          if (maxPrice === undefined) return true;
-
-          // 民用水费是 3 元/吨，也要包含在筛选范围内
-          if (l.commonFees.water.type === "civil") {
-            return 3 <= maxPrice;
-          }
-
-          // 自定义价格判断
-          if (l.commonFees.water.price !== undefined) {
-            return l.commonFees.water.price <= maxPrice;
-          }
-          return false;
-        }
-        return true;
-      });
-    }
-
-    if (
-      previewFilters.electricityType &&
-      previewFilters.electricityType !== "all"
-    ) {
-      result = result.filter((l) => {
-        if (previewFilters.electricityType === "civil")
-          return l.commonFees.electricity.type === "civil";
-        if (previewFilters.electricityType === "1.5")
-          return l.commonFees.electricity.type === "1.5";
-        if (previewFilters.electricityType === "1.0")
-          return l.commonFees.electricity.type === "1.0";
-        if (previewFilters.electricityType === "0.88")
-          return l.commonFees.electricity.type === "0.88";
-        if (previewFilters.electricityType === "custom") {
-          const maxPrice = previewFilters.electricityPriceMax;
-          if (maxPrice === undefined) return true;
-
-          // 民用电费是 0.6 元/度，也要包含在筛选范围内
-          if (l.commonFees.electricity.type === "civil") {
-            return 0.6 <= maxPrice;
-          }
-
-          // 自定义价格判断
-          if (l.commonFees.electricity.price !== undefined) {
-            return l.commonFees.electricity.price <= maxPrice;
-          }
-          return false;
-        }
-        return true;
-      });
-    }
-
-    if (previewFilters.isFavorite && previewFilters.isFavorite !== "all") {
-      result = result.filter((l) => {
-        if (previewFilters.isFavorite === "favorite")
-          return l.isFavorite === true;
-        if (previewFilters.isFavorite === "unfavorite") return !l.isFavorite;
-        return true;
-      });
-    }
-
-    if (previewFilters.hideRepeatedPhones) {
-      const phoneCounts = new Map<string, number>();
-      landlords.value.forEach((l) => {
-        if (l.phoneNumbers && l.phoneNumbers.length > 0) {
-          l.phoneNumbers.forEach((phone) => {
-            phoneCounts.set(phone, (phoneCounts.get(phone) || 0) + 1);
-          });
-        }
-      });
-      result = result.filter((l) => {
-        if (!l.phoneNumbers || l.phoneNumbers.length === 0) return true;
-        return !l.phoneNumbers.some(
-          (phone) => (phoneCounts.get(phone) || 0) >= 3
-        );
-      });
-    }
-
-    if (previewFilters.showRepeatedPhones) {
-      const phoneCounts = new Map<string, number>();
-      landlords.value.forEach((l) => {
-        if (l.phoneNumbers && l.phoneNumbers.length > 0) {
-          l.phoneNumbers.forEach((phone) => {
-            phoneCounts.set(phone, (phoneCounts.get(phone) || 0) + 1);
-          });
-        }
-      });
-      result = result.filter((l) => {
-        if (!l.phoneNumbers || l.phoneNumbers.length === 0) return false;
-        return l.phoneNumbers.some(
-          (phone) => (phoneCounts.get(phone) || 0) >= 3
-        );
-      });
-    }
-
-    // 地图圈选区域筛选
-    if (selectedArea.value && selectedArea.value.length >= 3) {
-      result = result.filter((l) => {
-        if (!l.gps) return false;
-        return isPointInPolygon(l.gps, selectedArea.value!);
-      });
-    }
-
-    return result.length;
-  });
-
-  const previewPropertyCount = computed(() => {
-    let result = flattenedProperties.value;
-    const previewFilters = tempPropertyFilters.value;
-
-    if (previewFilters.roomTypes?.length) {
-      result = result.filter((p) =>
-        previewFilters.roomTypes!.includes(p.roomType)
-      );
-    }
-
-    if (previewFilters.rentRange) {
-      const [min, max] = previewFilters.rentRange;
-      result = result.filter(
-        (p) => p.rent !== undefined && p.rent >= min && p.rent <= max
-      );
-    }
-
-    if (previewFilters.amenities?.length) {
-      result = result.filter((p) =>
-        previewFilters.amenities!.every((amenity) =>
-          p.amenities.includes(amenity)
-        )
-      );
-    }
-
-    if (previewFilters.available !== undefined) {
-      result = result.filter((p) => p.available === previewFilters.available);
-    }
-
-    if (previewFilters.landlordType?.length) {
-      result = result.filter((p) =>
-        previewFilters.landlordType!.includes(p.landlordType)
-      );
-    }
-
-    if (previewFilters.depositMethod?.length) {
-      result = result.filter((p) =>
-        previewFilters.depositMethod!.includes(p.deposit)
-      );
-    }
-
-    if (previewFilters.waterType && previewFilters.waterType !== "all") {
-      result = result.filter((p) => {
-        if (previewFilters.waterType === "civil")
-          return p.water.type === "civil";
-        if (previewFilters.waterType === "custom") {
-          const maxPrice = previewFilters.waterPriceMax;
-          if (maxPrice === undefined) return true;
-
-          // 民用水费是 3 元/吨，也要包含在筛选范围内
-          if (p.water.type === "civil") {
-            return 3 <= maxPrice;
-          }
-
-          // 自定义价格判断
-          if (p.water.price !== undefined) {
-            return p.water.price <= maxPrice;
-          }
-          return true;
-        }
-        return true;
-      });
-    }
-
-    if (
-      previewFilters.electricityType &&
-      previewFilters.electricityType !== "all"
-    ) {
-      result = result.filter((p) => {
-        if (previewFilters.electricityType === "civil")
-          return p.electricity.type === "civil";
-        if (previewFilters.electricityType === "1.5")
-          return p.electricity.type === "1.5";
-        if (previewFilters.electricityType === "1.0")
-          return p.electricity.type === "1.0";
-        if (previewFilters.electricityType === "0.88")
-          return p.electricity.type === "0.88";
-        if (previewFilters.electricityType === "custom") {
-          const maxPrice = previewFilters.electricityPriceMax;
-          if (maxPrice === undefined) return true;
-
-          // 民用电费是 0.6 元/度，也要包含在筛选范围内
-          if (p.electricity.type === "civil") {
-            return 0.6 <= maxPrice;
-          }
-
-          // 固定价格选项也要判断是否小于等于最大值
-          if (p.electricity.price !== undefined) {
-            return p.electricity.price <= maxPrice;
-          }
-          return true;
-        }
-        return true;
-      });
-    }
-
-    // 应用收藏状态筛选
-    if (
-      previewFilters.favoriteStatus &&
-      previewFilters.favoriteStatus !== "all"
-    ) {
-      result = result.filter((p) => {
-        if (previewFilters.favoriteStatus === "favorite")
-          return p.isFavorite === true;
-        if (previewFilters.favoriteStatus === "unfavorite")
-          return !p.isFavorite;
-        return true;
-      });
-    }
-
-    if (previewFilters.keyword) {
-      const keyword = previewFilters.keyword.toLowerCase();
-      result = result.filter(
-        (p) =>
-          p.address?.toLowerCase().includes(keyword) ||
-          p.description?.toLowerCase().includes(keyword) ||
-          p.landlordPhone.includes(keyword)
-      );
-    }
-
-    // 地图圈选区域筛选
-    if (selectedArea.value && selectedArea.value.length >= 3) {
-      result = result.filter((p) => {
-        if (!p.gps) return false;
-        return isPointInPolygon(p.gps, selectedArea.value!);
-      });
-    }
-
-    return result.length;
-  });
+  const previewPropertyCount = computed(() => filteredProperties.value.length);
 
   // 按 GPS 分组的房源（用于地图标记）
   const groupedPropertiesByGps = computed(() => {
@@ -1419,6 +1151,16 @@ export const usePropertyStore = defineStore("property", () => {
     selectedArea.value = null;
   }
 
+  /** 设置房东搜索关键词 */
+  function setLandlordSearchKeyword(keyword: string) {
+    landlordSearchKeyword.value = keyword;
+  }
+
+  /** 切换侧边栏折叠状态 */
+  function toggleSidebar() {
+    isSidebarCollapsed.value = !isSidebarCollapsed.value;
+  }
+
   return {
     // 状态
     landlords,
@@ -1437,6 +1179,7 @@ export const usePropertyStore = defineStore("property", () => {
     imperfectCount,
     contactedCount,
     previewLandlordCount,
+    phoneCounts, // 导出电话号码统计，供MapView等组件使用
 
     // 房源视图计算属性
     flattenedProperties,
@@ -1474,5 +1217,13 @@ export const usePropertyStore = defineStore("property", () => {
     selectedArea,
     setSelectedArea,
     clearSelectedArea,
+
+    // 房东搜索相关
+    landlordSearchKeyword,
+    setLandlordSearchKeyword,
+
+    // UI状态相关
+    isSidebarCollapsed,
+    toggleSidebar,
   };
 });

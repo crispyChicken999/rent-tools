@@ -16,36 +16,46 @@
         </svg>
       </div>
       <div class="legend-content">
+        <div class="legend-section-title">房东类型</div>
         <div class="legend-item"><span class="dot green"></span> 一手房东</div>
         <div class="legend-item"><span class="dot yellow"></span> 二手房东</div>
         <div class="legend-item"><span class="dot red"></span> 中介</div>
         <div class="legend-item"><span class="dot gray"></span> 其他</div>
-        <div class="legend-item">
-          <span class="dot bright"></span> 已联系 (亮色)
-        </div>
-        <div class="legend-item">
-          <span class="dot dark"></span> 未联系 (暗色)
-        </div>
+
         <div class="legend-divider"></div>
+        <div class="legend-section-title">联系状态</div>
         <div class="legend-item">
-          <span class="dot star">⭐</span> 收藏房东
+          <span class="dot bright"></span> 已联系（大且亮）
         </div>
         <div class="legend-item">
-          <span class="dot square"></span> 疑似二房东 (方形)
+          <span class="dot dark"></span> 未联系（小且暗）
+        </div>
+
+        <div class="legend-divider"></div>
+        <div class="legend-section-title">特殊标记</div>
+        <div class="legend-item">
+          <span class="dot star">⭐</span> 收藏（金边）
         </div>
         <div class="legend-item">
-          <span class="dot square highlighted"></span> 电话重复出现
+          <span class="dot square"></span> 疑似二房东
         </div>
+        <div class="legend-item">
+          <span class="dot square highlighted"></span> 重复电话
+        </div>
+
         <div class="legend-divider"></div>
         <div class="legend-tip">💡 右键地图创建房东</div>
+        <div class="legend-tip">📍 右键房东调整位置（ESC取消）</div>
       </div>
     </div>
 
     <!-- 定位按钮 -->
-    <div class="location-button" @click="locateUser" title="定位至当前位置">
-      <el-icon :size="20" :class="{ 'is-loading': isLocating }">
-        <Location />
-      </el-icon>
+    <div class="location-button" @click="locateUser">
+      <el-tooltip content="定位至当前位置" placement="left">
+        <el-icon :size="20" :class="{ 'is-loading': isLocating }">
+          <Location />
+        </el-icon>
+      </el-tooltip>
     </div>
 
     <!-- 圈选工具按钮 -->
@@ -92,7 +102,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch, onUnmounted, h, render } from "vue";
+import { ref, onMounted, watch, onUnmounted, h, render, toRaw } from "vue";
 import {
   ElImage,
   ElButton,
@@ -101,7 +111,7 @@ import {
   ElMessageBox,
 } from "element-plus";
 import { CopyDocument, Location } from "@element-plus/icons-vue";
-import { loadAMap } from "@/utils/geocode";
+import { loadAMap, getAddressFromGps } from "@/utils/geocode";
 import { usePropertyStore } from "@/stores/property";
 import { LandlordType, ContactStatus } from "@/types";
 import type { Landlord, PropertyViewItem, ViewMode } from "@/types";
@@ -141,20 +151,11 @@ function isSuspectedSecondHand(landlord: Landlord): boolean {
   if (!landlord.phoneNumbers || landlord.phoneNumbers.length === 0)
     return false;
 
-  // 统计所有电话号码的出现次数
-  const phoneCounts = new Map<string, number>();
-  propertyStore.landlords.forEach((l) => {
-    if (l.phoneNumbers && l.phoneNumbers.length > 0) {
-      l.phoneNumbers.forEach((phone) => {
-        phoneCounts.set(phone, (phoneCounts.get(phone) || 0) + 1);
-      });
-    }
-  });
+  // 使用store中缓存的phoneCounts，避免重复遍历
+  const counts = propertyStore.phoneCounts;
 
   // 只要有一个电话号码出现次数 >= 3，就认为是疑似二房东
-  return landlord.phoneNumbers.some(
-    (phone) => (phoneCounts.get(phone) || 0) >= 3
-  );
+  return landlord.phoneNumbers.some((phone) => (counts.get(phone) || 0) >= 3);
 }
 
 onMounted(async () => {
@@ -171,14 +172,40 @@ onUnmounted(() => {
   }
 });
 
+// 使用防抖优化marker渲染
+let renderMarkersTimer: ReturnType<typeof setTimeout> | null = null;
+
+const debouncedRenderMarkers = () => {
+  if (renderMarkersTimer) {
+    clearTimeout(renderMarkersTimer);
+  }
+  renderMarkersTimer = setTimeout(() => {
+    renderMarkers();
+  }, 100); // 100ms防抖
+};
+
+// 监听筛选后的房东列表变化（不使用deep，只监听数组本身的变化）
 watch(
   () => propertyStore.filteredLandlords,
-  () => {
-    if (props.viewMode === "landlord") {
-      renderMarkers();
+  (newList, oldList) => {
+    if (props.viewMode !== "landlord") return;
+
+    // 如果数组长度没变，检查ID是否有变化
+    if (newList.length === oldList?.length) {
+      const newIds = new Set(newList.map((l) => l.id));
+      const oldIds = new Set(oldList?.map((l) => l.id) || []);
+
+      // ID完全相同，不需要重新渲染
+      if (
+        newIds.size === oldIds.size &&
+        [...newIds].every((id) => oldIds.has(id))
+      ) {
+        return;
+      }
     }
-  },
-  { deep: true }
+
+    debouncedRenderMarkers();
+  }
 );
 
 // 监听视图模式变化
@@ -203,15 +230,31 @@ watch(
   }
 );
 
-// 监听房源数据变化
+// 房源marker渲染防抖
+let renderPropertyMarkersTimer: ReturnType<typeof setTimeout> | null = null;
+
+const debouncedRenderPropertyMarkers = () => {
+  if (renderPropertyMarkersTimer) {
+    clearTimeout(renderPropertyMarkersTimer);
+  }
+  renderPropertyMarkersTimer = setTimeout(() => {
+    renderPropertyMarkers();
+  }, 100);
+};
+
+// 监听房源数据变化（不使用deep）
 watch(
   () => props.properties,
-  () => {
-    if (props.viewMode === "property") {
-      renderPropertyMarkers();
+  (newList, oldList) => {
+    if (props.viewMode !== "property") return;
+
+    // 简单比较数组长度，避免深度比较
+    if (newList.length === oldList?.length) {
+      return;
     }
-  },
-  { deep: true }
+
+    debouncedRenderPropertyMarkers();
+  }
 );
 
 // 定位用户当前位置（使用高德地图定位）
@@ -385,6 +428,7 @@ async function initMap() {
               lng: position.lng,
               lat: position.lat,
             });
+            contextMenu.close();
           } catch (error) {
             console.error("创建房东失败:", error);
             ElMessage.error("创建房东失败");
@@ -461,7 +505,10 @@ async function renderMarkers() {
           (l) => l.id === landlord.id
         );
         if (current) {
-          propertyStore.setFocusedLandlord(current.id);
+          // 只有在侧边栏未折叠时才执行聚焦操作（性能优化）
+          if (!propertyStore.isSidebarCollapsed) {
+            propertyStore.setFocusedLandlord(current.id);
+          }
           highlightMarkersWithSamePhone(current);
           showInfoWindow(marker, current);
         }
@@ -484,6 +531,19 @@ function createMarkerContextMenu(landlordId: string) {
   const AMap = (window as any).AMap;
   const contextMenu = new AMap.ContextMenu();
 
+  // 调整位置
+  contextMenu.addItem(
+    "📍 调整位置",
+    () => {
+      const marker = markers.get(landlordId);
+      if (marker) {
+        enableMarkerDrag(marker, landlordId);
+        contextMenu.close();
+      }
+    },
+    0
+  );
+
   contextMenu.addItem(
     "🗑️ 删除此房东",
     async () => {
@@ -497,13 +557,14 @@ function createMarkerContextMenu(landlordId: string) {
         await propertyStore.removeLandlord(landlordId, false);
         ElMessage.success("房东已删除");
         await renderMarkers();
+        contextMenu.close();
       } catch (error: any) {
         if (error !== "cancel") {
           ElMessage.error("删除失败");
         }
       }
     },
-    0
+    1
   );
 
   contextMenu.addItem(
@@ -512,12 +573,135 @@ function createMarkerContextMenu(landlordId: string) {
       const landlord = propertyStore.landlords.find((l) => l.id === landlordId);
       if (landlord) {
         propertyStore.selectLandlord(landlord);
+        contextMenu.close();
       }
     },
-    1
+    2
   );
 
   return contextMenu;
+}
+
+// 启用marker拖拽
+function enableMarkerDrag(marker: any, landlordId: string) {
+  // 保存原始内容和右键菜单
+  const originalContent = marker.getContent();
+
+  // 设置marker可拖拽
+  marker.setDraggable(true);
+
+  // 改变marker图标为移动图标
+  const dragIcon = `
+    <div style="
+      width: 32px;
+      height: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #409eff;
+      border: 3px solid white;
+      border-radius: 50%;
+      box-shadow: 0 4px 12px rgba(64, 158, 255, 0.5);
+      cursor: move;
+      animation: pulse 1.5s ease-in-out infinite;
+    ">
+      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="white">
+        <path d="M10 9h4V6h3l-5-5-5 5h3v3zm-1 1H6V7l-5 5 5 5v-3h3v-4zm14 2l-5-5v3h-3v4h3v3l5-5zm-9 3h-4v3H7l5 5 5-5h-3v-3z"/>
+      </svg>
+    </div>
+    <style>
+      @keyframes pulse {
+        0%, 100% { transform: scale(1); }
+        50% { transform: scale(1.1); }
+      }
+    </style>
+  `;
+  marker.setContent(dragIcon);
+  marker.setOffset(new (window as any).AMap.Pixel(-16, -16)); // 居中对齐
+
+  ElMessage.info({
+    message: "拖拽模式已开启，拖动marker到目标位置后松开鼠标（按ESC取消）",
+    duration: 3000,
+  });
+
+  // 恢复marker样式的函数
+  const restoreMarker = () => {
+    marker.setDraggable(false);
+    marker.setContent(originalContent);
+    const landlord = propertyStore.landlords.find((l) => l.id === landlordId);
+    if (landlord) {
+      const style = getMarkerStyle(landlord);
+      marker.setOffset(
+        new (window as any).AMap.Pixel(-9 * style.scale, -9 * style.scale)
+      );
+    }
+  };
+
+  // ESC键取消拖拽
+  const handleEscKey = (e: KeyboardEvent) => {
+    if (e.key === "Escape") {
+      restoreMarker();
+      marker.off("dragend", dragEndHandler);
+      document.removeEventListener("keydown", handleEscKey);
+      ElMessage.info("已取消调整位置");
+    }
+  };
+  document.addEventListener("keydown", handleEscKey);
+
+  // 监听拖拽结束事件
+  const dragEndHandler = async (e: any) => {
+    const newPosition = e.lnglat;
+
+    // 移除ESC键监听
+    document.removeEventListener("keydown", handleEscKey);
+
+    try {
+      // 获取房东数据
+      const landlord = propertyStore.landlords.find((l) => l.id === landlordId);
+      if (landlord) {
+        // 根据新GPS坐标获取地址
+        let newAddress = landlord.address || "";
+        try {
+          newAddress = await getAddressFromGps({
+            lng: newPosition.lng,
+            lat: newPosition.lat,
+          });
+        } catch (error) {
+          console.warn("获取地址失败，将保留原地址:", error);
+        }
+
+        // 使用toRaw获取原始数据，然后创建新对象（参照PropertyDetail的保存逻辑）
+        const rawData = toRaw(landlord);
+        const dataToSave = {
+          ...rawData,
+          gps: {
+            lng: newPosition.lng,
+            lat: newPosition.lat,
+          },
+          address: newAddress, // 更新地址
+          photos: toRaw(landlord.photos), // 确保photos也是原始数据
+          updatedAt: new Date().toISOString(),
+        };
+
+        // 保存到数据库
+        await propertyStore.updateLandlordData(landlordId, dataToSave);
+
+        ElMessage.success(
+          `位置已更新${newAddress ? `\n地址: ${newAddress}` : ""}`
+        );
+      }
+    } catch (error) {
+      console.error("更新位置失败:", error);
+      ElMessage.error("更新位置失败");
+    } finally {
+      // 恢复marker样式
+      restoreMarker();
+      // 移除事件监听
+      marker.off("dragend", dragEndHandler);
+    }
+  };
+
+  marker.on("dragend", dragEndHandler);
 }
 
 // 高亮具有相同手机号的marker
@@ -594,12 +778,12 @@ function shouldHighlight(landlord: Landlord): boolean {
 }
 
 function getMarkerStyle(landlord: Landlord) {
-  // 颜色定义
+  // 颜色定义 - 使用更鲜艳的颜色以提高辨识度
   const COLORS = {
-    [LandlordType.FirstHand]: "#67C23A", // 绿色
-    [LandlordType.SecondHand]: "#E4A13C", // 蓝色
-    [LandlordType.Agent]: "#F56C6C", // 红色
-    [LandlordType.Other]: "#909399", // 灰色
+    [LandlordType.FirstHand]: "#52c41a", // 鲜艳的绿色（一手房东）
+    [LandlordType.SecondHand]: "#faad14", // 鲜艳的橙色（二手房东）
+    [LandlordType.Agent]: "#f5222d", // 鲜艳的红色（中介）
+    [LandlordType.Other]: "#8c8c8c", // 深灰色（其他）
   };
 
   // 获取基础颜色
@@ -614,14 +798,23 @@ function getMarkerStyle(landlord: Landlord) {
   // 样式配置
   return {
     color: baseColor,
-    opacity: isContacted ? 1.0 : 0.6,
-    borderColor: isHighlighted ? "#FF4444" : isFavorite ? "#E6A23C" : "#FFFFFF", // 高亮时显示红色边框
-    borderWidth: isFavorite
-      ? "3px"
-      : isContacted || isHighlighted
-      ? "2px"
-      : "1px",
-    scale: isFavorite ? 1.4 : isContacted ? 1.2 : 1.0, // 高亮时不放大,保持原始大小
+    opacity: isContacted ? 1.0 : 0.5, // 增强对比：未联系更透明
+    borderColor: isHighlighted
+      ? "#FF4444" // 高亮：红色边框
+      : isFavorite
+      ? "#faad14" // 收藏：金色边框
+      : "#FFFFFF", // 默认：白色边框
+    borderWidth:
+      isFavorite || isHighlighted
+        ? "4px" // 收藏：粗边框
+        : isContacted
+        ? "2px" // 已联系：中等边框
+        : "1px", // 未联系：细边框
+    scale: isFavorite
+      ? 1.2 // 收藏：最大
+      : isContacted
+      ? 1.1 // 已联系：较大
+      : 1.0, // 未联系：正常
     zIndex: isHighlighted ? 300 : isFavorite ? 200 : isContacted ? 100 : 10,
     isFavorite,
     isSuspected,
@@ -742,6 +935,7 @@ async function showInfoWindow(marker: any, landlord: Landlord) {
           src: imageUrl,
           previewSrcList: [imageUrl],
           fit: "cover",
+          lazy: true,
           style: {
             width: "100%",
             height: "150px",
@@ -1380,7 +1574,7 @@ defineExpose({
 
 .legend {
   position: absolute;
-  bottom: 130px;
+  bottom: 170px;
   right: 20px;
   z-index: 100;
 
@@ -1464,6 +1658,16 @@ defineExpose({
   height: 1px;
   background: #ebeef5;
   margin: 8px 0;
+}
+
+.legend-section-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: #606266;
+  margin-bottom: 6px;
+  margin-top: 2px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
 .filter-item {
@@ -1555,7 +1759,7 @@ defineExpose({
 // 圈选工具按钮
 .draw-tools {
   position: absolute;
-  bottom: 170px;
+  bottom: 130px;
   right: 20px;
   width: 30px;
   display: flex;

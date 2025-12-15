@@ -195,7 +195,7 @@
     <div class="filter-footer">
       <el-button @click="handleReset" class="footer-button">重置</el-button>
       <el-button type="primary" @click="handleApply" class="footer-button">
-        应用筛选 ({{ propertyStore.previewPropertyCount }}条)
+        确定 ({{ propertyStore.filteredProperties.length }}条)
       </el-button>
     </div>
   </div>
@@ -253,17 +253,17 @@ const filterForm = reactive<FilterFormData>({
   sortBy: "default",
 });
 
-// 监听表单变化，实时更新预览计数
+// 监听表单变化，实时应用筛选
 watch(
   filterForm,
   () => {
-    propertyStore.updateTempPropertyFilters({ ...filterForm });
+    propertyStore.applyPropertyFilters({ ...filterForm });
   },
   { deep: true, immediate: true }
 );
 
 const handleApply = () => {
-  propertyStore.applyPropertyFilters({ ...filterForm });
+  // 保留这个方法以防有其他地方调用，但实际上筛选已经实时应用了
   emit("applyFilter");
 };
 

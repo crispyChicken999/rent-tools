@@ -1,5 +1,5 @@
 <template>
-  <div class="property-list">
+  <div class="property-list" v-show="!propertyStore.isSidebarCollapsed">
     <!-- 统计信息 -->
     <div class="list-header">
       <div class="header-left">
@@ -248,6 +248,69 @@ const handleBackToLandlord = () => {
   flex: 1;
   padding: 16px;
   overflow-y: auto;
+
+  /* 自定义滚动条样式 */
+  /* Webkit浏览器（Chrome, Safari, Edge） */
+  &::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: transparent;
+    border-radius: 4px;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: #dcdfe6;
+    border-radius: 4px;
+    transition: background 0.3s ease;
+    &:hover {
+      background: #c0c4cc;
+    }
+  }
+
+  &::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+}
+
+.property-scroller {
+  flex: 1;
+  padding: 16px;
+  overflow-y: auto;
+
+  /* 自定义滚动条样式 */
+  /* Webkit浏览器（Chrome, Safari, Edge） */
+  &::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: transparent;
+    border-radius: 4px;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: #dcdfe6;
+    border-radius: 4px;
+    transition: background 0.3s ease;
+
+    &:hover {
+      background: #c0c4cc;
+    }
+  }
+
+  &::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+
+  /* Firefox */
+  :deep(.vue-recycle-scroller__item-wrapper) {
+    scrollbar-width: thin;
+    scrollbar-color: #dcdfe6 transparent;
+  }
 }
 
 .compact-row {

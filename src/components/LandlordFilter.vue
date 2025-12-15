@@ -152,7 +152,10 @@
 
         <!-- 二房东筛选 -->
         <el-form-item>
-          <el-tooltip content="同一个电话在地图这出现了三次及以上，疑似为二房东到处贴广告💩" placement="left">
+          <el-tooltip
+            content="同一个电话在地图这出现了三次及以上，疑似为二房东到处贴广告💩"
+            placement="left"
+          >
             <el-checkbox
               v-model="filterForm.hideRepeatedPhones"
               label="隐藏疑似二房东"
@@ -162,7 +165,7 @@
 
         <el-form-item>
           <el-tooltip
-            content="只显示电话出现3次及以上的房东💢，地图中显示为方块"
+            content="只显示电话出现三次及以上的房东💢，地图中显示为方块"
             placement="left"
           >
             <el-checkbox
@@ -178,7 +181,7 @@
     <div class="filter-footer">
       <el-button @click="handleReset" class="footer-button">重置</el-button>
       <el-button type="primary" @click="handleApply" class="footer-button">
-        应用筛选 ({{ propertyStore.previewLandlordCount }}条)
+        确定 ({{ propertyStore.filteredLandlords.length }}条)
       </el-button>
     </div>
   </div>
@@ -231,18 +234,18 @@ const filterForm = reactive<FilterFormData>({
   showRepeatedPhones: false,
 });
 
-// 监听表单变化，实时更新预览计数
+// 监听表单变化，实时应用筛选
 watch(
   filterForm,
   () => {
-    propertyStore.updateTempLandlordFilters({ ...filterForm });
+    propertyStore.applyLandlordFilters({ ...filterForm });
   },
   { deep: true, immediate: true }
 );
 
 const handleApply = () => {
-  propertyStore.applyLandlordFilters({ ...filterForm });
-  emit('applyFilter');
+  // 保留这个方法以防有其他地方调用，但实际上筛选已经实时应用了
+  emit("applyFilter");
 };
 
 const handleReset = () => {
