@@ -835,7 +835,7 @@ function getMarkerStyle(landlord: Landlord) {
   // 样式配置
   return {
     color: baseColor,
-    opacity: isContacted ? 1.0 : 0.5, // 增强对比：未联系更透明
+    opacity: isHighlighted ? 1.0 : isContacted ? 1.0 : 0.5, // 高亮和已联系都是100%透明度
     borderColor: isHighlighted
       ? "#FF4444" // 高亮：红色边框
       : isFavorite
@@ -843,7 +843,7 @@ function getMarkerStyle(landlord: Landlord) {
       : "#FFFFFF", // 默认：白色边框
     borderWidth:
       isFavorite || isHighlighted
-        ? "4px" // 收藏：粗边框
+        ? "4px" // 收藏/高亮：粗边框
         : isContacted
         ? "2px" // 已联系：中等边框
         : "1px", // 未联系：细边框
@@ -852,7 +852,7 @@ function getMarkerStyle(landlord: Landlord) {
       : isContacted
       ? 1.1 // 已联系：较大
       : 1.0, // 未联系：正常
-    zIndex: isHighlighted ? 300 : isFavorite ? 200 : isContacted ? 100 : 10,
+    zIndex: isHighlighted ? 9999 : isFavorite ? 200 : isContacted ? 100 : 10, // 高亮标记使用超高层级
     isFavorite,
     isSuspected,
     isHighlighted,
@@ -877,13 +877,17 @@ function createMarkerContent(style: {
     scale,
     isFavorite,
     isSuspected,
+    isHighlighted,
   } = style;
   const size = 18 * scale;
+
+  // 添加呼吸动画类名
+  const animationClass = isHighlighted ? "marker-breathing" : "";
 
   // 如果是收藏，显示星星图标
   if (isFavorite) {
     return `
-      <div style="
+      <div class="${animationClass}" style="
         width: ${size}px;
         height: ${size}px;
         display: flex;
@@ -902,7 +906,7 @@ function createMarkerContent(style: {
   // 如果是疑似二房东,使用方形标识
   if (isSuspected) {
     return `
-      <div style="
+      <div class="${animationClass}" style="
         width: ${size}px;
         height: ${size}px;
         background-color: ${color};
@@ -917,7 +921,7 @@ function createMarkerContent(style: {
   }
 
   return `
-    <div style="
+    <div class="${animationClass}" style="
       width: ${size}px;
       height: ${size}px;
       background-color: ${color};
@@ -1657,16 +1661,16 @@ defineExpose({
     }
   }
 
-.legend-content {
+  .legend-content {
     position: absolute;
     bottom: 3px;
     right: 40px;
-  background: white;
-  padding: 10px;
-  border-radius: 4px;
+    background: white;
+    padding: 10px;
+    border-radius: 4px;
     box-shadow: 0 0 3px #00000080;
-  font-size: 12px;
-  min-width: 140px;
+    font-size: 12px;
+    min-width: 140px;
     opacity: 0;
     visibility: hidden;
     transform: translateY(-10px);
@@ -1837,6 +1841,23 @@ defineExpose({
 
   .el-icon {
     color: #409eff;
+  }
+}
+
+// 呼吸动画 - 用于高亮标记
+:global(.marker-breathing) {
+  animation: breathing 2s ease-in-out infinite;
+}
+
+@keyframes breathing {
+  0%,
+  100% {
+    transform: scale(1);
+    filter: drop-shadow(0 0 4px rgba(255, 68, 68, 0.6));
+  }
+  50% {
+    transform: scale(1.15);
+    filter: drop-shadow(0 0 8px rgba(255, 68, 68, 0.9));
   }
 }
 </style>
