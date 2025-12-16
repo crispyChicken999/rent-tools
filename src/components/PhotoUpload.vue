@@ -78,6 +78,7 @@
         <!-- 第一行：选择文件夹和扫描按钮 -->
         <div class="button-row">
           <el-button
+            id="btn-select-folder"
             type="primary"
             size="large"
             :icon="Folder"
@@ -88,7 +89,8 @@
           </el-button>
 
           <el-button
-            v-if="folderPath"
+            id="btn-scan-folder"
+            :disabled="!folderPath"
             type="success"
             size="large"
             :icon="Refresh"
@@ -100,10 +102,11 @@
         </div>
 
         <el-button
+          id="btn-fast-origanize"
           type="warning"
           size="large"
           :icon="Edit"
-          v-if="folderPath"
+          :disabled="!folderPath"
           :loading="scanning"
           @click="startQuickOrganize"
         >
@@ -111,6 +114,7 @@
         </el-button>
 
         <el-button
+          id="btn-clear-data"
           type="danger"
           size="large"
           :icon="Delete"
