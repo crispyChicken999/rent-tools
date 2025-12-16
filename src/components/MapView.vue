@@ -83,6 +83,41 @@
       </el-tooltip>
       <el-tooltip
         v-if="propertyStore.selectedArea"
+        :content="isPolygonVisible ? '隐藏圈选区域' : '显示圈选区域'"
+        placement="left"
+      >
+        <div
+          class="draw-button"
+          :class="{ active: !isPolygonVisible }"
+          @click="togglePolygonVisibility"
+          :title="isPolygonVisible ? '隐藏区域' : '显示区域'"
+        >
+          <el-icon :size="20">
+            <svg
+              v-if="isPolygonVisible"
+              viewBox="0 0 24 24"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                fill="currentColor"
+                d="M12 19c.946 0 1.81-.103 2.598-.281l-1.757-1.757c-.273.021-.55.038-.841.038c-5.351 0-7.424-3.846-7.926-5a8.6 8.6 0 0 1 1.508-2.297L4.184 8.305c-1.538 1.667-2.121 3.346-2.132 3.379a1 1 0 0 0 0 .633C2.073 12.383 4.367 19 12 19m0-14c-1.837 0-3.346.396-4.604.981L3.707 2.293L2.293 3.707l18 18l1.414-1.414l-3.319-3.319c2.614-1.951 3.547-4.615 3.561-4.657a1 1 0 0 0 0-.633C21.927 11.617 19.633 5 12 5m4.972 10.558l-2.28-2.28c.19-.39.308-.819.308-1.278c0-1.641-1.359-3-3-3c-.459 0-.888.118-1.277.309L8.915 7.501A9.3 9.3 0 0 1 12 7c5.351 0 7.424 3.846 7.926 5c-.302.692-1.166 2.342-2.954 3.558"
+              />
+            </svg>
+            <svg
+              v-else
+              viewBox="0 0 20 20"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                fill="currentColor"
+                d="M.2 10a11 11 0 0 1 19.6 0A11 11 0 0 1 .2 10m9.8 4a4 4 0 1 0 0-8a4 4 0 0 0 0 8m0-2a2 2 0 1 1 0-4a2 2 0 0 1 0 4"
+              />
+            </svg>
+          </el-icon>
+        </div>
+      </el-tooltip>
+      <el-tooltip
+        v-if="propertyStore.selectedArea"
         content="清除圈选区域"
         placement="left"
       >
@@ -143,6 +178,7 @@ let userLocationMarker: any = null; // 用户位置标记
 
 // 地图圈选相关
 const isDrawing = ref(false); // 是否正在绘制
+const isPolygonVisible = ref(true); // 圈选区域是否可见
 let mouseTool: any = null; // 高德地图鼠标绘制工具
 let drawnPolygon: any = null; // 绘制的多边形对象
 
@@ -1217,6 +1253,8 @@ async function initMouseTool() {
             strokeOpacity: 0.8,
             fillColor: "#409EFF",
             fillOpacity: 0.2,
+            clickable: false, // 禁用点击,让点击事件穿透到地图
+            bubble: true, // 允许事件冒泡
           });
 
           ElMessage.success(
@@ -1292,8 +1330,26 @@ async function clearDrawing() {
     mouseTool.close(true);
   }
   isDrawing.value = false;
+  isPolygonVisible.value = true; // 重置可见状态
 
   ElMessage.success("已清除圈选区域");
+}
+
+// 切换圈选区域的显示/隐藏
+function togglePolygonVisibility() {
+  if (!drawnPolygon || !map) return;
+
+  if (isPolygonVisible.value) {
+    // 隐藏多边形
+    map.remove(drawnPolygon);
+    isPolygonVisible.value = false;
+    ElMessage.warning("已隐藏圈选区域");
+  } else {
+    // 显示多边形
+    map.add(drawnPolygon);
+    isPolygonVisible.value = true;
+    ElMessage.success("已显示圈选区域");
+  }
 }
 
 // ========== 房源视图相关函数 ==========
@@ -1401,8 +1457,9 @@ function showPropertyInfoWindow(marker: any, properties: PropertyViewItem[]) {
   const infoWindow = new AMap.InfoWindow({
     isCustom: false, // 使用默认样式，包含关闭按钮和小箭头
     content: createPropertyInfoWindowContent(properties),
-    offset: new AMap.Pixel(0, -35),
+    offset: new AMap.Pixel(0, -15),
     closeWhenClickMap: true,
+    retainWhenClose: true,
   });
 
   infoWindow.on("close", () => {
