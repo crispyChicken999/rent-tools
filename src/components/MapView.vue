@@ -1,71 +1,73 @@
 <template>
   <div class="map-wrapper">
     <div id="map-container" ref="mapContainer" class="map-container"></div>
-    <div class="legend" @contextmenu.prevent>
-      <div class="legend-trigger">
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          width="18"
-          height="18"
-          viewBox="0 0 24 24"
-        >
-          <path
-            fill="currentColor"
-            d="M11 18h2v-2h-2zm1-16C6.48 2 2 6.48 2 12s4.48 10 10 10s10-4.48 10-10S17.52 2 12 2m0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8s8 3.59 8 8s-3.59 8-8 8m0-14c-2.21 0-4 1.79-4 4h2c0-1.1.9-2 2-2s2 .9 2 2c0 2-3 1.75-3 5h2c0-2.25 3-2.5 3-5c0-2.21-1.79-4-4-4"
-          />
-        </svg>
-      </div>
-      <div class="legend-content">
-        <div class="legend-section-title">房东类型</div>
-        <div class="legend-item"><span class="dot green"></span> 一手房东</div>
-        <div class="legend-item"><span class="dot yellow"></span> 二手房东</div>
-        <div class="legend-item"><span class="dot red"></span> 中介</div>
-        <div class="legend-item"><span class="dot gray"></span> 其他</div>
 
-        <div class="legend-divider"></div>
-        <div class="legend-section-title">联系状态</div>
-        <div class="legend-item">
-          <span class="dot bright"></span> 已联系（大且亮）
+    <!-- 右侧控制按钮组 -->
+    <div class="map-controls" id="btn-map-controls">
+      <!-- 图例按钮 -->
+      <el-tooltip placement="left-end" raw-content>
+        <template #content>
+          <div class="legend-content">
+            <div class="legend-section-title">房东类型</div>
+            <div class="legend-item">
+              <span class="dot green"></span> 一手房东
+            </div>
+            <div class="legend-item">
+              <span class="dot yellow"></span> 二手房东
+            </div>
+            <div class="legend-item"><span class="dot red"></span> 中介</div>
+            <div class="legend-item"><span class="dot gray"></span> 其他</div>
+            <div class="legend-divider"></div>
+            <div class="legend-section-title">联系状态</div>
+            <div class="legend-item">
+              <span class="dot bright"></span> 已联系（大且亮）
+            </div>
+            <div class="legend-item">
+              <span class="dot dark"></span> 未联系（小且暗）
+            </div>
+            <div class="legend-divider"></div>
+            <div class="legend-section-title">特殊标记</div>
+            <div class="legend-item">
+              <span class="dot star">⭐</span> 收藏（金边）
+            </div>
+            <div class="legend-item">
+              <span class="dot square"></span> 疑似二房东
+            </div>
+            <div class="legend-item">
+              <span class="dot square highlighted"></span> 重复电话
+            </div>
+            <div class="legend-divider"></div>
+            <div class="legend-tip">💡 右键地图创建房东</div>
+            <div class="legend-tip">📍 右键房东调整位置（ESC取消）</div>
+          </div>
+        </template>
+        <div class="control-button">
+          <el-icon :size="18">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+              <path
+                fill="currentColor"
+                d="M11 18h2v-2h-2zm1-16C6.48 2 2 6.48 2 12s4.48 10 10 10s10-4.48 10-10S17.52 2 12 2m0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8s8 3.59 8 8s-3.59 8-8 8m0-14c-2.21 0-4 1.79-4 4h2c0-1.1.9-2 2-2s2 .9 2 2c0 2-3 1.75-3 5h2c0-2.25 3-2.5 3-5c0-2.21-1.79-4-4-4"
+              />
+            </svg>
+          </el-icon>
         </div>
-        <div class="legend-item">
-          <span class="dot dark"></span> 未联系（小且暗）
-        </div>
-
-        <div class="legend-divider"></div>
-        <div class="legend-section-title">特殊标记</div>
-        <div class="legend-item">
-          <span class="dot star">⭐</span> 收藏（金边）
-        </div>
-        <div class="legend-item">
-          <span class="dot square"></span> 疑似二房东
-        </div>
-        <div class="legend-item">
-          <span class="dot square highlighted"></span> 重复电话
-        </div>
-
-        <div class="legend-divider"></div>
-        <div class="legend-tip">💡 右键地图创建房东</div>
-        <div class="legend-tip">📍 右键房东调整位置（ESC取消）</div>
-      </div>
-    </div>
-
-    <!-- 定位按钮 -->
-    <div class="location-button" @click="locateUser">
-      <el-tooltip content="定位至当前位置" placement="left">
-        <el-icon :size="20" :class="{ 'is-loading': isLocating }">
-          <Location />
-        </el-icon>
       </el-tooltip>
-    </div>
 
-    <!-- 圈选工具按钮 -->
-    <div class="draw-tools">
+      <!-- 定位按钮 -->
+      <el-tooltip content="定位至当前位置" placement="left">
+        <div class="control-button" @click="locateUser">
+          <el-icon :size="20" :class="{ 'is-loading': isLocating }">
+            <Location />
+          </el-icon>
+        </div>
+      </el-tooltip>
+
+      <!-- 圈选工具按钮 -->
       <el-tooltip content="在地图上框选区域筛选房源/房东" placement="left">
         <div
-          class="draw-button"
+          class="control-button"
           :class="{ active: isDrawing }"
           @click="toggleDrawMode"
-          title="圈选区域"
         >
           <el-icon :size="20">
             <svg viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
@@ -81,16 +83,17 @@
           </el-icon>
         </div>
       </el-tooltip>
+
+      <!-- 切换区域可见性按钮 -->
       <el-tooltip
         v-if="propertyStore.selectedArea"
         :content="isPolygonVisible ? '隐藏圈选区域' : '显示圈选区域'"
         placement="left"
       >
         <div
-          class="draw-button"
-          :class="{ active: !isPolygonVisible }"
+          class="control-button"
+          :class="{ active: isPolygonVisible }"
           @click="togglePolygonVisibility"
-          :title="isPolygonVisible ? '隐藏区域' : '显示区域'"
         >
           <el-icon :size="20">
             <svg
@@ -103,11 +106,7 @@
                 d="M12 19c.946 0 1.81-.103 2.598-.281l-1.757-1.757c-.273.021-.55.038-.841.038c-5.351 0-7.424-3.846-7.926-5a8.6 8.6 0 0 1 1.508-2.297L4.184 8.305c-1.538 1.667-2.121 3.346-2.132 3.379a1 1 0 0 0 0 .633C2.073 12.383 4.367 19 12 19m0-14c-1.837 0-3.346.396-4.604.981L3.707 2.293L2.293 3.707l18 18l1.414-1.414l-3.319-3.319c2.614-1.951 3.547-4.615 3.561-4.657a1 1 0 0 0 0-.633C21.927 11.617 19.633 5 12 5m4.972 10.558l-2.28-2.28c.19-.39.308-.819.308-1.278c0-1.641-1.359-3-3-3c-.459 0-.888.118-1.277.309L8.915 7.501A9.3 9.3 0 0 1 12 7c5.351 0 7.424 3.846 7.926 5c-.302.692-1.166 2.342-2.954 3.558"
               />
             </svg>
-            <svg
-              v-else
-              viewBox="0 0 20 20"
-              xmlns="http://www.w3.org/2000/svg"
-            >
+            <svg v-else viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
               <path
                 fill="currentColor"
                 d="M.2 10a11 11 0 0 1 19.6 0A11 11 0 0 1 .2 10m9.8 4a4 4 0 1 0 0-8a4 4 0 0 0 0 8m0-2a2 2 0 1 1 0-4a2 2 0 0 1 0 4"
@@ -116,12 +115,14 @@
           </el-icon>
         </div>
       </el-tooltip>
+
+      <!-- 清除圈选区域按钮 -->
       <el-tooltip
         v-if="propertyStore.selectedArea"
         content="清除圈选区域"
         placement="left"
       >
-        <div class="draw-button clear" @click="clearDrawing" title="清除圈选">
+        <div class="control-button clear" @click="clearDrawing">
           <el-icon :size="20">
             <svg viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
               <path
@@ -1656,16 +1657,16 @@ defineExpose({
     }
   }
 
-  .legend-content {
+.legend-content {
     position: absolute;
     bottom: 3px;
     right: 40px;
-    background: white;
-    padding: 10px;
-    border-radius: 4px;
+  background: white;
+  padding: 10px;
+  border-radius: 4px;
     box-shadow: 0 0 3px #00000080;
-    font-size: 12px;
-    min-width: 140px;
+  font-size: 12px;
+  min-width: 140px;
     opacity: 0;
     visibility: hidden;
     transform: translateY(-10px);
@@ -1714,14 +1715,14 @@ defineExpose({
 
 .legend-divider {
   height: 1px;
-  background: #ebeef5;
+  background: #838383;
   margin: 8px 0;
 }
 
 .legend-section-title {
   font-size: 11px;
   font-weight: 600;
-  color: #606266;
+  color: #999;
   margin-bottom: 6px;
   margin-top: 2px;
   text-transform: uppercase;
@@ -1785,48 +1786,18 @@ defineExpose({
   text-indent: -3px;
 }
 
-.location-button {
+// 右侧控制按钮组
+.map-controls {
   position: absolute;
   bottom: 90px;
   right: 20px;
-  width: 30px;
-  height: 30px;
-  background: white;
-  border-radius: 4px;
-  box-shadow: 0 0 3px rgba(0, 0, 0, 0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  z-index: 100;
-  transition: all 0.3s;
-
-  &:hover {
-    background: #eee;
-  }
-}
-
-.location-button:active {
-  transform: scale(0.95);
-}
-
-.location-button .el-icon {
-  color: #409eff;
-}
-
-// 圈选工具按钮
-.draw-tools {
-  position: absolute;
-  bottom: 130px;
-  right: 20px;
-  width: 30px;
   display: flex;
   flex-direction: column;
   gap: 10px;
   z-index: 100;
 }
 
-.draw-button {
+.control-button {
   width: 30px;
   height: 30px;
   background: white;
