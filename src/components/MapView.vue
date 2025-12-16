@@ -1116,7 +1116,7 @@ async function showInfoWindow(marker: any, landlord: Landlord) {
   const infoWindow = new AMap.InfoWindow({
     isCustom: false, // 使用默认样式，包含关闭按钮和小箭头
     content: container,
-    offset: new AMap.Pixel(0, -35),
+    offset: new AMap.Pixel(0, -10),
     closeWhenClickMap: true,
   });
 
