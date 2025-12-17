@@ -24,7 +24,7 @@ const fileInput = ref<HTMLInputElement | null>(null);
 const tourOpen = ref(false);
 const tourCurrent = ref(0);
 watch(tourCurrent, () => {
-  showPhotoUpload.value = [2, 3, 4, 5, 6].includes(tourCurrent.value);
+  showPhotoUpload.value = [2, 3, 4, 5, 6, 7].includes(tourCurrent.value);
 });
 
 // 设置状态
