@@ -114,14 +114,14 @@
         </el-button>
 
         <el-button
-          id="btn-batch-location"
+          id="btn-batch-scan-phone-location"
           type="success"
           size="large"
           :icon="Location"
           :loading="scanning"
           @click="batchRecognizeLocations"
         >
-          批量识别归属地
+          批量识别手机号码归属地
         </el-button>
 
         <el-button
