@@ -122,7 +122,7 @@ export interface Landlord {
 
   // 基础信息
   photos: Photo[]; // 照片列表（第一张为主图）
-  phoneNumbers: string[]; // 电话号码列表
+  phoneNumbers: [string, string][]; // 电话号码列表 [号码, 归属地信息]
   landlordType: LandlordType; // 房东类型
   alias?: string; // 备注名/称呼
 
@@ -289,7 +289,7 @@ export interface FilterOptions {
   waterPriceMax?: number; // 最大水费（自定义时使用）
   electricityPriceMax?: number; // 最大电费（自定义时使用）
   phoneSearch?: string; // 电话号码搜索关键词
-  isFavorite?: 'all' | 'favorite' | 'unfavorite'; // 收藏状态筛选
+  isFavorite?: "all" | "favorite" | "unfavorite"; // 收藏状态筛选
 }
 
 /** 房源视图筛选条件 */
@@ -312,7 +312,7 @@ export interface PropertyFilterOptions {
 
   // 搜索
   keyword?: string; // 关键词搜索（地址、备注）
-  
+
   // 排序
   sortBy?: "default" | "rentAsc" | "rentDesc" | "roomType"; // 排序方式
 }
@@ -357,7 +357,7 @@ export interface PropertyViewItem {
 }
 
 /** 视图模式 */
-export type ViewMode = 'landlord' | 'property';
+export type ViewMode = "landlord" | "property";
 
 /** 地图标记样式配置 */
 export interface MarkerStyle {

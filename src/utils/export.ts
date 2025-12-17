@@ -16,7 +16,10 @@ export function exportToExcel(
   const rows: ExcelRow[] = landlords.map((landlord) => ({
     房东ID: landlord.id,
     房东类型: translateLandlordType(landlord.landlordType),
-    电话号码: landlord.phoneNumbers.join(", "),
+    // 电话号码格式: 手机号(归属地), 多个用逗号分隔
+    电话号码: landlord.phoneNumbers
+      .map(([phone, location]) => (location ? `${phone}(${location})` : phone))
+      .join(", "),
     微信状态: translateWechatStatus(landlord.wechatStatus),
     联系状态: translateContactStatus(landlord.contactStatus),
     微信昵称: landlord.wechatNickname || "",
@@ -68,7 +71,19 @@ export async function importFromJson(file: File): Promise<Landlord[]> {
       try {
         const data = JSON.parse(e.target?.result as string);
         if (Array.isArray(data)) {
-          resolve(data as Landlord[]);
+          // 迁移旧格式的手机号数据: string[] -> [string, string][]
+          const migratedData = data.map((landlord: any) => {
+            if (landlord.phoneNumbers && landlord.phoneNumbers.length > 0) {
+              // 检查是否是旧格式 (第一个元素是字符串而不是数组)
+              if (typeof landlord.phoneNumbers[0] === "string") {
+                landlord.phoneNumbers = landlord.phoneNumbers.map(
+                  (phone: string) => [phone, ""] as [string, string]
+                );
+              }
+            }
+            return landlord;
+          });
+          resolve(migratedData as Landlord[]);
         } else {
           reject(new Error("JSON 格式错误：应为数组"));
         }

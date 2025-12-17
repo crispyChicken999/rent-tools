@@ -81,8 +81,8 @@ export const usePropertyStore = defineStore("property", () => {
     const counts = new Map<string, number>();
     landlords.value.forEach((l) => {
       if (l.phoneNumbers && l.phoneNumbers.length > 0) {
-        l.phoneNumbers.forEach((phone) => {
-          counts.set(phone, (counts.get(phone) || 0) + 1);
+        l.phoneNumbers.forEach(([phoneNumber]) => {
+          counts.set(phoneNumber, (counts.get(phoneNumber) || 0) + 1);
         });
       }
     });
@@ -108,7 +108,7 @@ export const usePropertyStore = defineStore("property", () => {
     if (filters.value.phoneSearch && filters.value.phoneSearch.trim()) {
       const keyword = filters.value.phoneSearch.trim();
       result = result.filter((l) =>
-        l.phoneNumbers.some((phone) => phone.includes(keyword))
+        l.phoneNumbers.some(([phoneNumber]) => phoneNumber.includes(keyword))
       );
     }
 
@@ -117,8 +117,8 @@ export const usePropertyStore = defineStore("property", () => {
       const keyword = landlordSearchKeyword.value.trim().toLowerCase();
       result = result.filter((l) => {
         const matchNickname = l.wechatNickname?.toLowerCase().includes(keyword);
-        const matchPhone = l.phoneNumbers.some((phone) =>
-          phone.includes(keyword)
+        const matchPhone = l.phoneNumbers.some(([phoneNumber]) =>
+          phoneNumber.includes(keyword)
         );
         const matchAddress = l.address?.toLowerCase().includes(keyword);
         return matchNickname || matchPhone || matchAddress;
@@ -224,7 +224,9 @@ export const usePropertyStore = defineStore("property", () => {
       result = result.filter((l) => {
         if (!l.phoneNumbers || l.phoneNumbers.length === 0) return true; // 没有电话的不过滤
         // 只要有一个电话号码出现次数 >= 3，就认为是二房东，过滤掉
-        return !l.phoneNumbers.some((phone) => (counts.get(phone) || 0) >= 3);
+        return !l.phoneNumbers.some(
+          ([phoneNumber]) => (counts.get(phoneNumber) || 0) >= 3
+        );
       });
     }
 
@@ -236,7 +238,9 @@ export const usePropertyStore = defineStore("property", () => {
       result = result.filter((l) => {
         if (!l.phoneNumbers || l.phoneNumbers.length === 0) return false; // 没有电话的不显示
         // 只要有一个电话号码出现次数 >= 3，就显示
-        return l.phoneNumbers.some((phone) => (counts.get(phone) || 0) >= 3);
+        return l.phoneNumbers.some(
+          ([phoneNumber]) => (counts.get(phoneNumber) || 0) >= 3
+        );
       });
     }
 
@@ -289,7 +293,7 @@ export const usePropertyStore = defineStore("property", () => {
 
           // 从房东继承的信息
           landlordId: landlord.id,
-          landlordPhone: landlord.phoneNumbers[0] || "",
+          landlordPhone: landlord.phoneNumbers[0]?.[0] || "",
           landlordType: landlord.landlordType,
           address: landlord.address,
           gps: landlord.gps,
@@ -729,10 +733,16 @@ export const usePropertyStore = defineStore("property", () => {
     // 合并照片
     const mergedPhotos = [...target.photos, ...source.photos];
 
-    // 合并电话号码（去重）
-    const mergedPhones = Array.from(
-      new Set([...target.phoneNumbers, ...source.phoneNumbers])
+    // 合并电话号码（去重，保留归属地信息）
+    const phoneMap = new Map<string, string>();
+    [...target.phoneNumbers, ...source.phoneNumbers].forEach(
+      ([phone, location]) => {
+        if (!phoneMap.has(phone) || !phoneMap.get(phone)) {
+          phoneMap.set(phone, location);
+        }
+      }
     );
+    const mergedPhones: [string, string][] = Array.from(phoneMap.entries());
 
     // 合并房源
     const mergedProperties = [...target.properties, ...source.properties];

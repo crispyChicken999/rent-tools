@@ -192,7 +192,9 @@ function isSuspectedSecondHand(landlord: Landlord): boolean {
   const counts = propertyStore.phoneCounts;
 
   // 只要有一个电话号码出现次数 >= 3，就认为是疑似二房东
-  return landlord.phoneNumbers.some((phone) => (counts.get(phone) || 0) >= 3);
+  return landlord.phoneNumbers.some(
+    ([phoneNumber]) => (counts.get(phoneNumber) || 0) >= 3
+  );
 }
 
 onMounted(async () => {
@@ -513,7 +515,7 @@ async function renderMarkers() {
     const content = createMarkerContent(style);
     const position = [landlord.gps.lng, landlord.gps.lat];
     const title =
-      landlord.wechatNickname || landlord.phoneNumbers[0] || "待完善";
+      landlord.wechatNickname || landlord.phoneNumbers[0]?.[0] || "待完善";
 
     if (markers.has(landlord.id)) {
       // 更新现有标记
@@ -749,7 +751,7 @@ function highlightMarkersWithSamePhone(landlord: Landlord) {
   }
 
   const oldPhones = new Set(highlightedPhones.value);
-  const newPhones = new Set(landlord.phoneNumbers);
+  const newPhones = new Set(landlord.phoneNumbers.map(([phone]) => phone));
 
   // 设置新的高亮手机号
   highlightedPhones.value = newPhones;
@@ -760,9 +762,9 @@ function highlightMarkersWithSamePhone(landlord: Landlord) {
     if (!l || !l.gps) return;
 
     const wasHighlighted =
-      l.phoneNumbers?.some((p) => oldPhones.has(p)) || false;
+      l.phoneNumbers?.some(([p]) => oldPhones.has(p)) || false;
     const isHighlighted =
-      l.phoneNumbers?.some((p) => newPhones.has(p)) || false;
+      l.phoneNumbers?.some(([p]) => newPhones.has(p)) || false;
 
     // 只有状态改变的marker才需要更新
     if (wasHighlighted !== isHighlighted) {
@@ -783,7 +785,7 @@ function clearHighlight() {
       if (!l || !l.gps) return;
 
       const wasHighlighted =
-        l.phoneNumbers?.some((p) => oldPhones.has(p)) || false;
+        l.phoneNumbers?.some(([p]) => oldPhones.has(p)) || false;
       if (wasHighlighted) {
         updateSingleMarker(marker, l);
       }
@@ -809,7 +811,7 @@ function shouldHighlight(landlord: Landlord): boolean {
   if (!landlord.phoneNumbers || landlord.phoneNumbers.length === 0)
     return false;
 
-  return landlord.phoneNumbers.some((phone) =>
+  return landlord.phoneNumbers.some(([phone]) =>
     highlightedPhones.value.has(phone)
   );
 }
@@ -1005,18 +1007,19 @@ async function showInfoWindow(marker: any, landlord: Landlord) {
           "div",
           { style: { marginLeft: "4px", flex: 1 } },
           landlord.phoneNumbers && landlord.phoneNumbers.length > 0
-            ? landlord.phoneNumbers.map((phone) =>
+            ? landlord.phoneNumbers.map(([phoneNumber, location]) =>
                 h(
                   "div",
                   {
                     style: {
                       display: "flex",
                       alignItems: "center",
-                      marginBottom: "2px",
+                      marginBottom: "4px",
+                      flexWrap: "wrap",
                     },
                   },
                   [
-                    h("span", phone),
+                    h("span", phoneNumber),
                     h(
                       ElIcon,
                       {
@@ -1025,11 +1028,28 @@ async function showInfoWindow(marker: any, landlord: Landlord) {
                           cursor: "pointer",
                           color: "#409EFF",
                         },
-                        onClick: () => copyText(phone),
+                        onClick: () => copyText(phoneNumber),
                         title: "复制",
                       },
                       () => h(CopyDocument)
                     ),
+                    // 归属地信息
+                    location
+                      ? h(
+                          "span",
+                          {
+                            style: {
+                              marginLeft: "6px",
+                              fontSize: "12px",
+                              color: "#909399",
+                              background: "#f4f4f5",
+                              padding: "1px 6px",
+                              borderRadius: "3px",
+                            },
+                          },
+                          location
+                        )
+                      : null,
                   ]
                 )
               )

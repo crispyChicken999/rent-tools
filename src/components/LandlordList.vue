@@ -71,11 +71,19 @@
                     <span class="nickname" v-if="landlord.wechatNickname">{{
                       landlord.wechatNickname
                     }}</span>
-                    <span
-                      class="phone"
-                      :class="{ secondary: landlord.wechatNickname }"
-                      >{{ getPhoneDisplay(landlord.phoneNumbers) }}</span
-                    >
+                    <div class="phone-info">
+                      <span
+                        class="phone"
+                        :class="{ secondary: landlord.wechatNickname }"
+                        >{{ getPhoneDisplay(landlord.phoneNumbers) }}</span
+                      >
+                      <span
+                        v-if="getPhoneLocation(landlord.phoneNumbers)"
+                        class="phone-location"
+                      >
+                        {{ getPhoneLocation(landlord.phoneNumbers) }}
+                      </span>
+                    </div>
                   </div>
                 </div>
 
@@ -242,10 +250,16 @@ defineExpose({
   landlordToDelete,
 });
 
-const getPhoneDisplay = (phones: string[]) => {
-  if (!phones || phones.length === 0 || !phones[0]) return "未填写电话";
-  if (phones.length === 1) return phones[0];
-  return `${phones[0]} (+${phones.length - 1})`;
+const getPhoneDisplay = (phones: [string, string][]) => {
+  if (!phones || phones.length === 0 || !phones[0]?.[0]) return "未填写电话";
+  const firstPhone = phones[0][0];
+  if (phones.length === 1) return firstPhone;
+  return `${firstPhone} (+${phones.length - 1})`;
+};
+
+const getPhoneLocation = (phones: [string, string][]) => {
+  if (!phones || phones.length === 0 || !phones[0]?.[1]) return "";
+  return phones[0][1];
 };
 
 const getLandlordTypeLabel = (type: LandlordType) => {
@@ -497,6 +511,12 @@ watch(isSearchExpanded, (newVal) => {
   font-size: 14px;
 }
 
+.phone-info {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
 .phone {
   color: #606266;
   font-size: 14px;
@@ -506,6 +526,16 @@ watch(isSearchExpanded, (newVal) => {
     color: #909399;
     font-weight: 400;
   }
+}
+
+.phone-location {
+  font-size: 10px;
+  color: #909399;
+  background: #fff;
+  border: 1px solid #e4e7ed;
+  padding: 1px 4px;
+  border-radius: 4px;
+  white-space: nowrap;
 }
 
 .address {

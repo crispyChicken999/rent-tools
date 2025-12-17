@@ -114,6 +114,17 @@
         </el-button>
 
         <el-button
+          id="btn-batch-location"
+          type="success"
+          size="large"
+          :icon="Location"
+          :loading="scanning"
+          @click="batchRecognizeLocations"
+        >
+          批量识别归属地
+        </el-button>
+
+        <el-button
           id="btn-clear-data"
           type="danger"
           size="large"
@@ -149,6 +160,131 @@
         </el-descriptions>
       </div>
     </div>
+
+    <!-- 批量识别日志弹窗 -->
+    <el-dialog
+      v-model="showBatchDialog"
+      title="批量识别归属地"
+      width="650px"
+      :close-on-click-modal="false"
+      :close-on-press-escape="!scanning"
+      :show-close="!scanning"
+    >
+      <div class="batch-log-container">
+        <!-- 进度条 -->
+        <div v-if="scanning" class="batch-status">
+          <el-progress
+            :percentage="progress"
+            :format="formatProgress"
+            style="margin-bottom: 16px"
+          />
+          <p style="text-align: center; color: #909399; margin-bottom: 16px">
+            正在识别中，请勿关闭...
+          </p>
+        </div>
+
+        <!-- 汇总信息 -->
+        <div v-if="batchSummary" class="batch-summary">
+          <el-descriptions :column="4" border size="small">
+            <el-descriptions-item label="总计">
+              <span
+                class="clickable-stat"
+                :class="{ active: batchLogFilter === 'all' }"
+                @click="toggleBatchLogFilter('all')"
+                title="点击显示全部"
+              >
+                {{ batchSummary.total }}
+              </span>
+            </el-descriptions-item>
+            <el-descriptions-item label="成功">
+              <span
+                class="clickable-stat success"
+                :class="{ active: batchLogFilter === 'success' }"
+                @click="toggleBatchLogFilter('success')"
+                title="点击筛选成功项"
+              >
+                {{ batchSummary.success }}
+              </span>
+            </el-descriptions-item>
+            <el-descriptions-item label="失败">
+              <span
+                class="clickable-stat error"
+                :class="{ active: batchLogFilter === 'error' }"
+                @click="toggleBatchLogFilter('error')"
+                title="点击筛选失败项"
+              >
+                {{ batchSummary.failed }}
+              </span>
+            </el-descriptions-item>
+            <el-descriptions-item label="耗时">
+              {{ batchSummary.duration }}s
+            </el-descriptions-item>
+          </el-descriptions>
+          <p class="filter-hint">
+            💡 点击数字可筛选日志
+            <span v-if="batchLogFilter !== 'all'" style="margin-left: 8px">
+              （当前：{{
+                batchLogFilter === "success" ? "成功" : "失败"
+              }}，再次点击取消筛选）
+            </span>
+          </p>
+          <el-alert
+            v-if="batchSummary.interrupted"
+            title="识别已被中断"
+            type="warning"
+            :closable="false"
+            style="margin-top: 8px"
+          />
+        </div>
+
+        <!-- 日志列表 -->
+        <div
+          class="batch-log-list"
+          style="max-height: 300px; overflow-y: auto; margin-top: 12px"
+        >
+          <div
+            v-for="(log, index) in filteredBatchLogs"
+            :key="index"
+            class="batch-log-item"
+            :class="log.status"
+          >
+            <span class="phone">{{ log.phone }}</span>
+            <span class="arrow">→</span>
+            <span v-if="log.status === 'success'" class="location">{{
+              log.location
+            }}</span>
+            <span v-else class="error">{{ log.message || "失败" }}</span>
+          </div>
+          <el-empty
+            v-if="filteredBatchLogs.length === 0 && !scanning"
+            :description="
+              batchLogFilter !== 'all' ? '没有符合条件的记录' : '暂无记录'
+            "
+          />
+          <el-empty
+            v-if="batchLogs.length === 0 && scanning"
+            description="等待识别..."
+          />
+        </div>
+      </div>
+      <template #footer>
+        <el-button
+          v-if="scanning"
+          type="danger"
+          @click="cancelBatchRecognize"
+          :disabled="batchCancelled"
+        >
+          {{ batchCancelled ? "正在中断..." : "中断识别" }}
+        </el-button>
+        <el-button
+          v-if="!scanning"
+          type="primary"
+          @click="showBatchDialog = false"
+        >
+          关闭
+        </el-button>
+      </template>
+    </el-dialog>
 
     <!-- 快速整理弹窗 -->
     <el-dialog
@@ -216,19 +352,30 @@
                 class="phone-input-wrapper"
                 style="margin-bottom: 10px"
               >
-                <el-input
-                  :ref="(el:any) => (phoneInputRefs[index] = el)"
-                  v-model="currentPhones[index]"
-                  placeholder="输入电话号码"
-                  size="large"
-                  @keydown.enter.exact.prevent="saveAndNext"
-                  @keydown.shift.enter.prevent="addPhoneField"
-                  @keydown.up.prevent="focusPrevInput(index)"
-                  @keydown.down.prevent="focusNextInput(index)"
-                  clearable
-                >
-                  <template #prepend>电话 {{ index + 1 }}</template>
-                </el-input>
+                <div style="display: flex; align-items: center; gap: 8px">
+                  <el-input
+                    :ref="(el:any) => (phoneInputRefs[index] = el)"
+                    v-model="currentPhones[index][0]"
+                    placeholder="输入电话号码"
+                    size="large"
+                    @keydown.enter.exact.prevent="saveAndNext"
+                    @keydown.shift.enter.prevent="addPhoneField"
+                    @keydown.up.prevent="focusPrevInput(index)"
+                    @keydown.down.prevent="focusNextInput(index)"
+                    clearable
+                    style="flex: 1"
+                  >
+                    <template #prepend>电话 {{ index + 1 }}</template>
+                  </el-input>
+                  <el-tag
+                    v-if="currentPhones[index][1]"
+                    type="info"
+                    size="small"
+                    style="white-space: nowrap"
+                  >
+                    {{ currentPhones[index][1] }}
+                  </el-tag>
+                </div>
               </div>
               <div class="input-tip">
                 <p>Enter 保存 | Shift+Enter 添加号码 | ↑/↓ 切换输入框</p>
@@ -302,6 +449,7 @@ import {
   Edit,
   Check,
   QuestionFilled,
+  Location,
 } from "@element-plus/icons-vue";
 import {
   isFileSystemAccessSupported,
@@ -312,6 +460,7 @@ import {
 } from "@/utils/fileSystem";
 import { extractExif } from "@/utils/exif";
 import { usePropertyStore } from "@/stores/property";
+import { queryPhoneLocation } from "@/utils/phoneLocation";
 import type { Photo } from "@/types";
 
 const propertyStore = usePropertyStore();
@@ -322,6 +471,7 @@ const scanning = ref(false);
 const progress = ref(0);
 const currentFile = ref(0);
 const totalFiles = ref(0);
+const batchProgressText = ref(""); // 批量识别进度文本
 const activeHelp = ref<string[]>([]); // 默认折叠帮助面板
 
 const scanResult = ref<{
@@ -471,11 +621,276 @@ async function scanFolder() {
   }
 }
 
+// ========== 批量识别归属地功能 ==========
+
+interface BatchLogItem {
+  phone: string;
+  location: string;
+  status: "success" | "error" | "skip";
+  message?: string;
+}
+
+interface BatchSummary {
+  total: number;
+  success: number;
+  failed: number;
+  duration: number; // 秒
+  interrupted: boolean;
+}
+
+const batchLogs = ref<BatchLogItem[]>([]);
+const showBatchDialog = ref(false);
+const batchCancelled = ref(false); // 中断标记
+const batchSummary = ref<BatchSummary | null>(null);
+const batchLogFilter = ref<"all" | "success" | "error">("all"); // 日志筛选
+
+// 过滤后的日志列表
+const filteredBatchLogs = computed(() => {
+  if (batchLogFilter.value === "all") {
+    return batchLogs.value;
+  }
+  return batchLogs.value.filter((log) => log.status === batchLogFilter.value);
+});
+
+// 切换筛选
+const toggleBatchLogFilter = (filter: "all" | "success" | "error") => {
+  if (batchLogFilter.value === filter) {
+    batchLogFilter.value = "all"; // 再次点击取消筛选
+  } else {
+    batchLogFilter.value = filter;
+  }
+};
+
+const batchRecognizeLocations = async () => {
+  const landlords = propertyStore.landlords;
+
+  // 统计需要识别的电话数量
+  let totalPhonesToProcess = 0;
+  landlords.forEach((l) => {
+    l.phoneNumbers.forEach(([phone, location]) => {
+      if (phone && phone.trim() && !location) {
+        totalPhonesToProcess++;
+      }
+    });
+  });
+
+  if (totalPhonesToProcess === 0) {
+    ElMessage.info("所有电话号码都已有归属地信息");
+  }
+
+  // 统计已有归属地的电话数量
+  let phonesWithLocation = 0;
+  landlords.forEach((l) => {
+    l.phoneNumbers.forEach(([phone, location]) => {
+      if (phone && phone.trim() && location) {
+        phonesWithLocation++;
+      }
+    });
+  });
+
+  // 显示选项对话框
+  let forceRerecognize = false;
+
+  if (phonesWithLocation > 0) {
+    // 有已识别的号码，让用户选择
+    try {
+      await ElMessageBox({
+        title: "批量识别归属地",
+        message: `发现 ${totalPhonesToProcess} 个待识别号码，${phonesWithLocation} 个已有归属地信息。\n\n请选择识别模式~`,
+        showCancelButton: true,
+        confirmButtonText: "只识别新号码",
+        cancelButtonText: "全部重新识别",
+        distinguishCancelAndClose: true,
+        showClose: true,
+        type: "info",
+        customClass: "batch-recognize-dialog",
+      });
+      // 用户点击了"只识别新号码"
+      forceRerecognize = false;
+    } catch (action) {
+      if (action === "cancel") {
+        // 询问是否要全部重新识别
+        try {
+          await ElMessageBox.confirm(
+            `是否重新识别所有 ${
+              totalPhonesToProcess + phonesWithLocation
+            } 个号码（包括已有归属地的）？`,
+            "重新识别全部",
+            {
+              confirmButtonText: "全部重新识别",
+              cancelButtonText: "取消",
+              type: "warning",
+            }
+          );
+          forceRerecognize = true;
+          totalPhonesToProcess += phonesWithLocation;
+        } catch {
+          return;
+        }
+      } else {
+        // 用户关闭了对话框
+        return;
+      }
+    }
+  } else {
+    // 没有已识别的号码，直接确认
+    try {
+      await ElMessageBox.confirm(
+        `将为 ${totalPhonesToProcess} 个电话号码识别归属地，是否继续？`,
+        "批量识别归属地",
+        {
+          confirmButtonText: "开始识别",
+          cancelButtonText: "取消",
+          type: "info",
+        }
+      );
+    } catch {
+      return;
+    }
+  }
+
+  const startTime = Date.now();
+  scanning.value = true;
+  progress.value = 0;
+  batchLogs.value = [];
+  batchSummary.value = null;
+  batchCancelled.value = false;
+  batchLogFilter.value = "all"; // 重置筛选
+  showBatchDialog.value = true;
+  batchProgressText.value = `0 / ${totalPhonesToProcess}`;
+
+  let processedCount = 0;
+  let successCount = 0;
+  let failedCount = 0;
+  let updatedLandlordCount = 0;
+
+  try {
+    for (const landlord of landlords) {
+      // 检查是否中断
+      if (batchCancelled.value) {
+        break;
+      }
+
+      const phones = landlord.phoneNumbers;
+      // 根据 forceRerecognize 决定是否需要更新
+      const needsUpdate = phones.some(
+        ([phone, location]) =>
+          phone && phone.trim() && (forceRerecognize || !location)
+      );
+
+      if (needsUpdate) {
+        // 逐个查询电话号码，以便记录日志
+        const updatedPhones: [string, string][] = [];
+
+        for (const [phone, existingLocation] of phones) {
+          // 再次检查是否中断
+          if (batchCancelled.value) {
+            // 保留剩余未处理的电话
+            updatedPhones.push([phone, existingLocation]);
+            continue;
+          }
+
+          // 根据 forceRerecognize 决定是否需要识别这个号码
+          const shouldProcess =
+            phone && phone.trim() && (forceRerecognize || !existingLocation);
+
+          if (shouldProcess) {
+            try {
+              const location = await queryPhoneLocation(phone);
+              processedCount++;
+
+              if (location) {
+                successCount++;
+                batchLogs.value.unshift({
+                  phone,
+                  location,
+                  status: "success",
+                });
+                updatedPhones.push([phone, location]);
+              } else {
+                failedCount++;
+                batchLogs.value.unshift({
+                  phone,
+                  location: "",
+                  status: "error",
+                  message: "未找到归属地信息",
+                });
+                updatedPhones.push([phone, ""]);
+              }
+            } catch (error: any) {
+              processedCount++;
+              failedCount++;
+              batchLogs.value.unshift({
+                phone,
+                location: "",
+                status: "error",
+                message: error.message || "查询失败",
+              });
+              updatedPhones.push([phone, ""]);
+            }
+
+            // 更新进度
+            batchProgressText.value = `${processedCount} / ${totalPhonesToProcess}`;
+            progress.value = Math.round(
+              (processedCount / totalPhonesToProcess) * 100
+            );
+
+            // 添加小延迟避免请求过快
+            await new Promise((resolve) => setTimeout(resolve, 300));
+          } else {
+            // 已有归属地或空号码，保留原值
+            updatedPhones.push([phone, existingLocation]);
+          }
+        }
+
+        // 保存到数据库 (即使被中断也要保存已处理的部分)
+        await propertyStore.updateLandlordData(landlord.id, {
+          phoneNumbers: JSON.parse(JSON.stringify(updatedPhones)),
+        });
+
+        updatedLandlordCount++;
+      }
+    }
+
+    const duration = (Date.now() - startTime) / 1000;
+
+    // 设置汇总信息
+    batchSummary.value = {
+      total: totalPhonesToProcess,
+      success: successCount,
+      failed: failedCount,
+      duration: Math.round(duration * 10) / 10,
+      interrupted: batchCancelled.value,
+    };
+
+    if (batchCancelled.value) {
+      ElMessage.warning(`已中断！已处理 ${processedCount} 个电话号码`);
+    } else {
+      ElMessage.success(
+        `已更新 ${updatedLandlordCount} 个房东的 ${successCount} 个电话号码归属地`
+      );
+    }
+  } catch (error: any) {
+    console.error("批量识别归属地失败:", error);
+    ElMessage.error(`批量识别失败: ${error.message}`);
+  } finally {
+    scanning.value = false;
+    progress.value = 0;
+    batchProgressText.value = "";
+  }
+};
+
+// 中断批量识别
+const cancelBatchRecognize = () => {
+  batchCancelled.value = true;
+  ElMessage.info("正在中断，请稍候...");
+};
+
 // ========== 快速整理功能 ==========
 
 const showQuickOrganize = ref(false);
 const organizeIndex = ref(0);
-const currentPhones = ref<string[]>([""]);
+const currentPhones = ref<[string, string][]>([["", ""]]); // [手机号, 归属地][]
 const deleteWithImages = ref(true);
 const deleteConfirmCount = ref(0);
 const currentImageUrls = ref<string[]>([]);
@@ -511,10 +926,14 @@ const loadImagesForCurrentLandlord = async () => {
 
   if (!organizeLandlord.value) return;
 
-  // 设置当前电话
-  currentPhones.value = organizeLandlord.value.phoneNumbers?.length
-    ? [...organizeLandlord.value.phoneNumbers]
-    : [""];
+  // 设置当前电话 (新格式已经是 [string, string][])
+  if (organizeLandlord.value.phoneNumbers?.length) {
+    currentPhones.value = organizeLandlord.value.phoneNumbers.map(
+      (phone) => [...phone] as [string, string]
+    );
+  } else {
+    currentPhones.value = [["", ""]];
+  }
   deleteConfirmCount.value = 0;
 
   // 确保有文件夹访问权限
@@ -671,7 +1090,7 @@ const prevLandlord = () => {
 };
 
 const addPhoneField = () => {
-  currentPhones.value.push("");
+  currentPhones.value.push(["", ""] as [string, string]);
   // 使用双重 nextTick 确保 DOM 完全更新后再聚焦
   nextTick(() => {
     nextTick(() => {
@@ -730,10 +1149,11 @@ const focusNextInput = (currentIndex: number) => {
 
 const saveAndNext = async () => {
   if (organizeLandlord.value) {
-    // 保存电话
-    const validPhones = currentPhones.value
-      .map((p) => p.trim())
-      .filter((p) => p);
+    // 保存电话 (过滤掉空的电话号码，保留归属地信息)
+    // 使用 JSON.parse/stringify 确保是纯数组
+    const validPhones: [string, string][] = JSON.parse(
+      JSON.stringify(currentPhones.value.filter(([phone]) => phone.trim()))
+    );
 
     if (
       validPhones.length > 0 ||
@@ -757,9 +1177,10 @@ const saveAndNext = async () => {
 // 只保存当前房东，不跳转
 const saveCurrentLandlord = async () => {
   if (organizeLandlord.value) {
-    const validPhones = currentPhones.value
-      .map((p) => p.trim())
-      .filter((p) => p);
+    // 使用 JSON.parse/stringify 确保是纯数组
+    const validPhones: [string, string][] = JSON.parse(
+      JSON.stringify(currentPhones.value.filter(([phone]) => phone.trim()))
+    );
 
     if (
       validPhones.length > 0 ||
@@ -835,6 +1256,10 @@ const handleOrganizeKeydown = (e: KeyboardEvent) => {
 // onUnmounted(() => ...
 
 function formatProgress(_percentage: number): string {
+  // 如果有批量识别进度文本，优先显示
+  if (batchProgressText.value) {
+    return batchProgressText.value;
+  }
   return `${currentFile.value} / ${totalFiles.value}`;
 }
 </script>
@@ -1141,5 +1566,95 @@ function formatProgress(_percentage: number): string {
   justify-content: center;
   align-items: center;
   height: 100%;
+}
+
+/* 批量识别日志样式 */
+.batch-log-container {
+  min-height: 200px;
+}
+
+.batch-summary {
+  margin-bottom: 8px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #ebeef5;
+}
+
+.filter-hint {
+  margin: 8px 0 0;
+  font-size: 12px;
+  color: #909399;
+}
+
+.clickable-stat {
+  cursor: pointer;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-weight: 600;
+  transition: all 0.2s;
+
+  &:hover {
+    background: #f5f7fa;
+  }
+
+  &.success {
+    color: #67c23a;
+    &:hover,
+    &.active {
+      background: #f0f9eb;
+    }
+  }
+
+  &.error {
+    color: #f56c6c;
+    &:hover,
+    &.active {
+      background: #fef0f0;
+    }
+  }
+
+  &.active {
+    background: #ecf5ff;
+    box-shadow: 0 0 0 2px #409eff40;
+  }
+}
+
+.batch-log-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 4px;
+  margin-bottom: 6px;
+  font-family: monospace;
+  font-size: 13px;
+
+  &.success {
+    background: #f0f9eb;
+    border: 1px solid #e1f3d8;
+  }
+
+  &.error {
+    background: #fef0f0;
+    border: 1px solid #fde2e2;
+  }
+
+  .phone {
+    font-weight: 600;
+    color: #303133;
+    min-width: 120px;
+  }
+
+  .arrow {
+    color: #909399;
+  }
+
+  .location {
+    color: #67c23a;
+    font-weight: 500;
+  }
+
+  .error {
+    color: #f56c6c;
+  }
 }
 </style>

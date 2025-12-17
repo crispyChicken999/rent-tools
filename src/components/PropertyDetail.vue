@@ -123,25 +123,34 @@
                       class="phone-item"
                     >
                       <el-input
-                        v-model="editForm.phoneNumbers[index]"
+                        v-model="editForm.phoneNumbers[index][0]"
                         placeholder="输入电话号码"
-                        @blur="
-                          checkDuplicatePhone(
-                            editForm.phoneNumbers[index],
-                            index
-                          )
-                        "
+                        @blur="handlePhoneBlur(index)"
+                        style="flex: 1"
                       >
                         <template #append>
                           <el-button
                             :icon="CopyDocument"
                             @click="
-                              copyToClipboard(editForm.phoneNumbers[index])
+                              copyToClipboard(editForm.phoneNumbers[index][0])
                             "
                             title="复制号码"
                           />
                         </template>
                       </el-input>
+                      <el-tag
+                        v-if="editForm.phoneNumbers[index][1]"
+                        type="info"
+                        size="large"
+                      >
+                        {{ editForm.phoneNumbers[index][1] }}
+                      </el-tag>
+                      <el-button
+                        :icon="Refresh"
+                        :loading="refreshingPhoneLocation[index]"
+                        @click="refreshPhoneLocation(index)"
+                        title="刷新归属地"
+                      />
                       <el-button
                         v-if="editForm.phoneNumbers.length > 1"
                         :icon="Delete"
@@ -802,6 +811,7 @@ import {
   type Photo,
 } from "@/types";
 import { getAddressFromGps } from "@/utils/geocode";
+import { queryPhoneLocation } from "@/utils/phoneLocation";
 
 const FLOOR_OPTIONS = Array.from({ length: 99 }, (_, i) => ({
   value: (i + 1).toString(),
@@ -843,6 +853,7 @@ const videoUrls = reactive(new Map<string, string>()); // 缓存视频 URL
 const videoLoadErrors = reactive(new Map<string, boolean>()); // 追踪视频加载失败状态
 const isDragging = ref(false);
 const refreshingAddress = ref(false);
+const refreshingPhoneLocation = reactive<boolean[]>([]); // 每个电话号码的刷新状态
 const deleteDialogVisible = ref(false);
 const deleteWithImages = ref(true);
 
@@ -859,7 +870,7 @@ const landlord = computed(() => propertyStore.currentLandlord);
 const createEmptyForm = (): Landlord => ({
   id: "",
   photos: [],
-  phoneNumbers: [""],
+  phoneNumbers: [["", ""]], // 新格式: [手机号, 归属地]
   landlordType: "other" as any,
   wechatStatus: "not_added" as any,
   contactStatus: "uncontacted" as any,
@@ -1180,17 +1191,19 @@ const mainPhotoUrl = computed(() => {
 });
 
 const addPhone = () => {
-  editForm.value.phoneNumbers.push("");
+  editForm.value.phoneNumbers.push(["", ""] as [string, string]);
 };
 
 const removePhone = (index: number) => {
   editForm.value.phoneNumbers.splice(index, 1);
+  refreshingPhoneLocation.splice(index, 1);
 };
 
 const checkDuplicatePhone = async (phone: string, _index: number) => {
   if (!phone || phone.length < 8) return;
   const duplicate = propertyStore.landlords.find(
-    (l) => l.id !== editForm.value.id && l.phoneNumbers.includes(phone)
+    (l) =>
+      l.id !== editForm.value.id && l.phoneNumbers.some(([p]) => p === phone)
   );
 
   if (duplicate) {
@@ -1198,6 +1211,53 @@ const checkDuplicatePhone = async (phone: string, _index: number) => {
       `该号码已存在于房东 [${duplicate.address || "未知地址"}] 中`
     );
   }
+};
+
+// 电话输入框失焦时自动查询归属地
+const handlePhoneBlur = async (index: number) => {
+  const phone = editForm.value.phoneNumbers[index][0];
+
+  // 先检查重复
+  await checkDuplicatePhone(phone, index);
+
+  // 如果没有归属地信息，自动查询
+  if (phone && phone.trim() && !editForm.value.phoneNumbers[index][1]) {
+    await updatePhoneLocationAtIndex(index, false);
+  }
+};
+
+// 更新指定索引的电话归属地
+const updatePhoneLocationAtIndex = async (
+  index: number,
+  showMessage: boolean = true
+) => {
+  const phone = editForm.value.phoneNumbers[index][0];
+  if (!phone || !phone.trim()) return;
+
+  refreshingPhoneLocation[index] = true;
+  try {
+    const location = await queryPhoneLocation(phone);
+    if (location) {
+      editForm.value.phoneNumbers[index][1] = location;
+      if (showMessage) {
+        ElMessage.success(`归属地: ${location}`);
+      }
+    } else if (showMessage) {
+      ElMessage.warning("未能查询到归属地信息");
+    }
+  } catch (e) {
+    console.error("查询归属地失败", e);
+    if (showMessage) {
+      ElMessage.error("查询归属地失败");
+    }
+  } finally {
+    refreshingPhoneLocation[index] = false;
+  }
+};
+
+// 手动刷新电话归属地
+const refreshPhoneLocation = async (index: number) => {
+  await updatePhoneLocationAtIndex(index, true);
 };
 
 const addRoom = () => {
@@ -1580,7 +1640,13 @@ const refreshAddress = async () => {
 };
 
 const saveChanges = async () => {
-  const validPhones = editForm.value.phoneNumbers.filter((p) => p.trim());
+  // 过滤掉空的电话号码，保留有效的 [手机号, 归属地] 元组
+  // 使用 JSON.parse/stringify 确保是纯数组，避免 Vue 响应式代理导致 IndexedDB 克隆失败
+  const validPhones: [string, string][] = JSON.parse(
+    JSON.stringify(
+      editForm.value.phoneNumbers.filter(([phone]) => phone.trim())
+    )
+  );
 
   saving.value = true;
   try {
@@ -1908,6 +1974,10 @@ const previewImage = (url: string) => {
   margin-bottom: 8px;
   display: flex;
   gap: 8px;
+  align-items: center;
+  >.el-tag,>.el-button {
+    margin: 0;
+  }
 }
 
 .fee-grid {
