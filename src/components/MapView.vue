@@ -594,6 +594,7 @@ function createMarkerContextMenu(landlordId: string) {
         });
 
         await propertyStore.removeLandlord(landlordId, false);
+        currentInfoWindow?.close();
         ElMessage.success("房东已删除");
         await renderMarkers();
         contextMenu.close();
