@@ -574,7 +574,7 @@ export const usePropertyStore = defineStore("property", () => {
     const landlord: Landlord = {
       id: generateId(),
       photos: data.photos,
-      phoneNumbers: [],
+      phoneNumbers: [["",""]],
       landlordType: LandlordType.Other,
       wechatStatus: WechatStatus.NotAdded,
       contactStatus: ContactStatus.NotContacted,
