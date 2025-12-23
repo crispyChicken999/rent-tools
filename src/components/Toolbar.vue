@@ -131,6 +131,57 @@
           />
         </el-tooltip>
 
+        <!-- PWA 安装按钮 -->
+        <el-tooltip content="安装应用到桌面" placement="bottom">
+          <el-button
+            v-if="showInstallButton"
+            id="btn-install-pwa"
+            circle
+            plain
+            @click="handleInstallPWA"
+          >
+            <template #icon>
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  fill="currentColor"
+                  d="M17 1.01L7 1c-1.1 0-2 .9-2 2v18c0 1.1.9 2 2 2h10c1.1 0 2-.9 2-2V3c0-1.1-.9-1.99-2-1.99M17 19H7V5h10zm-4.2-5.78v1.75l3.2-2.99L12.8 9v1.7c-3.11.43-4.35 2.56-4.8 4.7c1.11-1.5 2.58-2.18 4.8-2.18"
+                />
+              </svg>
+            </template>
+          </el-button>
+        </el-tooltip>
+
+        <!-- PWA 卸载按钮 -->
+        <el-tooltip content="卸载应用" placement="bottom">
+          <el-button
+            v-if="showUninstallButton"
+            id="btn-uninstall-pwa"
+            circle
+            plain
+            type="danger"
+            @click="handleUninstallPWA"
+          >
+            <template #icon>
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  fill="currentColor"
+                  d="M17 1.01L7 1c-1.1 0-2 .9-2 2v18c0 1.1.9 2 2 2h10c1.1 0 2-.9 2-2V3c0-1.1-.9-1.99-2-1.99M17 19H7V5h10zm-1.5-7.5v-1h-7v1h1.75v4.75h3.5V11.5z"
+                />
+              </svg>
+            </template>
+          </el-button>
+        </el-tooltip>
+
         <el-tooltip content="使用说明" placement="bottom">
           <el-button id="btn-tour" circle plain @click="emit('tour')">
             <template #icon>
@@ -180,6 +231,8 @@
 </template>
 
 <script setup lang="ts">
+import { ref, onMounted, h } from "vue";
+import { ElMessageBox } from "element-plus";
 import {
   Upload,
   Filter,
@@ -205,6 +258,147 @@ const emit = defineEmits<{
 // 打开 GitHub 仓库
 const openGitHub = () => {
   window.open("https://github.com/crispyChicken999/rent-tools", "_blank");
+};
+
+// PWA 安装卸载相关
+const showInstallButton = ref(false);
+const showUninstallButton = ref(false);
+let deferredPrompt: any = null;
+
+onMounted(() => {
+  // 检查是否已安装为 PWA
+  const checkIfInstalled = () => {
+    const isStandalone = window.matchMedia(
+      "(display-mode: standalone)"
+    ).matches;
+    const isInWebAppiOS = (window.navigator as any).standalone === true;
+
+    if (isStandalone || isInWebAppiOS) {
+      showUninstallButton.value = true;
+      showInstallButton.value = false;
+    }
+  };
+
+  checkIfInstalled();
+
+  // 监听 beforeinstallprompt 事件
+  window.addEventListener("beforeinstallprompt", (e) => {
+    e.preventDefault();
+    deferredPrompt = e;
+    if (!showUninstallButton.value) {
+      showInstallButton.value = true;
+    }
+  });
+
+  // 监听应用安装成功事件
+  window.addEventListener("appinstalled", () => {
+    showInstallButton.value = false;
+    showUninstallButton.value = true;
+    deferredPrompt = null;
+  });
+});
+
+// 处理 PWA 安装
+const handleInstallPWA = async () => {
+  if (!deferredPrompt) return;
+  deferredPrompt.prompt();
+  const { outcome } = await deferredPrompt.userChoice;
+  if (outcome === "accepted") {
+    console.log("用户接受了安装");
+  }
+  deferredPrompt = null;
+};
+
+// 处理 PWA 卸载
+const handleUninstallPWA = () => {
+  const isChrome =
+    /Chrome/.test(navigator.userAgent) && /Google Inc/.test(navigator.vendor);
+  const isEdge = /Edg/.test(navigator.userAgent);
+
+  let content;
+
+  if (isChrome) {
+    content = h("div", { style: "line-height: 1.8" }, [
+      h(
+        "p",
+        { style: "font-weight: bold; margin-bottom: 12px" },
+        "Chrome 浏览器卸载方法："
+      ),
+      h("div", { style: "margin-bottom: 16px" }, [
+        h("p", { style: "font-weight: 500; margin-bottom: 8px" }, "方法一："),
+        h("ol", { style: "margin: 0; padding-left: 20px" }, [
+          h("li", "点击地址栏右侧的应用图标"),
+          h("li", '选择"卸载"或"从 Chrome 中移除"'),
+        ]),
+      ]),
+      h("div", [
+        h("p", { style: "font-weight: 500; margin-bottom: 8px" }, "方法二："),
+        h("ol", { style: "margin: 0; padding-left: 20px" }, [
+          h("li", [
+            "在地址栏输入 ",
+            h(
+              "code",
+              {
+                style:
+                  "background: #f5f7fa; padding: 2px 6px; border-radius: 3px; color: #409EFF; font-family: monospace; user-select: all;",
+              },
+              "chrome://apps"
+            ),
+            " 并回车",
+          ]),
+          h("li", '右键点击"租房信息管理系统"应用图标'),
+          h("li", '选择"从 Chrome 中移除"'),
+        ]),
+      ]),
+    ]);
+  } else if (isEdge) {
+    content = h("div", { style: "line-height: 1.8" }, [
+      h(
+        "p",
+        { style: "font-weight: bold; margin-bottom: 12px" },
+        "Edge 浏览器卸载方法："
+      ),
+      h("div", { style: "margin-bottom: 16px" }, [
+        h("p", { style: "font-weight: 500; margin-bottom: 8px" }, "方法一："),
+        h("ol", { style: "margin: 0; padding-left: 20px" }, [
+          h("li", "点击地址栏右侧的应用图标"),
+          h("li", '选择"卸载"'),
+        ]),
+      ]),
+      h("div", [
+        h("p", { style: "font-weight: 500; margin-bottom: 8px" }, "方法二："),
+        h("ol", { style: "margin: 0; padding-left: 20px" }, [
+          h("li", [
+            "在地址栏输入 ",
+            h(
+              "code",
+              {
+                style:
+                  "background: #f5f7fa; padding: 2px 6px; border-radius: 3px; color: #409EFF; font-family: monospace; user-select: all;",
+              },
+              "edge://apps"
+            ),
+            " 并回车",
+          ]),
+          h("li", '右键点击"租房信息管理系统"应用图标'),
+          h("li", '选择"卸载"'),
+        ]),
+      ]),
+    ]);
+  } else {
+    content = h(
+      "p",
+      { style: "line-height: 1.8" },
+      "请在浏览器的应用管理中找到此应用并卸载。"
+    );
+  }
+
+  ElMessageBox.confirm(content, "如何卸载应用", {
+    confirmButtonText: "我知道了",
+    showCancelButton: false,
+    type: "info",
+    dangerouslyUseHTMLString: false,
+  });
 };
 </script>
 
