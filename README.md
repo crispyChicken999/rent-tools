@@ -1,11 +1,11 @@
+
+
 <p align="center">
-  <img src="https://img.shields.io/badge/Vue-3.4+-4FC08D?style=for-the-badge&logo=vue.js&logoColor=white" alt="Vue 3" />
-  <img src="https://img.shields.io/badge/TypeScript-5.3+-3178C6?style=for-the-badge&logo=typescript&logoColor=white" alt="TypeScript" />
-  <img src="https://img.shields.io/badge/Vite-5.0+-646CFF?style=for-the-badge&logo=vite&logoColor=white" alt="Vite" />
-  <img src="https://img.shields.io/badge/Element_Plus-2.9+-409EFF?style=for-the-badge&logo=element&logoColor=white" alt="Element Plus" />
+  <img src="public/logo.png" alt="Rent Tools Logo" width="180" height="180" />
 </p>
 
 <h1 align="center">🏠 租房信息管理系统</h1>
+
 
 <p align="center">
   <strong>高效管理扫楼采集的租房信息，让找房变得更简单</strong>
@@ -14,8 +14,12 @@
 <p align="center">
   基于 Vue 3 + TypeScript + Vite 的纯前端本地应用，无需后端服务器，数据完全本地化存储
 </p>
-
----
+<p align="center">
+  <img src="https://img.shields.io/badge/Vue-3.4+-4FC08D?style=for-the-badge&logo=vue.js&logoColor=white" alt="Vue 3" />
+  <img src="https://img.shields.io/badge/TypeScript-5.3+-3178C6?style=for-the-badge&logo=typescript&logoColor=white" alt="TypeScript" />
+  <img src="https://img.shields.io/badge/Vite-5.0+-646CFF?style=for-the-badge&logo=vite&logoColor=white" alt="Vite" />
+  <img src="https://img.shields.io/badge/Element_Plus-2.9+-409EFF?style=for-the-badge&logo=element&logoColor=white" alt="Element Plus" />
+</p>
 
 ## 📖 目录
 
