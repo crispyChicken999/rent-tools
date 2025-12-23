@@ -19,7 +19,7 @@
 </p>
 
 <p align="center">
-  <a href="https://rent-tools.netlify.app/" target="_blank">
+  <a href="https://rent-tools.netlify.app/" title="💡 提示：按住 Ctrl (Windows) 或 Cmd (Mac) 点击可在新标签页打开">
     <img src="https://img.shields.io/badge/🚀_在线体验-点击立即使用-FF6B6B?style=for-the-badge" alt="在线体验" />
   </a>
 </p>
